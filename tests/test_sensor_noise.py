@@ -5,7 +5,6 @@ Unit tests for Sensor Noise Model and Stiction / Dead-Zone.
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 from src.plant.sensor_noise import SensorNoiseModel, SensorNoiseConfig
 

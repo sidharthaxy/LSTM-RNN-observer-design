@@ -26,9 +26,9 @@ def main() -> None:
     result = run_benchmark_comparison(cfg)
 
     print("\n[+] Benchmark Completed across 4 Estimators (5000 time steps @ 1 kHz):")
-    print(f"    - True plant states: x, x_dot, theta, theta_dot")
-    print(f"    - Measurements: Optical Encoders with uniform noise & quantization")
-    print(f"    - Non-linear effects: Asymmetric stiction deadband [+0.15V, -0.12V]\n")
+    print("    - True plant states: x, x_dot, theta, theta_dot")
+    print("    - Measurements: Optical Encoders with uniform noise & quantization")
+    print("    - Non-linear effects: Asymmetric stiction deadband [+0.15V, -0.12V]\n")
 
     summary_rows = []
     for obs_name, report in result.reports.items():

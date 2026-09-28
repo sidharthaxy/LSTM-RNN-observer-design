@@ -332,9 +332,6 @@ class ContinuousShallowRNNObserver:
         Advances the RNN observer by dt using RK4 integration.
         y = [x_meas, theta_meas]
         """
-        # Pack state: x_hat (4,), W1 (h,), W2 (h,)
-        h = self.config.hidden_dim
-
         # RK4 step
         dx1, dw1_1, dw2_1 = self.derivatives(self.x_hat, self.W1, self.W2, y, force)
 

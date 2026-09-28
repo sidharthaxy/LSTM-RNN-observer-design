@@ -5,7 +5,6 @@ Unit tests for baseline state estimators: Dirty Derivative, Butterworth, EKF, Sh
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 from src.plant.pendulum_plant import PendulumPlant, PlantState
 from src.baselines.classical_estimators import (

@@ -1,0 +1,8 @@
+search-path = ["."]
+disable-search-path-heuristics = true
+python-version = "3.10"
+
+[errors]
+untyped-import = "ignore"
+missing-source-for-stubs = "ignore"
+missing-source = "ignore"

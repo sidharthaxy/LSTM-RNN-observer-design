@@ -12,7 +12,7 @@ Implements:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Optional, Tuple, Union
+from typing import Dict, Optional, Tuple
 import numpy as np
 import pandas as pd
 
@@ -203,16 +203,16 @@ def evaluate_estimation_performance(
         thd = compute_thd(y_h, dt)
         chat = compute_chattering_index(y_h, y_t, dt)
 
-        channel_metrics = {
+        channel_metrics: Dict[str, float] = {
             "RMSE": rmse,
             "SS_Mean_Norm": ss_mean,
             "SS_Final_Norm": ss_final,
             "Peak_Error": peak_err,
             "Pct_Overshoot": pct_os,
             "THD": thd,
-            "Total_Variation": chat["total_variation"],
-            "Chattering_Ratio": chat["chattering_ratio"] or 1.0,
-            "Jerk_Energy": chat["jerk_energy"],
+            "Total_Variation": float(chat["total_variation"] if chat["total_variation"] is not None else 0.0),
+            "Chattering_Ratio": float(chat["chattering_ratio"] if chat["chattering_ratio"] is not None else 1.0),
+            "Jerk_Energy": float(chat["jerk_energy"] if chat["jerk_energy"] is not None else 0.0),
         }
         results[name] = channel_metrics
 

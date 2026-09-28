@@ -183,7 +183,6 @@ class PendulumPlant:
         m11 = p.M + p.m
         m22 = p.I + p.m * (p.l ** 2)
         ml = p.m * p.l
-        ml2 = ml * p.l
         mgl = ml * p.g
 
         det_m = m11 * m22 - (ml * cos_t) ** 2

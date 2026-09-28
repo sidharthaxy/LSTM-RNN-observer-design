@@ -18,8 +18,6 @@ from src.baselines.classical_estimators import (
     ButterworthDifferentiator,
     ContinuousDiscreteEKF,
     ContinuousShallowRNNObserver,
-    EKFConfig,
-    RNNConfig,
 )
 from src.utils.metrics import evaluate_estimation_performance, EstimationReport
 

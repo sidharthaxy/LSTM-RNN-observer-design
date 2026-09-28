@@ -5,7 +5,6 @@ Unit tests for estimation evaluation metrics.
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 from src.utils.metrics import (
     compute_rmse,
