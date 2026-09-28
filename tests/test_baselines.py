@@ -13,7 +13,6 @@ from src.baselines.classical_estimators import (
     ButterworthDifferentiator,
     ContinuousDiscreteEKF,
     ContinuousShallowRNNObserver,
-    EKFConfig,
     RNNConfig,
 )
 

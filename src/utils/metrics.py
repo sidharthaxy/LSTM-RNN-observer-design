@@ -12,7 +12,7 @@ Implements:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Any, Tuple
+from typing import Dict, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 
@@ -24,9 +24,9 @@ class EstimationReport:
     summary_df: pd.DataFrame
 
 
-def _wrap_angle(angle: np.ndarray | float) -> np.ndarray | float:
-    """Wrap angle to [-pi, pi)."""
-    return (angle + np.pi) % (2.0 * np.pi) - np.pi
+def _wrap_angle(angle: np.ndarray) -> np.ndarray:
+    """Wrap angle array to [-pi, pi)."""
+    return (angle + np.pi) % (2.0 * np.pi) - np.pi  # type: ignore[return-value]
 
 
 def compute_rmse(
@@ -60,7 +60,7 @@ def compute_steady_state_error_norm(
     start_idx = int(n_samples * (1.0 - window_ratio))
     start_idx = max(0, min(start_idx, n_samples - 1))
 
-    error = y_true[start_idx:] - y_hat[start_idx:]
+    error: np.ndarray = y_true[start_idx:] - y_hat[start_idx:]
     if is_angle:
         error = _wrap_angle(error)
 
@@ -87,7 +87,7 @@ def compute_transient_peak_overshoot(
     2. Relative percentage peak overshoot relative to true range:
        (max_error / (max(y_true) - min(y_true) + 1e-6)) * 100%
     """
-    error = y_true - y_hat
+    error: np.ndarray = y_true - y_hat
     if is_angle:
         error = _wrap_angle(error)
 
@@ -148,9 +148,9 @@ def compute_thd(signal: np.ndarray, dt: float, max_harmonics: int = 10) -> float
 
 def compute_chattering_index(
     v_hat: np.ndarray,
-    v_true: np.ndarray | None = None,
+    v_true: Optional[np.ndarray] = None,
     dt: float = 0.001,
-) -> Dict[str, float]:
+) -> Dict[str, Optional[float]]:
     """
     Computes chattering and high-frequency noise metrics on estimated velocity:
     - total_variation: sum |v_hat[k+1] - v_hat[k]|
@@ -161,13 +161,12 @@ def compute_chattering_index(
     tv_hat = float(np.sum(np.abs(diff_hat)))
     jerk_power = float(np.mean((diff_hat / dt) ** 2))
 
+    tv_true: Optional[float] = None
+    chattering_ratio: Optional[float] = None
     if v_true is not None:
         diff_true = np.diff(v_true, axis=0)
         tv_true = float(np.sum(np.abs(diff_true)))
         chattering_ratio = float(tv_hat / (tv_true + 1e-8))
-    else:
-        tv_true = None
-        chattering_ratio = None
 
     return {
         "total_variation": tv_hat,

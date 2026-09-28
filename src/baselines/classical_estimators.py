@@ -17,10 +17,10 @@ Implements:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Tuple, Optional
+from typing import Tuple
 import numpy as np
 
-from src.plant.pendulum_plant import PendulumPlant, PendulumParameters
+from src.plant.pendulum_plant import PendulumPlant
 
 
 class DirtyDerivativeFilter:

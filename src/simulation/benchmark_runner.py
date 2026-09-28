@@ -7,7 +7,7 @@ and benchmarks state/velocity estimators.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, Any, Callable, List, Optional
+from typing import Dict, Any, Literal, Tuple
 import numpy as np
 import scipy.linalg
 
@@ -31,7 +31,7 @@ class SimulationConfig:
     dt: float = 0.001              # Sampling period [s] (1 kHz matches PCI-1711 DAQ)
     initial_state: PlantState = field(default_factory=lambda: PlantState(x=0.0, x_dot=0.0, theta=0.05, theta_dot=0.0))
     excitation_mode: str = "lqr_stabilize"  # "lqr_stabilize", "chirp", "multisine", "step"
-    integrator: str = "rk4"
+    integrator: Literal["rk4", "euler"] = "rk4"
     seed: int = 42
 
 

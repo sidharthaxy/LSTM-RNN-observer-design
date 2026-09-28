@@ -1,0 +1,12 @@
+{
+    "executionEnvironments": [
+        {
+            "root": ".",
+            "extraPaths": ["."]
+        }
+    ],
+    "reportMissingImports": true,
+    "reportMissingModuleSource": false,
+    "pythonVersion": "3.10",
+    "typeCheckingMode": "basic"
+}

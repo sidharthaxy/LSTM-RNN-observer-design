@@ -65,8 +65,8 @@ def test_chattering_index() -> None:
     v_noisy = np.array([0.1 if i % 2 == 0 else -0.1 for i in range(100)])
 
     chat = compute_chattering_index(v_noisy, v_true, dt=0.001)
-    assert chat["total_variation"] > 15.0
-    assert chat["jerk_energy"] > 1e4
+    assert chat["total_variation"] is not None and chat["total_variation"] > 15.0
+    assert chat["jerk_energy"] is not None and chat["jerk_energy"] > 1e4
 
 
 def test_evaluate_estimation_performance() -> None:
