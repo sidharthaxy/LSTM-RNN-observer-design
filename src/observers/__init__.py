@@ -3,6 +3,6 @@ Lyapunov-Based LSTM Adaptive Observers.
 Branch: feature/approach-a-blackbox-lstm
 """
 
-from .blackbox_lstm_observer import BlackBoxLSTMObserver, BlackBoxLSTMConfig
+from .blackbox_lstm import LbLSTMObserver, LbLSTMObserverConfig, ObserverDerivatives
 
-__all__ = ["BlackBoxLSTMObserver", "BlackBoxLSTMConfig"]
+__all__ = ["LbLSTMObserver", "LbLSTMObserverConfig", "ObserverDerivatives"]

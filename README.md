@@ -1,159 +1,413 @@
-# Approach A: Unconstrained Continuous-Time Lb-LSTM Observer
+# Approach A: Black-Box Continuous-Time Lb-LSTM Adaptive Observer
 
 [![Branch](https://img.shields.io/badge/Branch-feature%2Fapproach--a--blackbox--lstm-blue.svg)](#)
-[![Paradigms](https://img.shields.io/badge/Paradigm-Black--Box%20Neural%20ODE%20Observer-brightgreen.svg)](#)
-[![Tests Passing](https://img.shields.io/badge/tests-21%2F21%20passing-success.svg)](#)
+[![Paradigm](https://img.shields.io/badge/Paradigm-Black--box%20Lyapunov--based%20LSTM-brightgreen.svg)](#)
+[![Tests](https://img.shields.io/badge/tests-37%2F37%20passing-success.svg)](#10-reproducing-the-results)
+
+This branch implements the Lyapunov-based LSTM (Lb-LSTM) adaptive state observer of
+**Griffis, Patil, Hart & Dixon, "Lyapunov-Based Long Short-Term Memory (Lb-LSTM) Neural
+Network-Based Adaptive Observer", IEEE Control Systems Letters 8 (2024) 97–102.** The
+observer runs on the Feedback Instruments 33-936S cart-pendulum testbed from `main`.
+
+The LSTM treats the acceleration field $g(x, u)$ as a **complete black box**. It uses no
+mass, inertia, damping or kinematic structure. The only plant knowledge it uses is the
+relative degree: positions are measured and $\dot{x}_1 = x_2$. All updates are analytical
+ODEs in NumPy, with no autograd.
+
+**Results in brief (50 s, U(±0.5°) encoder noise; details in §9):**
+
+| | Steady-state $\dot{x}$ RMSE | Steady-state $\dot{\theta}$ RMSE | $\dot{\theta}$ chatter ratio |
+|:---|---:|---:|---:|
+| Dirty derivative | 0.0171 m/s | 0.244 rad/s | 337 |
+| **Lb-LSTM (black box)** | **0.0024 m/s** | **0.0167 rad/s** | **1.64** |
+| Shallow RNN (grey box: exact nominal model) | 0.0004 m/s | 0.0038 rad/s | 1.37 |
+
+- **Velocity estimation.** The observer cuts velocity error 7–15× compared with the dirty
+  derivative and removes its chattering. The result holds across initialization seeds.
+- **Online model fit.** During observation the adapted $\hat{\Phi}$ fits the true
+  accelerations well: NMSE 0.05.
+- **Identification.** The *frozen* weights do **not** generalize as a digital twin to
+  unseen inputs: median one-step $\ddot\theta$ NMSE is about 1 across seeds. The adaptation
+  law learns what it needs to observe, not a globally valid model. §9.4 explains why, and
+  why this motivates Approach C.
 
 ---
 
-## 1. Architectural Overview & Motivation
+## 1. Problem setting
 
-This branch implements **Approach A**, an **Unconstrained Continuous-Time Lyapunov-Based Long Short-Term Memory (Lb-LSTM) Observer** designed for nonlinear state estimation and dynamic model identification on the **Feedback Instruments 33-936S Digital Cart-Inverted Pendulum Rig**.
+For $n$ measured generalized coordinates and $m$ inputs,
 
-In this architecture, **no prior mechanical structure** (such as mass matrices, Coriolis matrices, or gravity vectors) is assumed for the vector field. The continuous-time LSTM network acts as an unconstrained universal approximator of the complete acceleration vector field:
+$$\dot{x}_1 = x_2, \qquad \dot{x}_2 = g(x, u), \qquad y = x_1 + v,$$
 
-$$\mathbf{a}(\mathbf{x}, u) = \begin{bmatrix} \ddot{x} \\ \ddot{\theta} \end{bmatrix} \in \mathbb{R}^2$$
+with $g$ unknown and $x_2$ unmeasured. On the rig: $x_1 = [x,\ \theta]^T$,
+$x_2 = [\dot x,\ \dot\theta]^T$, $u = F$ ($n = 2$, $m = 1$). Every vector equation below
+acts element-wise on the $n$ channels.
 
-The observer operates purely in continuous time via coupled ordinary differential equations (ODEs), updating its readout weights dynamically using an **analytical Lyapunov-derived adaptation law with leakage (e-modification)**.
+## 2. Continuous-time LSTM (Eqs. 7–8)
 
-```
-       +----------------------- Continuous Lb-LSTM Observer ------------------------+
-       |                                                                             |
-       |  Feature Input z(t) = [x_hat(t), u(t)]                                      |
-       |               |                                                             |
-       |               v                                                             |
-       |      [ Continuous Gates: i(t), f(t), o(t), g(t) ]                           |
-       |               |                                                             |
-       |               v                                                             |
-       |      Cell State ODE: dc/dt = -(1 - f)*c + i*g                               |
-       |               |                                                             |
-       |               v                                                             |
-       |      Hidden State: h(t) = o(t) * tanh(c(t))                                 |
-       |               |                                                             |
-       |               v                                                             |
-       |      Acceleration: a_hat(t) = W_a(t) * h(t) + b_a                           |
-       |               |                                                             |
-       |               v                                                             |
-       |      State Derivatives: dx_hat/dt = A_nom * x_hat + B_a * a_hat + L * e_y   |
-       |                                                                             |
-       |      Lyapunov Adaptation: dW_a/dt = Gamma * (e_y * h^T) - sigma_leak * W_a  |
-       +-----------------------------------------------------------------------------+
-```
+The augmented input is
+$\zeta = [\hat{x}_1^T,\ \hat{x}_2^T,\ u^T,\ \hat{h}^T,\ 1]^T \in \mathbb{R}^{d}$, with
+$d = 2n + m + L + 1$. The gates and the instantaneous cell and hidden outputs are
 
----
+$$f = \sigma_g(W_f^T\zeta),\quad i = \sigma_g(W_i^T\zeta),\quad c^\ast = \sigma_c(W_c^T\zeta),\quad o = \sigma_g(W_o^T\zeta)$$
 
-## 2. Mathematical Formulation
+$$c = f \odot \hat{c} + i \odot c^\ast, \qquad h = o \odot \sigma_c(c), \qquad \hat{\Phi} = W_h^T h,$$
 
-### 2.1 Continuous-Time LSTM (CT-LSTM) Formulation
+and the continuous memory evolves as
 
-Let the feature vector be $z(t) = [\hat{\mathbf{x}}(t)^T, u(t)]^T \in \mathbb{R}^5$. The continuous-time gating equations are defined as:
+$$\dot{\hat c} = -b_c\,\hat c + b_c\,(f\odot\hat c + i\odot c^\ast), \qquad \dot{\hat h} = -b_h\,\hat h + b_h\,(o\odot\sigma_c(c)),$$
 
-$$\begin{aligned}
-i(t) &= \sigma\left(\mathbf{W}_i z(t) + \mathbf{b}_i\right) \quad &&\text{(Input Gate)} \\
-f(t) &= \sigma\left(\mathbf{W}_f z(t) + \mathbf{b}_f\right) \quad &&\text{(Forget Gate)} \\
-o(t) &= \sigma\left(\mathbf{W}_o z(t) + \mathbf{b}_o\right) \quad &&\text{(Output Gate)} \\
-g(t) &= \tanh\left(\mathbf{W}_g z(t) + \mathbf{b}_g\right) \quad &&\text{(Candidate Cell State)}
-\end{aligned}$$
+where $\sigma_g$ is the logistic sigmoid, $\sigma_c = \tanh$, $W_{c,i,f,o}\in\mathbb{R}^{d\times L}$
+and $W_h\in\mathbb{R}^{L\times n}$.
 
-where $\sigma(\xi) = \frac{1}{1 + e^{-\xi}}$ is the element-wise logistic sigmoid.
+**Interpretation used here.** $\hat c$ and $\hat h$ are the recurrent *memory states*.
+They are first-order low-pass copies of the cell and hidden outputs, the continuous-time
+analogue of the one-step delay in a discrete LSTM. $c$ and $h$ are the *instantaneous*
+outputs of the gate network. At each instant the LSTM is therefore a static map of
+$(\zeta, \hat c)$. This is what gives $\hat\Phi$ a non-zero partial derivative with respect
+to **every** weight block (§4). Had $\sigma_c(\hat c)$ been used in the output instead, the
+Jacobian with respect to $W_c, W_i, W_f$ would vanish identically.
 
-The **cell state differential equation** replaces discrete recurrence with a continuous leaky ODE:
+**Input preconditioning.** In the code,
+$\zeta = [s\odot([\hat x_1, \hat x_2, u] - \mu),\ \hat h,\ 1]$. The per-channel scale $s$
+and offset $\mu$ are data normalization, not model knowledge. On the rig, $\mu$ is the mean
+of the first second of encoder data. This matters: the pendulum hangs at
+$\theta \approx \pi$, so without centering the informative $\pm 0.4$ rad variation rides on
+a large offset. The gates then cannot resolve it with bounded weights. In the tuning
+sweeps, uncentered configurations fit the training trajectory with frozen-weight
+$\ddot\theta$ NMSE 0.85–1.5; the chosen centered configuration reaches 0.06–0.13.
 
-$$\frac{d c(t)}{d t} = -\left(\mathbf{1} - f(t)\right) \odot c(t) + i(t) \odot g(t), \quad c(0) = \mathbf{0}$$
+## 3. Dynamic auxiliary filter and the algebraic cancellation (Eqs. 3–6, 11)
 
-The hidden state representation is given by:
+With the measurable error $\tilde x_1 = y - \hat x_1$:
 
-$$h(t) = o(t) \odot \tanh(c(t)) \in \mathbb{R}^{d_h}$$
+$$\eta = p - (\alpha + k_r)\tilde x_1$$
 
-### 2.2 Acceleration Field Approximation
+$$\dot p = -(k_r + 2\alpha)p - \nu + ((\alpha + k_r)^2 + 1)\tilde x_1, \qquad p(0) = (\alpha + k_r)\tilde x_1(0)$$
 
-The 2-DOF mechanical acceleration vector is reconstructed via adaptive linear readout:
+$$\dot\nu = p - \alpha\nu - (\alpha + k_r)\tilde x_1, \qquad \nu(0) = 0$$
 
-$$\hat{\mathbf{a}}(t) = \begin{bmatrix} \hat{\ddot{x}}(t) \\ \hat{\ddot{\theta}}(t) \end{bmatrix} = \mathbf{W}_a(t) h(t) + \mathbf{b}_a \in \mathbb{R}^2$$
+$$e = \tilde x_1 + \nu$$
 
-### 2.3 Observer Kinematic Dynamics with Output Injection
+The observer is
 
-Let $y(t) = [x_m(t), \theta_m(t)]^T \in \mathbb{R}^2$ denote optical encoder measurements. The observer state $\hat{\mathbf{x}} = [\hat{x}, \hat{\dot{x}}, \hat{\theta}, \hat{\dot{\theta}}]^T$ propagates according to:
+$$\dot{\hat x}_1 = \hat x_2, \qquad \dot{\hat x}_2 = \hat\Phi + k_s\,\mathrm{sgn}(e) + \chi, \qquad \chi = -(3\alpha + k_r)\eta + (2 - \alpha^2)\tilde x_1 - \nu.$$
 
-$$\begin{aligned}
-\frac{d \hat{x}_1}{dt} &= \hat{x}_2 + L_1 \left(y_1(t) - \hat{x}_1\right) \\
-\frac{d \hat{x}_2}{dt} &= \hat{a}_1(t) + L_2 \left(y_1(t) - \hat{x}_1\right) \\
-\frac{d \hat{x}_3}{dt} &= \hat{x}_4 + L_3 \left(y_2(t) - \hat{x}_3\right) \\
-\frac{d \hat{x}_4}{dt} &= \hat{a}_2(t) + L_4 \left(y_2(t) - \hat{x}_3\right)
-\end{aligned}$$
+`sign_mode="tanh"` replaces $\mathrm{sgn}(e)$ with the boundary-layer approximation
+$\tanh(e/\epsilon)$.
 
-where $L_1, L_2, L_3, L_4 > 0$ are design Luenberger injection gains placed to guarantee stability of the nominal linear estimation subsystem.
+> **Note on the $\tilde x_1$ coefficient in $\chi$.** The task specification gave
+> $(\alpha^2 + 2)$. With the filter exactly as written above, the cross terms of the
+> Lyapunov derivative cancel **only for $(2 - \alpha^2)$**. The derivation follows, a
+> SymPy check reproduces it, and `tests/test_blackbox_lstm.py` asserts it against the
+> implemented vector field. With $(\alpha^2+2)$, a residual $-2\alpha^2\,\tilde x_1^T r$
+> remains. That residual is bounded and can be dominated with Young's inequality, but it
+> is no longer an exact cancellation. If the paper does use $(\alpha^2 + 2)$, some other
+> filter coefficient must differ; set `chi_x1_coeff=alpha**2 + 2` to reproduce that variant.
 
----
+**Derivation.** Define the unmeasurable filtered error $r = \tilde x_2 + \alpha\tilde x_1 + \eta$,
+with $\tilde x_2 = x_2 - \hat x_2$.
 
-## 3. Lyapunov Stability & Adaptation Law
+1. **$\nu$ is a filtered copy of $\eta$.** Substituting $p = \eta + (\alpha+k_r)\tilde x_1$
+   into $\dot\nu$ gives $\dot\nu = \eta - \alpha\nu$.
 
-### 3.1 Error System Dynamics
+2. **$e$ is a filtered copy of $r$.** $\dot e = \tilde x_2 + \eta - \alpha\nu = r - \alpha e$,
+   so $r = \dot e + \alpha e$. This is the RISE structure that lets $\mathrm{sgn}(e)$, a
+   function of a *measurable* signal, act on the unmeasurable $r$.
 
-Define the state estimation error $e(t) = \mathbf{x}(t) - \hat{\mathbf{x}}(t)$ and parameter estimation error $\tilde{\mathbf{W}}_a(t) = \mathbf{W}_a^* - \mathbf{W}_a(t)$, where $\mathbf{W}_a^*$ is the optimal unknown parameter matrix satisfying:
+3. **$\eta$ dynamics.** Differentiate $\eta$ and substitute $\dot p$, $p$ and
+   $\tilde x_2 = r - \alpha\tilde x_1 - \eta$:
 
-$$\mathbf{a}(\mathbf{x}, u) = \mathbf{W}_a^* h(t) + \mathbf{\epsilon}_a(\mathbf{x}, u), \quad \|\mathbf{\epsilon}_a\| \le \epsilon_0$$
+   $$\dot\eta = -(k_r+2\alpha)\eta - \alpha(\alpha+k_r)\tilde x_1 + \tilde x_1 - \nu - (\alpha+k_r)\tilde x_2 = -(\alpha + k_r)\,r - \alpha\eta + \tilde x_1 - \nu.$$
 
-The error dynamics become:
+4. **$r$ dynamics.** $\dot r = \dot{\tilde x}_2 + \alpha\tilde x_2 + \dot\eta$, with
+   $\dot{\tilde x}_2 = g - \hat\Phi - k_s\,\mathrm{sgn}(e) - \chi$:
 
-$$\dot{e}(t) = \mathbf{A}_L e(t) + \mathbf{B}_a \left( \tilde{\mathbf{W}}_a(t) h(t) + \mathbf{\epsilon}_a \right)$$
+   $$\dot r = g - \hat\Phi - k_s\,\mathrm{sgn}(e) - \chi - k_r r + (1 - \alpha^2)\tilde x_1 - 2\alpha\eta - \nu.$$
 
-where $\mathbf{A}_L$ is strictly Hurwitz:
+   Substituting $\chi$:
 
-$$\mathbf{A}_L = \begin{bmatrix}
--L_1 & 1 & 0 & 0 \\
--L_2 & 0 & 0 & 0 \\
-0 & 0 & -L_3 & 1 \\
-0 & 0 & -L_4 & 0
-\end{bmatrix}, \quad
-\mathbf{B}_a = \begin{bmatrix}
-0 & 0 \\
-1 & 0 \\
-0 & 0 \\
-0 & 1
-\end{bmatrix}$$
+   $$\dot r = \underbrace{g - \hat\Phi - k_s\,\mathrm{sgn}(e)}_{\text{learning + robust terms}} - k_r r - \tilde x_1 + (\alpha + k_r)\eta.$$
 
-There exists a unique symmetric positive-definite matrix $\mathbf{P} = \mathbf{P}^T > 0$ solving the continuous Lyapunov equation:
+5. **Cancellation.** Take $V_0 = \tfrac12(\tilde x_1^T\tilde x_1 + \eta^T\eta + \nu^T\nu + r^Tr)$
+   and use $\dot{\tilde x}_1 = r - \alpha\tilde x_1 - \eta$:
 
-$$\mathbf{A}_L^T \mathbf{P} + \mathbf{P} \mathbf{A}_L = -\mathbf{Q}_L, \quad \mathbf{Q}_L > 0$$
+   $$\begin{aligned}
+   \dot V_0 ={}& \tilde x_1^T r - \alpha\|\tilde x_1\|^2 - \tilde x_1^T\eta \\
+   &- (\alpha + k_r)\eta^T r - \alpha\|\eta\|^2 + \eta^T\tilde x_1 - \eta^T\nu \\
+   &+ \nu^T\eta - \alpha\|\nu\|^2 \\
+   &- k_r\|r\|^2 - r^T\tilde x_1 + (\alpha+k_r)r^T\eta + r^T(g - \hat\Phi - k_s\,\mathrm{sgn}(e)).
+   \end{aligned}$$
 
-### 3.2 Candidate Lyapunov Function
+   The pairs $\tilde x_1^T\eta$, $\eta^T\nu$, $\tilde x_1^T r$ and $\eta^T r$ cancel exactly:
 
-Choose the positive-definite Lyapunov function candidate:
+   $$\dot V_0 = -\alpha\left(\|\tilde x_1\|^2 + \|\eta\|^2 + \|\nu\|^2\right) - k_r\|r\|^2 + r^T\left(g - \hat\Phi - k_s\,\mathrm{sgn}(e)\right).$$
 
-$$V(e, \tilde{\mathbf{W}}_a) = \frac{1}{2} e^T \mathbf{P} e + \frac{1}{2 \Gamma_a} \text{tr}\left( \tilde{\mathbf{W}}_a^T \tilde{\mathbf{W}}_a \right)$$
+   Every term of $\chi$ is there to remove one cross term: $-(3\alpha+k_r)\eta$ removes
+   $\eta^Tr$, $(2-\alpha^2)\tilde x_1$ removes $\tilde x_1^Tr$, and $-\nu$ removes the
+   $\nu$ leak from $\dot\eta$. The filter's own coefficients
+   ($(\alpha+k_r)^2+1$ in $\dot p$, $-(\alpha+k_r)$ in $\dot\nu$) remove $\tilde x_1^T\eta$
+   and $\eta^T\nu$.
 
-Differentiating along trajectories:
+**Stability sketch (what the code relies on; the full non-smooth proof is in the paper).**
+Write $g = \Phi(\zeta, \hat c; \theta^\ast) + \varepsilon$ on a compact set. The remaining
+term is $r^T N$ with $N = g - \hat\Phi$. $\hat\theta$ stays bounded by projection (§5), so
+$N$ and $\dot N$ are bounded on any compact set of trajectories. Since $r = \dot e + \alpha e$,
+the RISE integral lemma (Xian et al., 2004) gives
 
-$$\dot{V} = -\frac{1}{2} e^T \mathbf{Q}_L e + e^T \mathbf{P} \mathbf{B}_a \mathbf{\epsilon}_a + \text{tr}\left( \tilde{\mathbf{W}}_a^T \left[ \frac{1}{\Gamma_a} \dot{\tilde{\mathbf{W}}}_a + \mathbf{B}_a^T \mathbf{P} e \, h(t)^T \right] \right)$$
+$$\int_0^t r^T(N - k_s\,\mathrm{sgn}(e))\,d\tau \le k_s\|e(0)\|_1 - e(0)^TN(0)$$
 
-### 3.3 Online Weight Adaptation Law
+whenever $k_s > \|N\|_\infty + \alpha^{-1}\|\dot N\|_\infty$. That yields asymptotic
+convergence of $(\tilde x_1, \eta, \nu, r)$ and hence of $\tilde x_2$.
 
-Noticing that $\dot{\tilde{\mathbf{W}}}_a = -\dot{\mathbf{W}}_a$, setting the bracketed expression to cancel and adding a continuous $\sigma$-leakage (e-modification) term yields:
+With $\tanh(e/\epsilon)$, or with $k_s$ below that bound, the conclusion weakens to uniform
+ultimate boundedness, with the residual set shrinking as $\hat\Phi \to g$. **The tuned
+$k_s = 0.2$ is below the bound** (the unlearned acceleration mismatch is of order
+$1\ \text{rad/s}^2$). The experiments therefore run in the UUB regime: the linear feedback
+$\chi$ and the learned $\hat\Phi$ do the work, and a larger $k_s$ mostly injects noise
+(§8).
 
-$$\dot{\mathbf{W}}_a(t) = \Gamma_a \left[ \mathbf{e}_y(t) h(t)^T \right] - \sigma_{\text{leak}} \mathbf{W}_a(t)$$
+## 4. Analytical Jacobians
 
-where $\mathbf{e}_y(t) = [y_1 - \hat{x}_1, y_2 - \hat{x}_3]^T = \mathbf{B}_a^T \mathbf{P} e(t)$ with diagonal $\mathbf{P}$.
+The parameter vector stacks column-major vecs:
+$\theta = [\mathrm{vec}(W_c)^T, \mathrm{vec}(W_i)^T, \mathrm{vec}(W_f)^T, \mathrm{vec}(W_o)^T, \mathrm{vec}(W_h)^T]^T \in \mathbb{R}^{4dL + Ln}$
+(1440 weights for $L = 16$). Holding $(\zeta, \hat c)$ fixed, with pre-activations
+$a_\bullet = W_\bullet^T\zeta$ and $s = \partial h/\partial c = o \odot (1 - \tanh^2 c)$, the
+gate sensitivities $\delta_\bullet = \partial h / \partial a_\bullet$ are
 
-**Theorem (Uniform Ultimate Boundedness)**: Under the continuous adaptation law above, all closed-loop signals $e(t)$ and $\mathbf{W}_a(t)$ remain strictly bounded for all $t \ge 0$, and the estimation error norm converges exponentially to a compact residual set $\mathcal{D}_e = \{e \in \mathbb{R}^4 : \|e\| \le \mu\}$.
+$$\delta_c = s \odot i \odot (1 - c^{\ast 2}),\qquad \delta_i = s \odot c^\ast \odot i \odot (1 - i),$$
 
----
+$$\delta_f = s \odot \hat c \odot f \odot (1 - f),\qquad \delta_o = \tanh(c) \odot o \odot (1 - o).$$
 
-## 4. Source Files on this Branch
+Because $\partial a_\bullet / \partial\,\mathrm{vec}(W_\bullet) = I_L \otimes \zeta^T$, the blocks
+of $\Phi' = \partial\hat\Phi/\partial\theta \in \mathbb{R}^{n\times p}$ are
 
-- `src/observers/blackbox_lstm_observer.py`: Complete continuous-time implementation of `BlackBoxLSTMObserver` and `BlackBoxLSTMConfig`.
-- `tests/test_blackbox_lstm.py`: Unit tests validating state reset, stability, and weight boundedness.
-- `src/plant/`: Feedback 33-936S ground truth simulation and PCI-1711 DAQ noise injection.
-- `src/baselines/`: Classical baseline estimators for comparative evaluation.
+$$\frac{\partial\hat\Phi}{\partial\,\mathrm{vec}(W_\bullet)} = \big(W_h^T\,\mathrm{diag}(\delta_\bullet)\big) \otimes \zeta^T \quad (\bullet \in \{c,i,f,o\}), \qquad \frac{\partial\hat\Phi}{\partial\,\mathrm{vec}(W_h)} = I_n \otimes h^T.$$
 
----
+The observer only ever needs $\Phi'^Te$. The mixed-product rule
+$(A\otimes\zeta)(e\otimes 1) = (Ae)\otimes\zeta$ turns that product into outer products,
+so it costs $O(p)$ without forming $\Phi'$:
 
-## 5. Quickstart & Verification
+$$\big[\Phi'^T e\big]_{W_\bullet} = \mathrm{vec}\big(\zeta\,(\delta_\bullet \odot W_h e)^T\big), \qquad \big[\Phi'^T e\big]_{W_h} = \mathrm{vec}(h\,e^T).$$
+
+`tests/test_jacobian_engine.py` checks the explicit $\Phi'$ against central finite
+differences (agreement to about $10^{-11}$, all five blocks non-degenerate) and checks the
+fast product against $\Phi'^Te$ to machine precision.
+
+## 5. Adaptation law and smooth projection
+
+$$\dot{\hat\theta} = \mathrm{proj}\left(\Gamma\,\Phi'^T e\right), \qquad \Gamma = \mathrm{diag}(\gamma_g I_{4dL},\ \gamma_h I_{Ln}).$$
+
+The projection uses the convex boundary function
+$f(\theta) = \dfrac{(1+\epsilon_p)\|\theta\|^2 - \bar W^2}{\epsilon_p\bar W^2}$, which is
+zero at $\|\theta\| = \bar W/\sqrt{1+\epsilon_p}$ and one at $\|\theta\| = \bar W$
+(Pomet & Praly, 1992; Lavretsky & Wise, 2013):
+
+$$\mathrm{proj}(\tau) = \begin{cases} \tau - f(\theta)\,\dfrac{\Gamma\theta\,\theta^T\tau}{\theta^T\Gamma\theta} & f(\theta) > 0 \text{ and } \theta^T\tau > 0, \\[4pt] \tau & \text{otherwise.}\end{cases}$$
+
+The operator is Lipschitz. It leaves $\tau$ untouched in the interior and removes exactly
+the outward radial component on the outer sphere, so $\|\hat\theta(t)\| \le \bar W$ for the
+continuous flow. It also preserves the Lyapunov inequality
+$\tilde\theta^T\Gamma^{-1}(\mathrm{proj}(\tau) - \tau) \ge 0$ for $\|\theta^\ast\| \le \bar W/\sqrt{1+\epsilon_p}$.
+
+Initialization: gate weights are $\mathcal N(0, 0.5^2)$ and $W_h(0) = 0$, so that
+$\hat\Phi(0) = 0$ (no prior model). Random gates are necessary. With all weights at zero,
+$h \equiv 0$ and $\Phi'^Te \equiv 0$, and nothing would ever adapt.
+
+## 6. Continuous-time Euler discretization
+
+The observer is a continuous ODE in
+$X = (\hat x_1, \hat x_2, p, \nu, \hat c, \hat h, \hat\theta)$, of dimension
+$4n + 2L + p = 1480$. Between DAQ samples the measurement and input are zero-order held,
+and the ODE is integrated by forward Euler with $n_s$ sub-steps of $\Delta = T_s / n_s$:
+
+$$X_{j+1} = X_j + \Delta\, F(X_j,\ y_k,\ u_k), \qquad j = 0, \dots, n_s - 1, \qquad \hat\theta \leftarrow \hat\theta\cdot\min\!\big(1,\ \bar W / \|\hat\theta\|\big).$$
+
+Why Euler is adequate here:
+
+- **Linear error modes.** With $\hat\Phi = g$ and $k_s = 0$, the per-channel error system
+  in $(\tilde x_1, \tilde x_2, p, \nu)$ has eigenvalues
+  $\{-4.03 \pm 0.08j,\ -5.97 \pm 11.95j\}$ at $\alpha = 4$, $k_r = 8$. Hence
+  $\Delta|\lambda|_{\max} = 0.013 \ll 2$ at $T_s = 1$ ms. The memory filters contribute
+  $\Delta b_{c,h} = 0.005$.
+- **Discontinuous feedback.** $\mathrm{sgn}(e)$ is discontinuous, so higher-order
+  Runge–Kutta gains no accuracy. Its discrete effect is a ripple of amplitude about
+  $k_s\Delta = 2\times10^{-4}$ in $\hat x_2$, far below the noise floor. This is why the
+  sgn and tanh variants give nearly identical chatter ratios.
+- **Projection overshoot.** Invariance of the ball holds for the flow, but one Euler step
+  can overshoot it by $O(\Delta)$. The radial rescale after each step
+  (`LyapunovAdaptationLaw.enforce_bound`) is a discretization safeguard only; it never
+  activates in the reported runs ($\|\hat\theta\| \approx 19 < \bar W = 40$).
+- **Sub-stepping.** `n_substeps > 1` is needed only if gains are raised until
+  $T_s|\lambda|_{\max}$ approaches 1.
+
+The digital twin (§7) is smooth, with no sgn term, so it uses classical RK4.
+
+## 7. System identification stage
+
+`src/identification/extract_model.py` runs four steps:
+
+1. **Freeze** $\hat\theta$ at $t_{\text{freeze}} \ge 20$ s. `freeze_observer` refuses
+   earlier times. The experiment reports both $t = 20$ s and $t = 50$ s.
+2. **Decouple** the LSTM from the observer feedback. The filter $(p, \nu)$, $\chi$, the
+   robust term and adaptation are dropped. What remains is the autonomous model
+   $\dot x_1 = x_2,\ \dot x_2 = \hat\Phi(\zeta, \hat c; \theta_{\text{frozen}})$ plus the
+   $\hat c$, $\hat h$ memory ODEs. Here $\zeta$ is built from the twin's own states, and
+   the memory is relaxed to its equilibrium at the initial condition.
+3. **Drive** the twin open loop with inputs absent from the adaptation data, starting from
+   rest at the hanging equilibrium:
+   - a step doublet: ±1 N for 1 s each, 8 s horizon
+   - a linear chirp: 0.3 → 1.2 Hz, 1 N, cosine-ramped, 15 s horizon
+4. **Score** the twin two ways. *Free-running state MSE* is the digital-twin metric.
+   *One-step acceleration MSE/NMSE*, with $\hat\Phi$ evaluated on the true states,
+   isolates model error from integrator drift. NMSE = MSE / Var(truth), so predicting zero
+   scores about 1.
+
+## 8. Hyperparameter tuning guidelines
+
+These were tuned on the 50 s validation trajectory, **never on the identification test
+inputs**. Defaults are in `LbLSTMObserverConfig`.
+
+| Gain | Default | Role and guidance |
+|:---|:---:|:---|
+| $\alpha$ | 4 | Rate of $e$, $\nu$, $\tilde x_1$ ($\dot e = -\alpha e + r$). Sets two of the four error poles at $\approx -\alpha$. Raise it for faster transients, at the cost of noise gain. |
+| $k_r$ | 8 | Damping of $r$. With $\alpha$, sets the complex pair ($\lvert\lambda\rvert \approx 13$ rad/s), i.e. the observer bandwidth and its noise gain. **$\Gamma$ must scale with this bandwidth**: $\alpha = 3$, $k_r = 6$ with the same $\Gamma$ drove $\hat\theta$ to the projection boundary and diverged. |
+| $k_s$ | 0.2 | Robust sgn gain. Theory wants $k_s > \lVert N\rVert_\infty + \lVert\dot N\rVert_\infty/\alpha$. In practice, because $e$ is dominated by encoder noise, a larger $k_s$ adds noise (0.5 was worse). Keep it small and let $\hat\Phi$ learn. |
+| $\epsilon$ (tanh) | 0.005 | Boundary layer. Set it at about the size of the $e$ noise. The sgn and tanh variants perform alike here (§6). |
+| $\gamma_h$ (readout) | 300 | The dominant learning channel. The signal $e$ has DC gain of roughly $1/(\alpha k_r)$ from the mismatch, so $\gamma_h$ must be large ($10^2$–$10^3$). Above about 1500, individual seeds diverge to the projection boundary. |
+| $\gamma_g$ (gates) | 30 | Much smaller than $\gamma_h$. Gate weights drift only about 0.6 (vs about 4 for $W_h$) over 50 s. Gates above about 50 combined with $\gamma_h \ge 1000$ destabilize the loop. |
+| $b_c,\ b_h$ | 5 | Memory bandwidth [1/s]. Place it near or above the excitation band (1.5–3 rad/s). Results change little over $b \in [1, 10]$. |
+| $\bar W$, $\epsilon_p$ | 40, 0.1 | Choose $\bar W$ about 2× the expected $\lVert\theta^\ast\rVert$. Here $\lVert\hat\theta\rVert$ settles near 19 (dominated by the random gate init). |
+| $L$ | 16 | $L = 8$ halves the parameters but gives 3× worse cart-velocity error and unstable twins. |
+| $s,\ \mu$ | see §2 | Scale each signal to about $\pm1$ over its expected range. Center using measured data. Essential for the angle channel. |
+
+**Tuning procedure that worked:**
+1. Fix $\alpha$ and $k_r$ from the desired bandwidth with $\Gamma = 0$.
+2. Raise $\gamma_h$ until the online acceleration NMSE stops improving.
+3. Add a small $\gamma_g$.
+4. Check at least five initialization seeds. The failure mode is abrupt: $\lVert\hat\theta\rVert$ jumps to $\bar W$.
+
+## 9. Simulation results
+
+### 9.1 Scenario
+
+`python experiments/run_blackbox_validation.py --seeds 5`
+
+- **Excitation.** $u(t) = 2.0\sin(1.5t) + 1.2\cos(3.0t)$ open loop, 50 s at 1 kHz.
+- **Noise.** Encoder noise U(±0.5°) on $\theta$, plus the testbed's ±0.2 mm cart noise and
+  4096-count quantization.
+- **Initial state.** The pendulum starts 0.4 rad from the *hanging* equilibrium, because the
+  upright one is open-loop unstable under a prescribed open-loop input. The cart starts at
+  $v_0 = -2/(1.5(M+m))$, the velocity that cancels the secular drift of $2\sin(1.5t)$ on a
+  free cart; otherwise it hits the ±0.5 m bumpers.
+- **Actuator effects** (dead-zone and stiction) are **off** by default. Their asymmetric
+  dead-band biases the net force and pushes the open-loop cart into the bumper.
+  `--actuator-effects` enables them.
+- **Observer inputs.** All observers receive the encoder data and the *commanded* force.
+
+### 9.2 Velocity estimation (seed 0)
+
+| Estimator | RMSE $\dot x$ [m/s] | RMSE $\dot\theta$ [rad/s] | SS RMSE $\dot x$ | SS RMSE $\dot\theta$ | SS mean $\lVert x_2-\hat x_2\rVert$ | Chatter $\dot x$ | Chatter $\dot\theta$ |
+|:---|---:|---:|---:|---:|---:|---:|---:|
+| **Lb-LSTM (sgn)** | 0.0225 | 0.0266 | **0.0024** | **0.0167** | **0.0137** | 1.02 | 1.64 |
+| Lb-LSTM (tanh) | 0.0232 | 0.0266 | 0.0061 | 0.0166 | 0.0150 | 1.00 | 1.60 |
+| Shallow RNN (Dinh et al.) | 0.0241 | 0.0037 | 0.0004 | 0.0038 | 0.0030 | 1.00 | 1.37 |
+| Dirty derivative ($\tau_d = 20$ ms) | 0.0184 | 0.2452 | 0.0171 | 0.2444 | 0.2116 | 13.7 | 337 |
+
+SS means $t \ge 20$ s. Chatter is total variation of the estimate divided by that of the
+truth, so 1 means no chattering.
+
+- The Lb-LSTM's full-horizon $\dot x$ RMSE is transient-dominated. It starts at
+  $\hat x_2 = 0$ against a true $-0.51$ m/s and needs about 1 s to converge, while the
+  dirty derivative locks on within 50 ms.
+- **The Shallow RNN is not black box.** It integrates the exact nominal plant model and
+  learns only a residual, so it bounds what model knowledge buys. The black-box Lb-LSTM
+  closes most of the gap between the dirty derivative and that bound, with no parameters.
+- **Online model fit** ($t \ge 20$ s): NMSE$(\hat\Phi, g)$ = 0.047 for $\ddot x$ and
+  0.048 for $\ddot\theta$.
+
+![Tracking](figures/approach_a/tracking_trajectories.png)
+![Error norm](figures/approach_a/estimation_error_norm.png)
+![Phase plane](figures/approach_a/phase_plane.png)
+![Weight norm](figures/approach_a/weight_norm.png)
+
+In the weight-norm figure, $\lVert\hat\theta\rVert$ stays near 19, far inside $\bar W$, and
+projection never activates. The drift panel shows that adaptation happens almost entirely
+in the readout $W_h$.
+
+### 9.3 Digital twin on unseen inputs (seed 0)
+
+| $\hat\theta$ frozen at | Test | MSE $x$ | MSE $\dot x$ | MSE $\theta$ | MSE $\dot\theta$ | one-step NMSE $\ddot x$ | one-step NMSE $\ddot\theta$ |
+|:---|:---|---:|---:|---:|---:|---:|---:|
+| 20 s | step doublet | 1.11e-2 | 1.20e-2 | 7.58e-3 | 3.21e-2 | 0.62 | 0.43 |
+| 20 s | chirp | 3.47e-1 | 5.92e-3 | 6.43e-3 | 3.25e-2 | 0.96 | 1.06 |
+| 50 s | step doublet | 1.21e-2 | 7.36e-3 | 9.37e-3 | 6.55e-2 | 0.43 | 0.20 |
+| 50 s | chirp | 1.50e-1 | 2.87e-3 | 1.46e-2 | 1.02e-1 | 1.13 | 0.73 |
+
+![Digital twin](figures/approach_a/digital_twin.png)
+
+For scale: the true $\theta - \pi$ in these tests stays within ±0.15 rad (variance about
+$6\times10^{-3}$ rad²). A $\theta$ MSE of $7\times10^{-3}$ is therefore no better than
+predicting the equilibrium.
+
+**Robustness over initialization seeds 1–5**, reported as median [min, max]:
+
+| Metric | Value |
+|:---|:---|
+| SS RMSE $\dot x$ | 0.002 [0.002, 0.005] m/s |
+| SS RMSE $\dot\theta$ | 0.019 [0.014, 0.022] rad/s |
+| Twin one-step NMSE $\ddot\theta$, frozen at 20 s: doublet / chirp | 1.27 [0.78, 3.15] / 1.07 [0.85, 3.36] |
+| Twin one-step NMSE $\ddot\theta$, frozen at 50 s: doublet / chirp | 1.56 [0.91, 5.79] / 0.99 [0.52, 2.40] |
+| Twin free-run MSE $\theta$, frozen at 20 s: doublet / chirp | 0.073 [0.014, 3.8] / 0.075 [0.025, 39] |
+
+### 9.4 Findings
+
+1. **Observation works robustly.** Every seed beats the dirty derivative by more than an
+   order of magnitude on $\dot\theta$, with a chatter ratio near 1.
+2. **Identification from this experiment does not generalize.** The frozen model fits the
+   training trajectory: frozen, teacher-forced $\ddot\theta$ NMSE is 0.13 (frozen at 20 s)
+   and 0.06 (frozen at 50 s) for seed 0, and 0.06–0.43 across seeds 1–5. On
+   unseen inputs, the median one-step NMSE is about 1: no better than predicting zero. The
+   seed-to-seed spread is large, which is the signature of non-identifiable weights.
+3. **Why.**
+   - The law $\dot{\hat\theta} = \Gamma\Phi'^Te$ drives $e \to 0$, and it only needs
+     $\hat\Phi = g$ *along the visited trajectory*.
+   - The two-tone excitation confines the state to a thin manifold, which does not
+     persistently excite the 1440-dimensional $\hat\theta$.
+   - The recurrent inputs $\hat h$ let the network fit the trajectory's *phase* as well as
+     its state. The frozen model even predicts $\hat{\ddot\theta} = 0.48$ rad/s² at rest at
+     the hanging equilibrium, where the truth is 0. That is why the twin moves before the
+     doublet starts.
+4. **Implication.** Approach A is a strong black-box *velocity observer*. It is not, from
+   one run, a digital twin. Converging $\hat\theta$ needs either richer excitation or a
+   parameter-error-driven term. Approach C's concurrent-learning history stack adds
+   exactly that. Approach B's physical structure shrinks the hypothesis class instead.
+
+## 10. Reproducing the results
 
 ```bash
-# Verify unit tests for Approach A
-pytest tests/test_blackbox_lstm.py -v
-
-# Run full test suite
-pytest -v
+pip install -r requirements.txt
+pytest -q                                                    # 37 tests
+python experiments/run_blackbox_validation.py --seeds 5      # about 70 s; writes figures/approach_a/*.png
+python -m src.identification.extract_model --weights results/approach_a/lblstm_frozen.npz
 ```
+
+| File | Contents |
+|:---|:---|
+| `src/observers/blackbox_lstm.py` | `LbLSTMObserver`, `LbLSTMObserverConfig`: LSTM memory, auxiliary filter, Eq. 11, Euler integration. Drop-in for `run_benchmark_comparison(custom_observers=...)`. |
+| `src/adaptation/jacobian_engine.py` | Weight layout, LSTM forward pass, explicit $\Phi'$, fast $\Phi'^Te$, smooth projection, `LyapunovAdaptationLaw`. |
+| `src/identification/extract_model.py` | `freeze_observer`, `FrozenLbLSTM` (save/load), `LbLSTMDigitalTwin`, unseen test signals, MSE/NMSE scoring, CLI. |
+| `src/simulation/open_loop.py` | Open-loop plant rollout recording commanded and net force plus true accelerations. |
+| `experiments/run_blackbox_validation.py` | Stages 1 and 2, seed robustness, figures. |
+| `tests/test_blackbox_lstm.py` | Filter identities and exact Lyapunov cancellation checked on the implemented vector field, plus reset, freezing and a short closed-loop check. |
+| `tests/test_jacobian_engine.py` | $\Phi'$ vs finite differences, fast product, vec layout, projection invariance. |
+| `tests/test_extract_model.py` | Freeze guard, save/load, twin vs observer LSTM consistency, double-integrator sanity check, test signals. |
+
+## References
+
+1. E. J. Griffis, O. S. Patil, R. G. Hart, W. E. Dixon, "Lyapunov-Based Long Short-Term Memory (Lb-LSTM) Neural Network-Based Adaptive Observer," *IEEE Control Systems Letters*, vol. 8, pp. 97–102, 2024.
+2. H. T. Dinh, R. Kamalapurkar, S. Bhasin, W. E. Dixon, "Dynamic neural network-based robust observers for uncertain nonlinear systems," *Neural Networks*, vol. 60, pp. 44–52, 2014.
+3. B. Xian, D. M. Dawson, M. S. de Queiroz, J. Chen, "A continuous asymptotic tracking control strategy for uncertain nonlinear systems," *IEEE Trans. Automatic Control*, vol. 49, no. 7, pp. 1206–1211, 2004.
+4. J.-B. Pomet, L. Praly, "Adaptive nonlinear regulation: estimation from the Lyapunov equation," *IEEE Trans. Automatic Control*, vol. 37, no. 6, pp. 729–740, 1992.
+5. E. Lavretsky, K. A. Wise, *Robust and Adaptive Control*, Springer, 2013 (projection operator).
+6. G. Chowdhary, E. Johnson, "Concurrent learning for convergence in adaptive control without persistency of excitation," *IEEE CDC*, 2010.
