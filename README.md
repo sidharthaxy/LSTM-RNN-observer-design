@@ -2,7 +2,7 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Scientific Stack](https://img.shields.io/badge/SciML-NumPy%20%7C%20SciPy%20%7C%20Numba-orange.svg)](#)
+[![Scientific Stack](https://img.shields.io/badge/SciML-NumPy%20%7C%20SciPy-orange.svg)](#)
 [![Rig: Feedback 33-936S](https://img.shields.io/badge/Benchmarked-Feedback%2033--936S-green.svg)](#)
 [![Tests Passing](https://img.shields.io/badge/tests-19%2F19%20passing-brightgreen.svg)](#)
 
@@ -12,9 +12,9 @@
 
 This repository hosts a scientific control and machine learning research platform investigating **Lyapunov-Based Long Short-Term Memory (Lb-LSTM) Continuous Adaptive Observers** for nonlinear state reconstruction and real-time dynamic model identification. 
 
-The experimental benchmark system is the industry-standard **Feedback Instruments 33-936S Digital Cart-Inverted Pendulum Rig**, interfaced via an **Advantech PCI-1711 DAQ card**. In real-world operation, control engineers only have access to discrete, quantized, and noisy optical encoder positions ($x, \theta$). Direct analytical differentiation (e.g., dirty derivatives or high-gain observers) causes extreme noise amplification and high-frequency chattering, degrading closed-loop stabilization and actuator lifespan.
+The benchmark system is the **Feedback Instruments 33-936S Digital Cart-Inverted Pendulum Rig**, interfaced via an **Advantech PCI-1711 DAQ card**. In real-world operation, control engineers only have access to discrete, quantized, and noisy optical encoder positions ($x, \theta$). Direct analytical differentiation (e.g., dirty derivatives or high-gain observers) amplifies encoder noise into high-frequency chattering, degrading closed-loop stabilization and actuator lifespan.
 
-This project formulates **continuous-time neural adaptive observers** whose weight adaptation laws are analytically derived using **Lyapunov stability theory**. Unlike black-box deep learning models that execute discrete unconstrained backpropagation through time, our observers run **continuous analytical ordinary differential equations (ODEs)** evaluated in real time via high-performance NumPy/Numba routines with strict mathematical guarantees of uniform ultimate boundedness (UUB) or asymptotic convergence.
+This project develops **continuous-time neural adaptive observers** whose weight adaptation laws are derived from a **Lyapunov stability analysis**. Instead of offline training by backpropagation through time, each observer is a set of **ordinary differential equations** integrated online at 1 kHz with NumPy and SciPy. The analysis guarantees uniform ultimate boundedness (UUB) of the estimation errors, and asymptotic convergence when the robust gain meets the condition derived in Approach A's README.
 
 ---
 
@@ -142,7 +142,7 @@ Each step changes the model class and, with it, the adaptation law.
 > **Controller versus observer.** [3] and [5] adapt on $r = \dot e + \alpha e$ with
 > $e = q - q_d$. That signal is measurable under full-state feedback. In an observer, $r$ contains
 > the unmeasured velocity error, so every law and robustness argument must be rewritten in terms of
-> the measurable $e$. The corrected argument is in Approach A's README (§3).
+> the measurable $e$. The observer version of the argument is in Approach A's README (§3).
 
 **Table 1. The published lineage.**
 
@@ -177,16 +177,16 @@ robust term of Approach A. They differ in the learned model and in how it adapts
 
 *Diagram 2. Signal flow of the testbed on this branch. The actuator and encoder models sit between the commanded input and the measurement. Every estimator, classical or adaptive, sees only the encoder signal and the commanded input. The metrics compare its velocity estimate with the true state.*
 
-| Estimator Paradigm | Formulation Type | Stability Guarantee | Prior Model Required | PE Condition Needed? | Noise & Chattering Robustness | Real-Time Latency | Primary Weakness |
-|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---|
-| **Dirty Derivative Filter** | 1st-order linear filter $\frac{s}{\tau_d s + 1}$ | Asymptotically stable filter poles | None | No | **Extremely Poor** (Chattering Ratio $> 18\times$) | $< 1\ \mu\text{s}$ | Massive high-frequency noise amplification; unmitigated phase lag |
-| **Butterworth Differentiator** | 2nd-order bandpass filter $\frac{10^4 s}{s^2 + 70.7s + 10^4}$ | Hurwitz transfer function | None | No | **Moderate** (Chattering Ratio $\approx 3.0\times$) | $< 2\ \mu\text{s}$ | Fixed bandwidth trades phase delay against high-frequency cutoff |
-| **Continuous-Discrete EKF** | Non-linear Riccati ODE + discrete update | Local exponential stability under small noise | Exact physical parameters $(M, m, l, I, b, d)$ | No | **Good** (Chattering Ratio $\approx 2.9\times$) | $\approx 25\ \mu\text{s}$ | Sensitive to unmodeled stiction & parameter drift |
-| **Shallow Dynamic RNN** (Dinh et al., 2014) | Continuous RNN + Lyapunov leakage | Semi-global Uniform Ultimate Boundedness (UUB) | Nominal plant structure | No (bounded weights) | **High** (Chattering Ratio $\approx 1.0\times$) | $\approx 15\ \mu\text{s}$ | Limited representation capacity for long-term state dependencies |
-| **Approach A: Black-Box Lb-LSTM** (`feature/approach-a...`) | Continuous-time LSTM ODE + Lyapunov update | Asymptotic if $k_s$ meets the RISE bound; uniformly ultimately bounded (UUB) as tuned | Black-box acceleration model | No | **Superior** (internal gating memory smooths transients) | $\approx 45\ \mu\text{s}$ | Unconstrained acceleration space can produce transient physical violations |
-| **Approach B: Physics-Informed PI-LSTM** (`feature/approach-b...`) | Structural Cholesky inertia $\mathbf{L}\mathbf{L}^T + \mathbf{C}$ skew-symmetry | As A (asymptotic above the RISE bound, UUB as tuned); the learned model is passive by construction | Structural Euler-Lagrange properties | No | **Maximum** (physically constrained state space) | $\approx 60\ \mu\text{s}$ | Requires structural coordinate projection |
-| **Approach C: Concurrent Learning Lb-LSTM** (`feature/approach-c...`) | Lb-LSTM + Rank-conditioned History Stack | As A for the state; with fixed gates, the readout converges to a neighbourhood of its stack least-squares fixed point | History stack of rich state-action pairs | **Relaxed** (No persistent excitation of trajectory required) | **Maximum** (fast convergence without continuous excitation) | $\approx 80\ \mu\text{s}$ | History stack management overhead and rank verification |
-| **Approach D: Physics-Structured Integral CL** (`feature/approach-d...`) | Linear-in-parameters Euler–Lagrange model + integral concurrent learning | State and parameters converge with exact windows; UUB with noise | Euler–Lagrange structure, joint types, input matrix | **Relaxed** (rank condition on all 15 parameters) | **High** (best steady velocity error when the data sweep the configuration space) | not measured | Larger initial transient; pendulum parameters loose with hanging-only data |
+| Estimator Paradigm | Formulation Type | Stability Guarantee | Prior Model Required | PE Condition Needed? | Noise & Chattering Robustness | Primary Weakness |
+|:---|:---:|:---:|:---:|:---:|:---:|:---|
+| **Dirty Derivative Filter** | 1st-order linear filter $\frac{s}{\tau_d s + 1}$ | Asymptotically stable filter poles | None | No | **Extremely Poor** (Chattering Ratio $> 18\times$) | Strong high-frequency noise amplification; unmitigated phase lag |
+| **Butterworth Differentiator** | 2nd-order bandpass filter $\frac{10^4 s}{s^2 + 70.7s + 10^4}$ | Hurwitz transfer function | None | No | **Moderate** (Chattering Ratio $\approx 3.0\times$) | Fixed bandwidth trades phase delay against high-frequency cutoff |
+| **Continuous-Discrete EKF** | Non-linear Riccati ODE + discrete update | Local exponential stability under small noise | Exact physical parameters $(M, m, l, I, b, d)$ | No | **Good** (Chattering Ratio $\approx 2.9\times$) | Sensitive to unmodeled stiction & parameter drift |
+| **Shallow Dynamic RNN** (Dinh et al., 2014) | Continuous RNN + Lyapunov leakage | Semi-global Uniform Ultimate Boundedness (UUB) | Nominal plant structure | No (bounded weights) | **High** (Chattering Ratio $\approx 1.0\times$) | Limited representation capacity for long-term state dependencies |
+| **Approach A: Black-Box Lb-LSTM** (`feature/approach-a...`) | Continuous-time LSTM ODE + Lyapunov update | Asymptotic if $k_s$ meets the RISE bound; uniformly ultimately bounded (UUB) as tuned | Black-box acceleration model | No | **High** (chattering ratio 1.0–1.6×) | Frozen model does not generalize to unseen inputs; implied inertia indefinite in 0.7–7 % of samples |
+| **Approach B: Physics-Informed PI-LSTM** (`feature/approach-b...`) | Euler–Lagrange-structured model: Cholesky inertia, Christoffel Coriolis, potential gravity, dissipative friction | As A (asymptotic above the RISE bound, UUB as tuned); the learned model is passive by construction | Structural Euler-Lagrange properties | No | **High** (chattering ratio ≈ 1.06×; smallest seed-to-seed spread) | No improvement of the initial transient; inertia scale only partly identified (16 % error) |
+| **Approach C: Concurrent Learning Lb-LSTM** (`feature/approach-c...`) | Lb-LSTM + Rank-conditioned History Stack | As A for the state; with fixed gates, the readout converges to a neighbourhood of its stack least-squares fixed point | History stack of rich state-action pairs | **Relaxed** (No persistent excitation of trajectory required) | **High** (same observer structure as A) | History stack management overhead and rank verification |
+| **Approach D: Physics-Structured Integral CL** (`feature/approach-d...`) | Linear-in-parameters Euler–Lagrange model + integral concurrent learning | State and parameters converge with exact windows; UUB with noise | Euler–Lagrange structure, joint types, input matrix | **Relaxed** (rank condition on all 15 parameters) | **High** (best steady velocity error when the data sweep the configuration space) | Larger initial transient; pendulum parameters loose with hanging-only data |
 
 The guarantee column states what the Lyapunov analysis actually delivers. Asymptotic convergence needs the robust gain $k_s$ above the RISE bound. Every tuned configuration runs below it, because a larger $k_s$ injects encoder noise, so the practical result is uniform ultimate boundedness. The derivation is in Approach A's README, §3.
 
@@ -240,10 +240,9 @@ The project maintains a clean **isolated branch architecture**: one branch per a
 ├── scripts/
 │   ├── run_benchmarks.py           # Command-line benchmark execution
 │   └── visualize_baselines.py      # Publication-quality figure generation
-├── figures/
-│   ├── baseline_estimation_comparison.png
-│   └── diagrams/                   # Diagrams 1-2: SVG, editable .excalidraw, and their sources
-└── Adaptive Neural Network Observers Review.pdf   # Original survey; errata in §9
+└── figures/
+    ├── baseline_estimation_comparison.png
+    └── diagrams/                   # Diagrams 1-2: SVG, editable .excalidraw, and their sources
 ```
 
 ---
@@ -345,48 +344,35 @@ Each branch maintains its own dedicated implementation, Lyapunov stability analy
 
 ---
 
-## 9. Errata to the Survey (`Adaptive Neural Network Observers Review.pdf`)
+## 9. Literature Review and Result Cross-Verification
 
-The survey in this branch is a narrative of the lineage in §4. An equation-by-equation audit
-found three gaps in its stability argument, several claims that our results contradict, and
-citations that cannot be used. Each correction was checked symbolically or numerically, and each
-is resolved in the README where it belongs.
+This section reviews the published results that the project builds on (§4). It checks their theory
+and their claims against our own derivations and simulations. Each point is worked out in full in
+the README where it belongs.
 
-### 9.1 Technical corrections
+### 9.1 Theory: points that need care
 
-| Survey location | Defect | Resolution |
+| Topic | Pitfall | Correct treatment |
 |:---|:---|:---|
-| Eq. (35) | The adaptation law $\mathrm{proj}(\Gamma\Phi'^Tr)$ uses $r$, which contains the unmeasured velocity error, so it cannot be implemented | Approach A README §3.2: $\dot{\hat\theta} = \mathrm{proj}(\Gamma\Phi'^Te)$ with the measurable $e = \tilde x_1 + \nu$ |
-| Eqs. (34)–(36) | Robustness argued with $\mathrm{sgn}(r)$, while the observer injects $\mathrm{sgn}(e)$ | Approach A README §3.3: RISE integral lemma, $P(t) \ge 0$, and gain condition |
-| Eq. (11) vs (32) | Feedback coefficients inconsistent with the unweighted Lyapunov function | Approach A README §3: $\chi$ with $(2-\alpha^2)$ and $-\nu$, verified symbolically |
-| Eq. (27) | Output-gate Jacobian missing the factor $(z^T\otimes I_{l_2})$ | Approach A README §4 |
-| Eqs. (26)–(29) | Static-map Jacobian presented as the exact sensitivity | Approach A README §4 caveat |
-| Eq. (19) | $\bar c$, $\bar h$ used before being defined | Approach A README §2 defines them first |
-| Eq. (44), EKF | The prediction $P_{k\mid k-1} = F_kPF_k^T + Q_k$ used the continuous Jacobian | Use the discrete transition $F_k \approx I + T_s\,\partial f/\partial x\rvert_{\hat x_k}$, or integrate the continuous Riccati equation between samples (as this branch's continuous-discrete EKF does) |
-| Eq. (45), HGO | "Noise amplification $1/\epsilon^N$" unqualified | For an $N$-th order high-gain observer, the $i$-th state estimate carries noise gain $O(\epsilon^{-(i-1)})$ [12]; velocity is $O(1/\epsilon)$. Peaking of the $i$-th state is also $O(\epsilon^{-(i-1)})$ |
-| Eq. (42) | $(J + ml^2)\ddot\theta$ implies $J$ about the centre of mass | Consistent. The plant's $I$ is the centroidal inertia (§3), now labelled so in the code |
-| Model-class sentence | Implied Dinh et al. used the cart–pendulum | [1], [4], [5] use a two-link manipulator (Table 1) |
-| Not covered | Underactuated identifiability, rank attainability, discretization, input design | Approach D README §3; Approach C README §2; Approach A README §6; shared-benchmark README §4 |
+| Adaptation law in an observer | A law driven by $r = \dot e + \alpha e$, as in the tracking controllers [3], [5], cannot be implemented in an observer: there $r$ contains the unmeasured velocity error | Adapt on the measurable $e = \tilde x_1 + \nu$, as in [4]. The weight error is then dominated, not cancelled (Approach A README §3.2) |
+| Robust term | The observer injects $\mathrm{sgn}(e)$, so domination cannot be argued pointwise as if it were $\mathrm{sgn}(r)$ | RISE integral lemma [6] with an auxiliary $P(t) \ge 0$ (Approach A README §3.3) |
+| Feedback coefficients | The feedback $\chi$ must match the Lyapunov function it is derived from | With the filter of [4] and an unweighted Lyapunov function, exact cancellation needs the coefficient $(2-\alpha^2)$; [4] prints $(\alpha^2+2)$, which leaves a bounded residual (Approach A README §3) |
+| LSTM Jacobians | The output-gate Jacobian needs the factor $(z^T\otimes I_{l_2})$ to have the right dimension | Approach A README §4, checked against finite differences |
+| Jacobian meaning | The Jacobian of the static map, with the memories held fixed, is an approximation of the true sensitivity | Approach A README §4 caveat |
+| EKF prediction | The covariance update needs the discrete transition, not the continuous Jacobian | $F_k \approx I + T_s\,\partial f/\partial x\rvert_{\hat x_k}$, or integrate the Riccati equation between samples, as this branch's continuous-discrete EKF does |
+| High-gain observer noise | The noise gain depends on which state is estimated | For an $N$-th order HGO, the $i$-th state estimate carries noise gain $O(\epsilon^{-(i-1)})$ [12], so the velocity estimate is $O(1/\epsilon)$. Peaking of the $i$-th state is also $O(\epsilon^{-(i-1)})$ |
+| Pendulum inertia | $(I + ml^2)\ddot\theta$ means $I$ is taken about the centre of mass | The plant's $I = 0.099$ kg m² is the centroidal inertia (§3) |
+| Benchmarks | [1], [4] and [5] all use a fully actuated two-link manipulator | The underactuated cart–pendulum raises issues those papers do not face: identifiability of unactuated rows (Approach D README §3), rank attainability (Approach C README §2), discretization (Approach A README §6), input design (shared-benchmark README §4) |
 
-### 9.2 Claims revisited
+### 9.2 Published claims, checked against our results
 
-| Claim in the survey | What we measured, or what the sources say | Corrected statement |
+| Claim | What we measured, or what the sources show | Supported statement |
 |:---|:---|:---|
-| "Peaking eliminated via Lyapunov-bounded weight projection" | Peak $\dot\theta$ error of 0.12–0.53 rad/s in 0.1–2 s for every learned observer, against steady RMSE of 0.009–0.07 (shared benchmark) | No *high-gain* peaking, because gains are not scaled up. A model-learning transient remains until the weights adapt. |
-| "Deterministic asymptotic/exponential convergence" | Asymptotic only above the RISE bound, and every tuned configuration runs below it. No exponential result is derived | Asymptotic under the gain condition; UUB as tuned in practice. |
-| "If PE holds, $\tilde\Theta \to 0$: exact identification" | LSTM ideal weights are neither unique nor exact. Approach C's readout reaches only a neighbourhood of its least-squares fixed point. Approach D identifies $M+m$ and $ml$ to within 1 % | $\tilde\Theta$ converges to a neighbourhood that scales with $\bar\varepsilon$. Exact identification needs a realizable model and an attainable rank condition. |
-| "Identifies and cancels nonlinear friction online via memory cells" | Untested here (dead-zone and stiction off), and no source given | Expected, not demonstrated. |
-| "40–70 % error reduction relative to classical baselines" (survey ref. 20) | Ref. 20 is *Neural Map* (deep RL), unrelated. The lineage reports 41.13 % vs a shallow RNN observer [4] and 33.76 % vs a physics-informed DNN [5]; neither is a classical baseline. A shallow RNN with the *exact* nominal model beats the black-box Lb-LSTM (Approach A) | Report the two published figures with their actual baselines. |
-| "Lb-KAN reduces approximation error ~20 %" (survey ref. 19) | Ref. 19 is a ResNet adaptive-control paper | Removed pending a primary source. |
-
-### 9.3 Citations removed from the survey
-
-- Refs. 5, 8, 10–12 and 14–18 pointed to lab pages or to Google Scholar, ResearchGate, DBLP or
-  OpenReview profiles. They are replaced by the primary papers [1]–[5].
-- Ref. 24 (Wikipedia) is replaced by [15], [16].
-- Refs. 7 (flip-flop memory, neuroscience), 9 (Lur'e–Postnikov soft sensor), 19 (ResNet adaptive
-  control) and 20 (*Neural Map*) were cited for claims they do not support. They are removed
-  together with those claims.
+| Weight projection eliminates peaking | Peak $\dot\theta$ error of 0.12–0.53 rad/s in 0.1–2 s for every learned observer, against steady RMSE of 0.009–0.07 rad/s (shared benchmark) | No *high-gain* peaking, since no gain is scaled up. A model-learning transient remains until the weights adapt. |
+| Lyapunov analysis gives asymptotic (or exponential) convergence | Asymptotic only above the RISE gain bound, and every tuned configuration runs below it. No exponential rate follows from the analysis | Asymptotic under the gain condition; uniformly ultimately bounded as tuned. |
+| Persistent excitation gives exact identification | LSTM ideal weights are neither unique nor exact. Approach C's readout reaches only a neighbourhood of its least-squares fixed point. Approach D identifies $M+m$ and $ml$ to within 1 % | Parameter errors converge to a neighbourhood that scales with the approximation error. Exact identification needs a realizable model and an attainable rank condition. |
+| Recurrent memory learns and cancels friction | Not tested: dead-zone and stiction are off in every run | Expected, not demonstrated. |
+| Improvement over baselines | [4] reports 41.13 % lower RMS velocity error than a shallow RNN observer; [5] reports 33.76 % lower tracking error than a physics-informed DNN. Neither compares with a classical estimator. Here, a shallow RNN with the *exact* nominal model beats the black-box Lb-LSTM (Approach A) | The ranking depends on how much model knowledge the baseline has. |
 
 ---
 
