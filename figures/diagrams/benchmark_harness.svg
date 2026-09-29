@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-30 -140 1450 852" width="1450" height="852" role="img">
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="context-stroke"/></marker></defs>
+<rect x="-30" y="-140" width="1450" height="852" fill="#ffffff"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="28" dominant-baseline="hanging" fill="#1e1e1e"><tspan x="0" y="-110.0">Shared benchmark: how every approach is evaluated</tspan></text>
+<rect x="0" y="0" width="260" height="80" rx="12" fill="#ffd8a8" stroke="#f59e0b" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="16" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="130.0" y="30.0">S1: hanging, two-tone input</tspan><tspan x="130.0" y="50.0">(home of A)</tspan></text>
+<rect x="0" y="110" width="260" height="80" rx="12" fill="#ffd8a8" stroke="#f59e0b" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="16" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="130.0" y="140.0">S2: swing-through, +50 % step</tspan><tspan x="130.0" y="160.0">(home of B)</tspan></text>
+<rect x="0" y="220" width="260" height="80" rx="12" fill="#ffd8a8" stroke="#f59e0b" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="16" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="130.0" y="250.0">S3: weak, non-PE excitation</tspan><tspan x="130.0" y="270.0">(home of C)</tspan></text>
+<rect x="330" y="60" width="300" height="180" rx="12" fill="#a5d8ff" stroke="#4a9eed" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="17" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="480.0" y="107.5">Six models</tspan><tspan x="480.0" y="128.8">A, A-x, B, C, C-x, D</tspan><tspan x="480.0" y="150.0">branch defaults, code verbatim</tspan><tspan x="480.0" y="171.2">-x: cart position removed</tspan><tspan x="480.0" y="192.5">from the network input</tspan></text>
+<polyline points="260.0,40.0 330.0,120.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<polyline points="260.0,150.0 330.0,150.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<polyline points="260.0,260.0 330.0,180.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="700" y="90" width="290" height="120" rx="12" fill="#d0bfff" stroke="#8b5cf6" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="18" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="845.0" y="127.5">Online observer run</tspan><tspan x="845.0" y="150.0">5 seeds × 3 scenarios</tspan><tspan x="845.0" y="172.5">encoder noise on</tspan></text>
+<polyline points="630.0,150.0 700.0,150.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="1060" y="-10" width="330" height="130" rx="12" fill="#b2f2bb" stroke="#22c55e" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="17" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="1225.0" y="23.1">Velocity metrics</tspan><tspan x="1225.0" y="44.4">steady and transient RMSE</tspan><tspan x="1225.0" y="65.6">peak error 0.1–2 s</tspan><tspan x="1225.0" y="86.9">post-step RMSE (S2)</tspan></text>
+<polyline points="990.0,130.0 1060.0,55.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="1060" y="180" width="330" height="110" rx="12" fill="#e9ecef" stroke="#868e96" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="17" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="1225.0" y="213.8">Freeze at end of training</tspan><tspan x="1225.0" y="235.0">decouple from the observer</tspan><tspan x="1225.0" y="256.2">(one twin interface)</tspan></text>
+<polyline points="990.0,170.0 1060.0,235.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="700" y="500" width="290" height="110" rx="12" fill="#ffd8a8" stroke="#f59e0b" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="17" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="845.0" y="544.4">Held-out inputs H1–H4</tspan><tspan x="845.0" y="565.6">12 s each, never tuned on</tspan></text>
+<rect x="1060" y="500" width="330" height="110" rx="12" fill="#b2f2bb" stroke="#22c55e" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="17" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="1225.0" y="533.8">Prediction metrics</tspan><tspan x="1225.0" y="555.0">one-step θ̈ NMSE</tspan><tspan x="1225.0" y="576.2">0.5 s θ NMSE</tspan></text>
+<polyline points="1225.0,290.0 1225.0,500.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<polyline points="990.0,555.0 1060.0,555.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="330" y="330" width="300" height="140" rx="12" fill="#d0bfff" stroke="#8b5cf6" stroke-width="2" stroke-dasharray="8 6"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="17" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="480.0" y="368.1">Gated warm start (optional)</tspan><tspan x="480.0" y="389.4">0.1 s quadratic fit, 3σ gate</tspan><tspan x="480.0" y="410.6">inject q̂, q̂̇; reset that</tspan><tspan x="480.0" y="431.9">coordinate&#x27;s filter</tspan></text>
+<polyline points="630.0,400.0 845.0,400.0 845.0,210.0" fill="none" stroke="#6d28d9" stroke-width="2" stroke-dasharray="8 6" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="801.1" y="389.2" width="62.9" height="21.5" fill="#ffffff" opacity="0.9"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="14" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="832.5" y="400.0">wrapper</tspan></text>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="18" dominant-baseline="hanging" fill="#555555"><tspan x="0" y="660.0">Velocity metrics test the observer; prediction metrics test the model it learned.</tspan></text>
+</svg>

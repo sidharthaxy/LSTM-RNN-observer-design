@@ -1,0 +1,807 @@
+[
+{
+"type": "cameraUpdate",
+"width": 800,
+"height": 600,
+"x": -40,
+"y": -160
+},
+{
+"type": "text",
+"id": "title",
+"x": 0,
+"y": -125,
+"text": "Common observer structure of Approaches A–D",
+"fontSize": 28,
+"strokeColor": "#1e1e1e"
+},
+{
+"type": "rectangle",
+"id": "u",
+"x": 20,
+"y": 70,
+"width": 150,
+"height": 60,
+"backgroundColor": "#a5d8ff",
+"fillStyle": "solid",
+"strokeColor": "#4a9eed",
+"label": {
+"text": "Input u(t)",
+"fontSize": 22
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "a_u",
+"x": 170,
+"y": 100,
+"width": 35,
+"height": 0,
+"points": [
+[
+0,
+0
+],
+[
+35,
+0
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "rectangle",
+"id": "plant",
+"x": 205,
+"y": 45,
+"width": 335,
+"height": 110,
+"backgroundColor": "#ffd8a8",
+"fillStyle": "solid",
+"strokeColor": "#f59e0b",
+"label": {
+"text": "Plant (cart-pendulum)\nM(q)q̈ + C(q,q̇)q̇ + G + F = Bu",
+"fontSize": 20
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "a_q",
+"x": 540,
+"y": 100,
+"width": 60,
+"height": 0,
+"points": [
+[
+0,
+0
+],
+[
+60,
+0
+]
+],
+"endArrowhead": "arrow",
+"label": {
+"text": "q",
+"fontSize": 20
+}
+},
+{
+"type": "rectangle",
+"id": "noise",
+"x": 530,
+"y": -40,
+"width": 190,
+"height": 50,
+"backgroundColor": "#ffc9c9",
+"fillStyle": "solid",
+"strokeColor": "#ef4444",
+"label": {
+"text": "Encoder noise v",
+"fontSize": 20
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "a_v",
+"x": 625,
+"y": 10,
+"width": 0,
+"height": 65,
+"points": [
+[
+0,
+0
+],
+[
+0,
+65
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "ellipse",
+"id": "sum0",
+"x": 600,
+"y": 75,
+"width": 50,
+"height": 50,
+"backgroundColor": "#ffffff",
+"fillStyle": "solid",
+"label": {
+"text": "+",
+"fontSize": 22
+}
+},
+{
+"type": "cameraUpdate",
+"width": 1600,
+"height": 1200,
+"x": -60,
+"y": -160
+},
+{
+"type": "rectangle",
+"id": "zone",
+"x": 20,
+"y": 200,
+"width": 1420,
+"height": 660,
+"backgroundColor": "#e5dbff",
+"fillStyle": "solid",
+"strokeColor": "#8b5cf6",
+"roundness": {
+"type": 3
+},
+"strokeStyle": "dashed",
+"strokeWidth": 1,
+"opacity": 30
+},
+{
+"type": "text",
+"id": "zone_t",
+"x": 40,
+"y": 212,
+"text": "Adaptive observer (1 kHz, forward Euler)",
+"fontSize": 20,
+"strokeColor": "#6d28d9"
+},
+{
+"type": "arrow",
+"id": "a_y",
+"x": 625,
+"y": 125,
+"width": 0,
+"height": 135,
+"points": [
+[
+0,
+0
+],
+[
+0,
+135
+]
+],
+"endArrowhead": "arrow",
+"label": {
+"text": "y = q + v",
+"fontSize": 20
+}
+},
+{
+"type": "ellipse",
+"id": "s1",
+"x": 590,
+"y": 260,
+"width": 70,
+"height": 70,
+"backgroundColor": "#ffffff",
+"fillStyle": "solid",
+"label": {
+"text": "Σ",
+"fontSize": 24
+}
+},
+{
+"type": "rectangle",
+"id": "filter",
+"x": 760,
+"y": 245,
+"width": 280,
+"height": 100,
+"backgroundColor": "#d0bfff",
+"fillStyle": "solid",
+"strokeColor": "#8b5cf6",
+"label": {
+"text": "Auxiliary filter\nṗ, ν̇  →  η, ν",
+"fontSize": 22
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "a_x1t",
+"x": 660,
+"y": 295,
+"width": 100,
+"height": 0,
+"points": [
+[
+0,
+0
+],
+[
+100,
+0
+]
+],
+"endArrowhead": "arrow",
+"label": {
+"text": "x̃₁",
+"fontSize": 20
+}
+},
+{
+"type": "rectangle",
+"id": "ebox",
+"x": 1120,
+"y": 255,
+"width": 220,
+"height": 80,
+"backgroundColor": "#ffd8a8",
+"fillStyle": "solid",
+"strokeColor": "#f59e0b",
+"label": {
+"text": "e = x̃₁ + ν\n(measurable)",
+"fontSize": 22
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "a_nu",
+"x": 1040,
+"y": 295,
+"width": 80,
+"height": 0,
+"points": [
+[
+0,
+0
+],
+[
+80,
+0
+]
+],
+"endArrowhead": "arrow",
+"label": {
+"text": "ν",
+"fontSize": 20
+}
+},
+{
+"type": "rectangle",
+"id": "chi",
+"x": 745,
+"y": 400,
+"width": 310,
+"height": 100,
+"backgroundColor": "#d0bfff",
+"fillStyle": "solid",
+"strokeColor": "#8b5cf6",
+"label": {
+"text": "Linear feedback χ\n−(3α+kᵣ)η + (2−α²)x̃₁ − ν",
+"fontSize": 20
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "a_eta",
+"x": 900,
+"y": 345,
+"width": 0,
+"height": 55,
+"points": [
+[
+0,
+0
+],
+[
+0,
+55
+]
+],
+"endArrowhead": "arrow",
+"label": {
+"text": "η, ν",
+"fontSize": 18
+}
+},
+{
+"type": "rectangle",
+"id": "rob",
+"x": 1120,
+"y": 405,
+"width": 220,
+"height": 90,
+"backgroundColor": "#ffc9c9",
+"fillStyle": "solid",
+"strokeColor": "#ef4444",
+"label": {
+"text": "Robust term\nkₛ sgn(e)",
+"fontSize": 22
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "a_e_rob",
+"x": 1230,
+"y": 335,
+"width": 0,
+"height": 70,
+"points": [
+[
+0,
+0
+],
+[
+0,
+70
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "ellipse",
+"id": "s2",
+"x": 865,
+"y": 575,
+"width": 70,
+"height": 70,
+"backgroundColor": "#ffffff",
+"fillStyle": "solid",
+"label": {
+"text": "Σ",
+"fontSize": 24
+}
+},
+{
+"type": "arrow",
+"id": "a_chi",
+"x": 900,
+"y": 500,
+"width": 0,
+"height": 75,
+"points": [
+[
+0,
+0
+],
+[
+0,
+75
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "arrow",
+"id": "a_rob",
+"x": 1120,
+"y": 470,
+"width": 185,
+"height": 140,
+"points": [
+[
+0,
+0
+],
+[
+-50,
+0
+],
+[
+-50,
+140
+],
+[
+-185,
+140
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "rectangle",
+"id": "int1",
+"x": 700,
+"y": 575,
+"width": 100,
+"height": 70,
+"backgroundColor": "#ffffff",
+"fillStyle": "solid",
+"strokeColor": "#1e1e1e",
+"label": {
+"text": "∫",
+"fontSize": 28
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "a_s2",
+"x": 865,
+"y": 610,
+"width": 65,
+"height": 0,
+"points": [
+[
+0,
+0
+],
+[
+-65,
+0
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "rectangle",
+"id": "int2",
+"x": 500,
+"y": 575,
+"width": 100,
+"height": 70,
+"backgroundColor": "#ffffff",
+"fillStyle": "solid",
+"strokeColor": "#1e1e1e",
+"label": {
+"text": "∫",
+"fontSize": 28
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "a_x2",
+"x": 700,
+"y": 610,
+"width": 100,
+"height": 0,
+"points": [
+[
+0,
+0
+],
+[
+-100,
+0
+]
+],
+"endArrowhead": "arrow",
+"label": {
+"text": "x̂₂",
+"fontSize": 20
+}
+},
+{
+"type": "arrow",
+"id": "a_x1",
+"x": 500,
+"y": 610,
+"width": 150,
+"height": 315,
+"points": [
+[
+0,
+0
+],
+[
+-60,
+0
+],
+[
+-60,
+-315
+],
+[
+90,
+-315
+]
+],
+"endArrowhead": "arrow",
+"label": {
+"text": "x̂₁ (−)",
+"fontSize": 20
+}
+},
+{
+"type": "rectangle",
+"id": "model",
+"x": 745,
+"y": 720,
+"width": 310,
+"height": 110,
+"backgroundColor": "#a5d8ff",
+"fillStyle": "solid",
+"strokeColor": "#4a9eed",
+"label": {
+"text": "Learned model Φ̂(ζ; θ̂)\nA, C: CT-LSTM\nB: PI-LSTM   D: linear EL",
+"fontSize": 18
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "a_phi",
+"x": 900,
+"y": 720,
+"width": 0,
+"height": 75,
+"points": [
+[
+0,
+0
+],
+[
+0,
+-75
+]
+],
+"endArrowhead": "arrow",
+"label": {
+"text": "Φ̂",
+"fontSize": 20
+}
+},
+{
+"type": "arrow",
+"id": "a_zeta",
+"x": 670,
+"y": 610,
+"width": 75,
+"height": 165,
+"points": [
+[
+0,
+0
+],
+[
+0,
+165
+],
+[
+75,
+165
+]
+],
+"endArrowhead": "arrow",
+"label": {
+"text": "ζ",
+"fontSize": 20
+}
+},
+{
+"type": "rectangle",
+"id": "out",
+"x": 60,
+"y": 730,
+"width": 300,
+"height": 90,
+"backgroundColor": "#b2f2bb",
+"fillStyle": "solid",
+"strokeColor": "#22c55e",
+"label": {
+"text": "Velocity estimate\nx̂₂ ≈ [ẋ, θ̇]",
+"fontSize": 22
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "a_out",
+"x": 630,
+"y": 610,
+"width": 420,
+"height": 120,
+"points": [
+[
+0,
+0
+],
+[
+0,
+70
+],
+[
+-420,
+70
+],
+[
+-420,
+120
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "rectangle",
+"id": "adapt",
+"x": 1100,
+"y": 730,
+"width": 300,
+"height": 100,
+"backgroundColor": "#eebefa",
+"fillStyle": "solid",
+"strokeColor": "#ec4899",
+"label": {
+"text": "Adaptation law\nθ̂̇ = proj(Γ Φ′ᵀ e)",
+"fontSize": 20
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "a_e_ad",
+"x": 1340,
+"y": 295,
+"width": 75,
+"height": 485,
+"points": [
+[
+0,
+0
+],
+[
+75,
+0
+],
+[
+75,
+485
+],
+[
+60,
+485
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "arrow",
+"id": "a_th",
+"x": 1100,
+"y": 755,
+"width": 45,
+"height": 0,
+"points": [
+[
+0,
+0
+],
+[
+-45,
+0
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "arrow",
+"id": "a_jac",
+"x": 1055,
+"y": 805,
+"width": 45,
+"height": 0,
+"points": [
+[
+0,
+0
+],
+[
+45,
+0
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "text",
+"id": "cl_t",
+"x": 1110,
+"y": 538,
+"text": "records (y, u) windows",
+"fontSize": 16,
+"strokeColor": "#0e7490"
+},
+{
+"type": "rectangle",
+"id": "cl",
+"x": 1100,
+"y": 570,
+"width": 300,
+"height": 100,
+"backgroundColor": "#c3fae8",
+"fillStyle": "solid",
+"strokeColor": "#06b6d4",
+"label": {
+"text": "History stack (C, D)\nΓ_CL (φ_H − φ)",
+"fontSize": 18
+},
+"roundness": {
+"type": 3
+},
+"strokeStyle": "dashed"
+},
+{
+"type": "arrow",
+"id": "a_cl",
+"x": 1250,
+"y": 670,
+"width": 0,
+"height": 60,
+"points": [
+[
+0,
+0
+],
+[
+0,
+60
+]
+],
+"endArrowhead": "arrow",
+"strokeStyle": "dashed",
+"strokeColor": "#0e7490"
+},
+{
+"type": "text",
+"id": "legend",
+"x": 40,
+"y": 880,
+"text": "Solid: common to A–D.   Dashed: concurrent learning, present only in C and D.",
+"fontSize": 20,
+"strokeColor": "#555555"
+},
+{
+"type": "cameraUpdate",
+"width": 1600,
+"height": 1200,
+"x": -60,
+"y": -160
+}
+]

@@ -1,0 +1,403 @@
+[
+{
+"type": "cameraUpdate",
+"width": 800,
+"height": 600,
+"x": -40,
+"y": -150
+},
+{
+"type": "text",
+"id": "title",
+"x": 0,
+"y": -110,
+"text": "Shared benchmark: how every approach is evaluated",
+"fontSize": 28,
+"strokeColor": "#1e1e1e"
+},
+{
+"type": "rectangle",
+"id": "s1",
+"x": 0,
+"y": 0,
+"width": 260,
+"height": 80,
+"backgroundColor": "#ffd8a8",
+"fillStyle": "solid",
+"strokeColor": "#f59e0b",
+"label": {
+"text": "S1: hanging, two-tone input\n(home of A)",
+"fontSize": 16
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "rectangle",
+"id": "s2",
+"x": 0,
+"y": 110,
+"width": 260,
+"height": 80,
+"backgroundColor": "#ffd8a8",
+"fillStyle": "solid",
+"strokeColor": "#f59e0b",
+"label": {
+"text": "S2: swing-through, +50 % step\n(home of B)",
+"fontSize": 16
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "rectangle",
+"id": "s3",
+"x": 0,
+"y": 220,
+"width": 260,
+"height": 80,
+"backgroundColor": "#ffd8a8",
+"fillStyle": "solid",
+"strokeColor": "#f59e0b",
+"label": {
+"text": "S3: weak, non-PE excitation\n(home of C)",
+"fontSize": 16
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "rectangle",
+"id": "mod",
+"x": 330,
+"y": 60,
+"width": 300,
+"height": 180,
+"backgroundColor": "#a5d8ff",
+"fillStyle": "solid",
+"strokeColor": "#4a9eed",
+"label": {
+"text": "Six models\nA, A-x, B, C, C-x, D\nbranch defaults, code verbatim\n-x: cart position removed\nfrom the network input",
+"fontSize": 17
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "i1",
+"x": 260,
+"y": 40,
+"width": 70,
+"height": 80,
+"points": [
+[
+0,
+0
+],
+[
+70,
+80
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "arrow",
+"id": "i2",
+"x": 260,
+"y": 150,
+"width": 70,
+"height": 0,
+"points": [
+[
+0,
+0
+],
+[
+70,
+0
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "arrow",
+"id": "i3",
+"x": 260,
+"y": 260,
+"width": 70,
+"height": 80,
+"points": [
+[
+0,
+0
+],
+[
+70,
+-80
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "rectangle",
+"id": "run",
+"x": 700,
+"y": 90,
+"width": 290,
+"height": 120,
+"backgroundColor": "#d0bfff",
+"fillStyle": "solid",
+"strokeColor": "#8b5cf6",
+"label": {
+"text": "Online observer run\n5 seeds × 3 scenarios\nencoder noise on",
+"fontSize": 18
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "a_mr",
+"x": 630,
+"y": 150,
+"width": 70,
+"height": 0,
+"points": [
+[
+0,
+0
+],
+[
+70,
+0
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "cameraUpdate",
+"width": 1600,
+"height": 1200,
+"x": -40,
+"y": -150
+},
+{
+"type": "rectangle",
+"id": "vel",
+"x": 1060,
+"y": -10,
+"width": 330,
+"height": 130,
+"backgroundColor": "#b2f2bb",
+"fillStyle": "solid",
+"strokeColor": "#22c55e",
+"label": {
+"text": "Velocity metrics\nsteady and transient RMSE\npeak error 0.1–2 s\npost-step RMSE (S2)",
+"fontSize": 17
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "a_rv",
+"x": 990,
+"y": 130,
+"width": 70,
+"height": 75,
+"points": [
+[
+0,
+0
+],
+[
+70,
+-75
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "rectangle",
+"id": "frz",
+"x": 1060,
+"y": 180,
+"width": 330,
+"height": 110,
+"backgroundColor": "#e9ecef",
+"fillStyle": "solid",
+"strokeColor": "#868e96",
+"label": {
+"text": "Freeze at end of training\ndecouple from the observer\n(one twin interface)",
+"fontSize": 17
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "a_rf",
+"x": 990,
+"y": 170,
+"width": 70,
+"height": 65,
+"points": [
+[
+0,
+0
+],
+[
+70,
+65
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "rectangle",
+"id": "held",
+"x": 700,
+"y": 500,
+"width": 290,
+"height": 110,
+"backgroundColor": "#ffd8a8",
+"fillStyle": "solid",
+"strokeColor": "#f59e0b",
+"label": {
+"text": "Held-out inputs H1–H4\n12 s each, never tuned on",
+"fontSize": 17
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "rectangle",
+"id": "pred",
+"x": 1060,
+"y": 500,
+"width": 330,
+"height": 110,
+"backgroundColor": "#b2f2bb",
+"fillStyle": "solid",
+"strokeColor": "#22c55e",
+"label": {
+"text": "Prediction metrics\none-step θ̈ NMSE\n0.5 s θ NMSE",
+"fontSize": 17
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "a_fp",
+"x": 1225,
+"y": 290,
+"width": 0,
+"height": 210,
+"points": [
+[
+0,
+0
+],
+[
+0,
+210
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "arrow",
+"id": "a_hp",
+"x": 990,
+"y": 555,
+"width": 70,
+"height": 0,
+"points": [
+[
+0,
+0
+],
+[
+70,
+0
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "rectangle",
+"id": "warm",
+"x": 330,
+"y": 330,
+"width": 300,
+"height": 140,
+"backgroundColor": "#d0bfff",
+"fillStyle": "solid",
+"strokeColor": "#8b5cf6",
+"label": {
+"text": "Gated warm start (optional)\n0.1 s quadratic fit, 3σ gate\ninject q̂, q̂̇; reset that\ncoordinate's filter",
+"fontSize": 17
+},
+"roundness": {
+"type": 3
+},
+"strokeStyle": "dashed"
+},
+{
+"type": "arrow",
+"id": "a_w",
+"x": 630,
+"y": 400,
+"width": 215,
+"height": 190,
+"points": [
+[
+0,
+0
+],
+[
+215,
+0
+],
+[
+215,
+-190
+]
+],
+"endArrowhead": "arrow",
+"label": {
+"text": "wrapper",
+"fontSize": 14
+},
+"strokeStyle": "dashed",
+"strokeColor": "#6d28d9"
+},
+{
+"type": "text",
+"id": "legend",
+"x": 0,
+"y": 660,
+"text": "Velocity metrics test the observer; prediction metrics test the model it learned.",
+"fontSize": 18,
+"strokeColor": "#555555"
+},
+{
+"type": "cameraUpdate",
+"width": 1600,
+"height": 1200,
+"x": -40,
+"y": -150
+}
+]

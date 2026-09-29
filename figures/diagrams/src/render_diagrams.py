@@ -1,13 +1,13 @@
-"""Render the Chapter 2 diagrams from their Excalidraw element lists.
+"""Render the README diagrams from their Excalidraw element lists.
 
-Each ``*.json`` file in this directory is the element list that was drawn with the
-Excalidraw MCP view (shapes with inline ``label``s, arrows as point lists, camera
-pseudo-elements). This script turns every list into
+Each ``*.json`` file in this directory is an Excalidraw element list (shapes with inline
+``label``s, arrows as point lists, camera pseudo-elements), the format of the Excalidraw
+MCP view. This script turns every list into
 
-* ``docs/figures/<name>.svg``: a clean vector figure embedded by the thesis Markdown, and
-* ``docs/figures/<name>.excalidraw``: a native scene that opens in excalidraw.com for editing.
+* ``figures/diagrams/<name>.svg``: a clean vector figure embedded by the README, and
+* ``figures/diagrams/<name>.excalidraw``: a native scene that opens in excalidraw.com.
 
-Usage: ``python docs/figures/src/render_diagrams.py`` (standard library only).
+Usage: ``python figures/diagrams/src/render_diagrams.py`` (standard library only).
 """
 
 from __future__ import annotations
@@ -226,7 +226,7 @@ def to_excalidraw(elements: list[dict]) -> dict:
             scene.append(text_el(tid, label["text"], label.get("fontSize", 20), cx, cy, e["id"]))
             el["boundElements"].append({"type": "text", "id": tid})
     return {
-        "type": "excalidraw", "version": 2, "source": "docs/figures/src/render_diagrams.py",
+        "type": "excalidraw", "version": 2, "source": "figures/diagrams/src/render_diagrams.py",
         "elements": scene, "appState": {"viewBackgroundColor": "#ffffff", "gridSize": None},
         "files": {},
     }
