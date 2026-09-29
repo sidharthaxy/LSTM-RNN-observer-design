@@ -123,9 +123,9 @@ $\lambda_{\min}$ (`src/concurrent_learning/history_stack.py`, generalized to blo
 
 ## 3. Why the pendulum row needs a different regression
 
-The first attempt used plain least squares on all rows. It recovered the cart row exactly, but
-the pendulum-row scale collapsed: $I + ml^2$ came out as 0.02 instead of 0.129 with the 0.1 s
-smoother, and 0.003 with a 0.05 s one. Batch fits separate the causes:
+Plain least squares on all rows recovers the cart row exactly, but the pendulum-row scale
+collapses: $I + ml^2$ comes out as 0.02 instead of 0.129 with the 0.1 s smoother, and 0.003 with a
+0.05 s one. Batch fits separate the causes:
 
 | Windows built from | $I+ml^2$ | $mgl$ | $mgl/(I+ml^2)$ |
 |:---|---:|---:|---:|
@@ -149,8 +149,7 @@ $$\textstyle\sum_j\lVert\hat{\mathcal Y}_{2,j}\theta\rVert^2 \approx \theta^T\bi
 so the noise acts as a Tikhonov penalty that pulls the row's parameters towards $\theta = 0$.
 Actuated rows escape this because their target $\int Bu$ is non-zero and noise-free. This failure
 cannot occur on the fully actuated two-link manipulators used by the published observers this
-project builds on (Dinh 2014; Griffis 2024; Hart 2024). It is specific to underactuated systems,
-and the survey on `main` does not mention it.
+project builds on (Dinh 2014; Griffis 2024; Hart 2024). It is specific to underactuated systems.
 
 **Fix: normalize the homogeneous row so the noisy term becomes the target.** Divide the pendulum
 row by its leading coefficient $J = [M_{22}]_{const}$. Take the columns it shares with the cart
