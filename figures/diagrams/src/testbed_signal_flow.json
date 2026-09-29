@@ -1,0 +1,560 @@
+[
+{
+"type": "cameraUpdate",
+"width": 800,
+"height": 600,
+"x": -60,
+"y": -140
+},
+{
+"type": "text",
+"id": "title",
+"x": 0,
+"y": -90,
+"text": "Testbed and classical baselines: signal flow",
+"fontSize": 28,
+"strokeColor": "#1e1e1e"
+},
+{
+"type": "rectangle",
+"id": "cmd",
+"x": 0,
+"y": 40,
+"width": 180,
+"height": 80,
+"backgroundColor": "#a5d8ff",
+"fillStyle": "solid",
+"strokeColor": "#4a9eed",
+"label": {
+"text": "Command u(t)\nexcitation / LQR",
+"fontSize": 18
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "a1",
+"x": 180,
+"y": 80,
+"width": 60,
+"height": 0,
+"points": [
+[
+0,
+0
+],
+[
+60,
+0
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "rectangle",
+"id": "act",
+"x": 240,
+"y": 30,
+"width": 260,
+"height": 100,
+"backgroundColor": "#ffc9c9",
+"fillStyle": "solid",
+"strokeColor": "#ef4444",
+"label": {
+"text": "Actuator model\ndead-zone +0.15 / −0.12 V\nstiction 0.35 N",
+"fontSize": 18
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "a2",
+"x": 500,
+"y": 80,
+"width": 50,
+"height": 0,
+"points": [
+[
+0,
+0
+],
+[
+50,
+0
+]
+],
+"endArrowhead": "arrow",
+"label": {
+"text": "F",
+"fontSize": 18
+}
+},
+{
+"type": "rectangle",
+"id": "plant",
+"x": 550,
+"y": 30,
+"width": 310,
+"height": 100,
+"backgroundColor": "#ffd8a8",
+"fillStyle": "solid",
+"strokeColor": "#f59e0b",
+"label": {
+"text": "Plant: Feedback 33-936S\nM(q)q̈ + C q̇ + G + F = Bu",
+"fontSize": 18
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "a3",
+"x": 860,
+"y": 80,
+"width": 50,
+"height": 0,
+"points": [
+[
+0,
+0
+],
+[
+50,
+0
+]
+],
+"endArrowhead": "arrow",
+"label": {
+"text": "q",
+"fontSize": 18
+}
+},
+{
+"type": "rectangle",
+"id": "enc",
+"x": 910,
+"y": 30,
+"width": 300,
+"height": 100,
+"backgroundColor": "#ffc9c9",
+"fillStyle": "solid",
+"strokeColor": "#ef4444",
+"label": {
+"text": "Encoder / DAQ model\nU(±0.5°), ±0.2 mm noise\n4096-count quantization",
+"fontSize": 18
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "cameraUpdate",
+"width": 1600,
+"height": 1200,
+"x": -60,
+"y": -140
+},
+{
+"type": "arrow",
+"id": "a_y",
+"x": 1060,
+"y": 130,
+"width": 0,
+"height": 60,
+"points": [
+[
+0,
+0
+],
+[
+0,
+60
+]
+],
+"endArrowhead": null,
+"label": {
+"text": "y = q + v",
+"fontSize": 18
+}
+},
+{
+"type": "arrow",
+"id": "bus",
+"x": 160,
+"y": 190,
+"width": 1080,
+"height": 0,
+"points": [
+[
+0,
+0
+],
+[
+1080,
+0
+]
+],
+"endArrowhead": null
+},
+{
+"type": "arrow",
+"id": "d0",
+"x": 160,
+"y": 190,
+"width": 0,
+"height": 50,
+"points": [
+[
+0,
+0
+],
+[
+0,
+50
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "rectangle",
+"id": "e0",
+"x": 40,
+"y": 240,
+"width": 240,
+"height": 100,
+"backgroundColor": "#ffffff",
+"fillStyle": "solid",
+"strokeColor": "#1e1e1e",
+"label": {
+"text": "Dirty derivative\ns / (τ_d s + 1)",
+"fontSize": 18
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "m0",
+"x": 160,
+"y": 340,
+"width": 0,
+"height": 80,
+"points": [
+[
+0,
+0
+],
+[
+0,
+80
+]
+],
+"endArrowhead": "arrow",
+"label": {
+"text": "x̂₂",
+"fontSize": 16
+}
+},
+{
+"type": "arrow",
+"id": "d1",
+"x": 430,
+"y": 190,
+"width": 0,
+"height": 50,
+"points": [
+[
+0,
+0
+],
+[
+0,
+50
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "rectangle",
+"id": "e1",
+"x": 310,
+"y": 240,
+"width": 240,
+"height": 100,
+"backgroundColor": "#ffffff",
+"fillStyle": "solid",
+"strokeColor": "#1e1e1e",
+"label": {
+"text": "Butterworth\ndifferentiator (2nd order)",
+"fontSize": 18
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "m1",
+"x": 430,
+"y": 340,
+"width": 0,
+"height": 80,
+"points": [
+[
+0,
+0
+],
+[
+0,
+80
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "arrow",
+"id": "d2",
+"x": 700,
+"y": 190,
+"width": 0,
+"height": 50,
+"points": [
+[
+0,
+0
+],
+[
+0,
+50
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "rectangle",
+"id": "e2",
+"x": 580,
+"y": 240,
+"width": 240,
+"height": 100,
+"backgroundColor": "#ffffff",
+"fillStyle": "solid",
+"strokeColor": "#1e1e1e",
+"label": {
+"text": "Continuous-discrete EKF\nexact parameters",
+"fontSize": 18
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "m2",
+"x": 700,
+"y": 340,
+"width": 0,
+"height": 80,
+"points": [
+[
+0,
+0
+],
+[
+0,
+80
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "arrow",
+"id": "d3",
+"x": 970,
+"y": 190,
+"width": 0,
+"height": 50,
+"points": [
+[
+0,
+0
+],
+[
+0,
+50
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "rectangle",
+"id": "e3",
+"x": 850,
+"y": 240,
+"width": 240,
+"height": 100,
+"backgroundColor": "#ffffff",
+"fillStyle": "solid",
+"strokeColor": "#1e1e1e",
+"label": {
+"text": "Shallow dynamic RNN\n(Dinh et al. 2014)",
+"fontSize": 18
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "m3",
+"x": 970,
+"y": 340,
+"width": 0,
+"height": 80,
+"points": [
+[
+0,
+0
+],
+[
+0,
+80
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "arrow",
+"id": "d4",
+"x": 1240,
+"y": 190,
+"width": 0,
+"height": 50,
+"points": [
+[
+0,
+0
+],
+[
+0,
+50
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "rectangle",
+"id": "e4",
+"x": 1120,
+"y": 240,
+"width": 240,
+"height": 100,
+"backgroundColor": "#d0bfff",
+"fillStyle": "solid",
+"strokeColor": "#8b5cf6",
+"label": {
+"text": "Adaptive observers\nApproaches A–D\n(feature branches)",
+"fontSize": 18
+},
+"roundness": {
+"type": 3
+},
+"strokeStyle": "dashed"
+},
+{
+"type": "arrow",
+"id": "m4",
+"x": 1240,
+"y": 340,
+"width": 0,
+"height": 80,
+"points": [
+[
+0,
+0
+],
+[
+0,
+80
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "rectangle",
+"id": "met",
+"x": 40,
+"y": 420,
+"width": 1320,
+"height": 90,
+"backgroundColor": "#b2f2bb",
+"fillStyle": "solid",
+"strokeColor": "#22c55e",
+"label": {
+"text": "Metrics (src/utils/metrics.py): velocity RMSE, steady-state error, peak error, chattering ratio",
+"fontSize": 20
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "truth",
+"x": 700,
+"y": 30,
+"width": 740,
+"height": 465,
+"points": [
+[
+0,
+0
+],
+[
+0,
+-30
+],
+[
+-740,
+-30
+],
+[
+-740,
+435
+],
+[
+-660,
+435
+]
+],
+"endArrowhead": "arrow",
+"label": {
+"text": "true states x, ẋ, θ, θ̇",
+"fontSize": 16
+},
+"strokeStyle": "dashed",
+"strokeColor": "#555555"
+},
+{
+"type": "text",
+"id": "legend",
+"x": 40,
+"y": 540,
+"text": "Every estimator sees only the encoder signal y and the commanded input; the metrics compare against the true states.",
+"fontSize": 18,
+"strokeColor": "#555555"
+},
+{
+"type": "cameraUpdate",
+"width": 1600,
+"height": 1200,
+"x": -60,
+"y": -140
+}
+]

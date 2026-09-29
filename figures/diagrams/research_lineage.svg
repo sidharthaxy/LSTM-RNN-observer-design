@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-30 -170 1530 760" width="1530" height="760" role="img">
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="context-stroke"/></marker></defs>
+<rect x="-30" y="-170" width="1530" height="760" fill="#ffffff"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="28" dominant-baseline="hanging" fill="#1e1e1e"><tspan x="0" y="-140.0">Research lineage: from the published observers to Approaches A–D</tspan></text>
+<rect x="0" y="0" width="270" height="120" rx="12" fill="#e9ecef" stroke="#868e96" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="17" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="135.0" y="28.1">Dinh et al. 2014</tspan><tspan x="135.0" y="49.4">shallow RNN observer</tspan><tspan x="135.0" y="70.6">filter + sgn term</tspan><tspan x="135.0" y="91.9">Neural Networks 60</tspan></text>
+<rect x="300" y="0" width="270" height="120" rx="12" fill="#e9ecef" stroke="#868e96" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="17" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="435.0" y="38.8">Griffis et al. 2023</tspan><tspan x="435.0" y="60.0">deep RNN observer</tspan><tspan x="435.0" y="81.2">IFAC-PapersOnLine 56</tspan></text>
+<rect x="600" y="0" width="270" height="120" rx="12" fill="#e9ecef" stroke="#868e96" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="17" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="735.0" y="28.1">Griffis et al. 2024</tspan><tspan x="735.0" y="49.4">Lb-LSTM observer</tspan><tspan x="735.0" y="70.6">adapts on e = x̃₁ + ν</tspan><tspan x="735.0" y="91.9">IEEE L-CSS 8</tspan></text>
+<rect x="900" y="0" width="270" height="120" rx="12" fill="#e9ecef" stroke="#868e96" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="17" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="1035.0" y="28.1">Griffis et al. 2023</tspan><tspan x="1035.0" y="49.4">Lb-LSTM controller</tspan><tspan x="1035.0" y="70.6">all LSTM weights adapted</tspan><tspan x="1035.0" y="91.9">IEEE L-CSS 7</tspan></text>
+<rect x="1200" y="0" width="270" height="120" rx="12" fill="#e9ecef" stroke="#868e96" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="17" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="1335.0" y="28.1">Hart et al. 2024</tspan><tspan x="1335.0" y="49.4">PI-LSTM controller</tspan><tspan x="1335.0" y="70.6">Euler–Lagrange blocks</tspan><tspan x="1335.0" y="91.9">IEEE L-CSS 8</tspan></text>
+<polyline points="270.0,60.0 300.0,60.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<polyline points="570.0,60.0 600.0,60.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<polyline points="900.0,60.0 870.0,60.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="865.3" y="49.2" width="39.4" height="21.5" fill="#ffffff" opacity="0.9"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="14" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="885.0" y="60.0">LSTM</tspan></text>
+<polyline points="1170.0,60.0 1200.0,60.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="18" dominant-baseline="hanging" fill="#555555"><tspan x="0" y="-40.0">Published (University of Florida NCR group)</tspan></text>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="18" dominant-baseline="hanging" fill="#555555"><tspan x="0" y="200.0">This project (one branch each)</tspan></text>
+<rect x="600" y="240" width="270" height="110" rx="12" fill="#a5d8ff" stroke="#4a9eed" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="17" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="735.0" y="273.8">Approach A</tspan><tspan x="735.0" y="295.0">reproduces the</tspan><tspan x="735.0" y="316.2">Lb-LSTM observer</tspan></text>
+<rect x="300" y="240" width="270" height="110" rx="12" fill="#c3fae8" stroke="#06b6d4" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="17" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="435.0" y="273.8">Approach C</tspan><tspan x="435.0" y="295.0">A + concurrent learning</tspan><tspan x="435.0" y="316.2">(Chowdhary 2010)</tspan></text>
+<rect x="900" y="240" width="270" height="110" rx="12" fill="#b2f2bb" stroke="#22c55e" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="17" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="1035.0" y="273.8">Approach D</tspan><tspan x="1035.0" y="295.0">B&#x27;s structure + C&#x27;s stack</tspan><tspan x="1035.0" y="316.2">integral CL (Parikh 2019)</tspan></text>
+<rect x="1200" y="240" width="270" height="110" rx="12" fill="#d0bfff" stroke="#8b5cf6" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="17" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="1335.0" y="273.8">Approach B</tspan><tspan x="1335.0" y="295.0">Hart&#x27;s PI-LSTM inside</tspan><tspan x="1335.0" y="316.2">A&#x27;s observer</tspan></text>
+<polyline points="735.0,120.0 735.0,240.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="691.8" y="169.2" width="86.4" height="21.5" fill="#ffffff" opacity="0.9"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="14" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="735.0" y="180.0">reproduced</tspan></text>
+<polyline points="1335.0,120.0 1335.0,240.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="1268.3" y="169.2" width="133.4" height="21.5" fill="#ffffff" opacity="0.9"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="14" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="1335.0" y="180.0">into an observer</tspan></text>
+<polyline points="600.0,295.0 570.0,295.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<polyline points="1200.0,295.0 1170.0,295.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<polyline points="500.0,350.0 500.0,390.0 960.0,390.0 960.0,350.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="675.0" y="379.2" width="109.9" height="21.5" fill="#ffffff" opacity="0.9"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="14" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="730.0" y="390.0">history stack</tspan></text>
+<rect x="0" y="470" width="1470" height="90" rx="12" fill="#ffd8a8" stroke="#f59e0b" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="18" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="735.0" y="515.0">Shared benchmark (feature/shared-benchmark): A–D on scenarios S1–S3 and held-out inputs H1–H4</tspan></text>
+<polyline points="735.0,350.0 735.0,470.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<polyline points="380.0,350.0 380.0,470.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<polyline points="1100.0,350.0 1100.0,470.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<polyline points="1335.0,350.0 1335.0,470.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+</svg>

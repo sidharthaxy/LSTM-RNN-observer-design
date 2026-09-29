@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-70 -120 1460 712" width="1460" height="712" role="img">
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="context-stroke"/></marker></defs>
+<rect x="-70" y="-120" width="1460" height="712" fill="#ffffff"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="28" dominant-baseline="hanging" fill="#1e1e1e"><tspan x="0" y="-90.0">Testbed and classical baselines: signal flow</tspan></text>
+<rect x="0" y="40" width="180" height="80" rx="12" fill="#a5d8ff" stroke="#4a9eed" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="18" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="90.0" y="68.8">Command u(t)</tspan><tspan x="90.0" y="91.2">excitation / LQR</tspan></text>
+<polyline points="180.0,80.0 240.0,80.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="240" y="30" width="260" height="100" rx="12" fill="#ffc9c9" stroke="#ef4444" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="18" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="370.0" y="57.5">Actuator model</tspan><tspan x="370.0" y="80.0">dead-zone +0.15 / −0.12 V</tspan><tspan x="370.0" y="102.5">stiction 0.35 N</tspan></text>
+<polyline points="500.0,80.0 550.0,80.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="516.0" y="66.8" width="18.1" height="26.5" fill="#ffffff" opacity="0.9"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="18" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="525.0" y="80.0">F</tspan></text>
+<rect x="550" y="30" width="310" height="100" rx="12" fill="#ffd8a8" stroke="#f59e0b" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="18" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="705.0" y="68.8">Plant: Feedback 33-936S</tspan><tspan x="705.0" y="91.2">M(q)q̈ + C q̇ + G + F = Bu</tspan></text>
+<polyline points="860.0,80.0 910.0,80.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="876.0" y="66.8" width="18.1" height="26.5" fill="#ffffff" opacity="0.9"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="18" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="885.0" y="80.0">q</tspan></text>
+<rect x="910" y="30" width="300" height="100" rx="12" fill="#ffc9c9" stroke="#ef4444" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="18" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="1060.0" y="57.5">Encoder / DAQ model</tspan><tspan x="1060.0" y="80.0">U(±0.5°), ±0.2 mm noise</tspan><tspan x="1060.0" y="102.5">4096-count quantization</tspan></text>
+<polyline points="1060.0,130.0 1060.0,190.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round"/>
+<rect x="1010.6" y="146.8" width="98.7" height="26.5" fill="#ffffff" opacity="0.9"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="18" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="1060.0" y="160.0">y = q + v</tspan></text>
+<polyline points="160.0,190.0 1240.0,190.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="160.0,190.0 160.0,240.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="40" y="240" width="240" height="100" rx="12" fill="#ffffff" stroke="#1e1e1e" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="18" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="160.0" y="278.8">Dirty derivative</tspan><tspan x="160.0" y="301.2">s / (τ_d s + 1)</tspan></text>
+<polyline points="160.0,340.0 160.0,420.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="147.0" y="368.0" width="25.9" height="24.0" fill="#ffffff" opacity="0.9"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="16" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="160.0" y="380.0">x̂₂</tspan></text>
+<polyline points="430.0,190.0 430.0,240.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="310" y="240" width="240" height="100" rx="12" fill="#ffffff" stroke="#1e1e1e" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="18" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="430.0" y="278.8">Butterworth</tspan><tspan x="430.0" y="301.2">differentiator (2nd order)</tspan></text>
+<polyline points="430.0,340.0 430.0,420.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<polyline points="700.0,190.0 700.0,240.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="580" y="240" width="240" height="100" rx="12" fill="#ffffff" stroke="#1e1e1e" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="18" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="700.0" y="278.8">Continuous-discrete EKF</tspan><tspan x="700.0" y="301.2">exact parameters</tspan></text>
+<polyline points="700.0,340.0 700.0,420.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<polyline points="970.0,190.0 970.0,240.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="850" y="240" width="240" height="100" rx="12" fill="#ffffff" stroke="#1e1e1e" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="18" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="970.0" y="278.8">Shallow dynamic RNN</tspan><tspan x="970.0" y="301.2">(Dinh et al. 2014)</tspan></text>
+<polyline points="970.0,340.0 970.0,420.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<polyline points="1240.0,190.0 1240.0,240.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="1120" y="240" width="240" height="100" rx="12" fill="#d0bfff" stroke="#8b5cf6" stroke-width="2" stroke-dasharray="8 6"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="18" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="1240.0" y="267.5">Adaptive observers</tspan><tspan x="1240.0" y="290.0">Approaches A–D</tspan><tspan x="1240.0" y="312.5">(feature branches)</tspan></text>
+<polyline points="1240.0,340.0 1240.0,420.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="40" y="420" width="1320" height="90" rx="12" fill="#b2f2bb" stroke="#22c55e" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="20" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="700.0" y="465.0">Metrics (src/utils/metrics.py): velocity RMSE, steady-state error, peak error, chattering ratio</tspan></text>
+<polyline points="700.0,30.0 700.0,0.0 -40.0,0.0 -40.0,465.0 40.0,465.0" fill="none" stroke="#555555" stroke-width="2" stroke-dasharray="8 6" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="-30.1" y="-12.0" width="205.1" height="24.0" fill="#ffffff" opacity="0.9"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="16" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="72.5" y="0.0">true states x, ẋ, θ, θ̇</tspan></text>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="18" dominant-baseline="hanging" fill="#555555"><tspan x="40" y="540.0">Every estimator sees only the encoder signal y and the commanded input; the metrics compare against the true states.</tspan></text>
+</svg>
