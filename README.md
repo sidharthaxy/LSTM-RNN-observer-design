@@ -94,27 +94,31 @@ and
 $$\Omega_h = I_n \otimes \sum_j h_j h_j^T = I_n \otimes (H^TH),\qquad H = [h_1,\dots,h_N]^T \in \mathbb{R}^{N\times L},$$
 
 so that $\lambda_{\min}(\Omega_h) = \sigma_{\min}(H)^2$. This needs only $N \ge L = 16$ points.
-The rank condition is therefore imposed and monitored on the readout. The gate weights also
+The rank condition is therefore imposed and monitored on the readout.
+
+Since $\mathrm{rank}\,\Omega \le nN$, the condition needs $nN \ge p$ at the very least. That makes the
+choice of parameter set decisive:
+
+| Design | Parameter set | Required stored points |
+|:---|:---|:---|
+| C, full LSTM | $p = 1440$ | $N \ge 720$ informative points: not achievable |
+| **C, as implemented** | Readout only, $p = 32$ | $N \ge 16$; reached 2.5 s into training (§8) |
+| D (`feature/approach-d-physics-icl`) | All $p = 15$ parameters of a linear Euler–Lagrange model | Gated on 60 windows and $\lambda_{\min} \ge 10^{-4}$; the gate opens after about 3 s |
+
+Approach D was built to close this gap. Its model is linear in its parameters, so the rank condition
+covers every parameter and the true plant lies inside the model class. The gate weights also
 receive the CL gradient, computed with the full Jacobian $\Phi'_g(t_j)$, but without an
 excitation guarantee (§6.3).
 
 ## 3. Architecture
 
-```
- y = [x, θ]_meas ─┬──────────────────────────────────────────────────────────────┐
- u ───────────────┤                                                              │
-                  ▼                                                              ▼
-   ┌─────────────────────────────── Approach A (unchanged) ──────────┐   ┌─── ring buffer (W = 251 samples) ───┐
-   │ auxiliary filter (p, ν): e = x̃₁ + ν, η                          │   │ (ζ, ĉ, h, u, y) snapshots           │
-   │ CT-LSTM memory ĉ, ĥ; ζ = [s∘([x̂₁,x̂₂,u] − μ), ĥ, 1]               │   │ Savitzky–Golay d²/dt² at the centre │
-   │ x̂̇₁ = x̂₂,  x̂̇₂ = Φ̂ + k_s sgn(e) + χ                               │   └───────────────┬─────────────────────┘
-   └───────────────┬──────────────────────────────────────┬──────────┘                   │ candidate (ζ_j, ĉ_j, ẍ_j)
-                   │ Φ'(t)ᵀ e (instantaneous loop)         │ Φ̂ = W_hᵀ h                   ▼
-                   ▼                                       │                ┌──── history stack (N = 48) ─────┐
-   θ̇_h = Γ_h h eᵀ  +  Γ_CL Σ_j h_j (ẍ_j − W_hᵀh_j)ᵀ  ◄─────┼────────────────│ novelty gate → append / swap     │
-   θ̇_g =            Γ_CL,g Σ_j Φ'_g(t_j)ᵀ(ẍ_j − Φ̂_j)  ◄──┘                │ swap only if λ_min(Ω) increases  │
-                                                                           └──────────────────────────────────┘
-```
+![Observer block diagram](figures/diagrams/observer_block_diagram.svg)
+
+*Diagram 1. Block diagram of the CL-Lb-LSTM observer. Everything outside the dashed path is Approach
+A, unchanged: the filter, the feedback $\chi$, the robust term, the LSTM and its instantaneous
+law. The dashed path adds the history stack. It records operating points with a Savitzky–Golay
+acceleration proxy (§5) and feeds the recorded-data terms into the adaptation (§6). Diagram 2 (§4)
+details that path.*
 
 **What is inherited from Approach A.** The filter, the observer feedback $\chi$, the robust
 term, the LSTM memory ODEs, the analytical Jacobians (`src/adaptation/jacobian_engine.py`) and
@@ -129,6 +133,14 @@ identical states and weights, to 1e-12.
 | Gates $W_{c,i,f,o}$ (1408 params) | $\gamma_g = 0$ (off) | $\gamma_{CL,g} = 5$, explicit step | Descent on the stack loss only; rank(Ω) ≤ 96 < 1408 |
 
 ## 4. History stack: singular-value-maximizing recording
+
+![History stack and CL loops](figures/diagrams/cl_pipeline.svg)
+
+*Diagram 2. The concurrent-learning data path. Encoder samples in a ring buffer give a delayed,
+lag-free acceleration proxy. Candidate points pass a novelty gate. When the stack is full, a
+candidate replaces the entry whose removal most increases $\lambda_{\min}(\Omega)$. The stack drives
+the implicit readout step, which carries the rank guarantee, and the explicit gate step, which has
+none.*
 
 `src/concurrent_learning/history_stack.py`. Each entry stores what is needed to re-evaluate the
 network at the recorded operating point, $[\zeta(t_j),\ \hat c(t_j),\ u(t_j),\ x_{meas}(t_j),\ \ddot x(t_j)]$,
@@ -180,6 +192,11 @@ $$\hat{\ddot q}(t_c) = c_2^T\,[q(t-(W-1)T_s),\dots,q(t)]^T,\qquad c_2 = 2\,[V^+]
   data is 0.14 rad/s² for θ̈ (about 10% of RMS θ̈) and 0.004 m/s² for ẍ (about 2%).
   Substituting the true accelerations at the stack points leaves the stack fit essentially
   unchanged, so proxy noise is not the limiting factor.
+- **How it can be avoided.** Integral concurrent learning (Parikh et al. 2019) integrates the
+  equations of motion over a window, so each stored entry needs only positions, velocities and
+  $\int u$. Approach D does this. Its velocity smoother has noise gain 8.5, against about 260 for a
+  second derivative over the same 0.1 s window. For C the proxy was not the binding limit; the
+  readout-only rank condition above was.
 
 ## 6. Adaptation laws
 
@@ -233,7 +250,8 @@ algebra (its README, §3) gives, with $P \ge 0$ the RISE auxiliary function (Xia
 
 $$\dot V_0 + \dot P \le -W_0(z) := -\alpha\big(\|\tilde x_1\|^2 + \|\eta\|^2 + \|\nu\|^2\big) - k_r\|r\|^2,$$
 
-valid when $k_s$ dominates the bound on $N = g - \hat\Phi$ and $\dot N$. $N$ is bounded because
+valid when $k_s$ satisfies the RISE integral lemma of Approach A's README (§3.3), i.e. dominates the
+bounds on $N = g - \hat\Phi$ and $\dot N/\alpha$ in integral, not pointwise. $N$ is bounded because
 projection keeps $\|\hat\theta\| \le \bar W$. The observer is discontinuous
 (sgn), so solutions are taken in the Filippov sense, and the nonsmooth LaSalle–Yoshizawa
 corollaries of Fischer, Kamalapurkar & Dixon (2013) apply.
@@ -504,12 +522,17 @@ BLAS threads and run many times slower.
 
 ## References
 
-- G. Chowdhary, E. Johnson. *Concurrent learning for convergence in adaptive control without persistency of excitation.* IEEE CDC, 2010.
-- G. Chowdhary, E. Johnson. *A singular value maximizing data recording algorithm for concurrent learning.* ACC, 2011.
-- G. Chowdhary, T. Yucelen, M. Mühlegg, E. Johnson. *Concurrent learning adaptive control of linear systems with exponentially convergent bounds.* Int. J. Adaptive Control and Signal Processing, 2013.
-- R. Kamalapurkar, B. Reish, G. Chowdhary, W. E. Dixon. *Concurrent learning for parameter estimation using dynamic state-derivative estimators.* IEEE TAC, 2017.
-- N. Fischer, R. Kamalapurkar, W. E. Dixon. *LaSalle–Yoshizawa corollaries for nonsmooth systems.* IEEE TAC, 2013.
-- B. Xian, D. M. Dawson, M. S. de Queiroz, J. Chen. *A continuous asymptotic tracking control strategy for uncertain nonlinear systems.* IEEE TAC, 2004.
-- G. Joshi, J. Virdi, G. Chowdhary. *Asynchronous deep model reference adaptive control.* CoRL, 2020.
-- E. Griffis, O. Patil, R. Hart, W. E. Dixon. *Lyapunov-based long short-term memory (Lb-LSTM) neural network-based control.* IEEE Control Systems Letters, 2024.
-- A. Savitzky, M. J. E. Golay. *Smoothing and differentiation of data by simplified least squares procedures.* Analytical Chemistry, 1964.
+- G. Chowdhary and E. Johnson, "Concurrent learning for convergence in adaptive control without persistency of excitation," in *Proc. 49th IEEE Conference on Decision and Control*, pp. 3674–3679, 2010.
+- G. Chowdhary and E. Johnson, "A singular value maximizing data recording algorithm for concurrent learning," in *Proc. American Control Conference*, pp. 3547–3552, 2011.
+- G. Chowdhary, T. Yucelen, M. Mühlegg, and E. Johnson, "Concurrent learning adaptive control of linear systems with exponentially convergent bounds," *International Journal of Adaptive Control and Signal Processing*, 2013.
+- R. Kamalapurkar, B. Reish, G. Chowdhary, and W. E. Dixon, "Concurrent learning for parameter estimation using dynamic state-derivative estimators," *IEEE Transactions on Automatic Control*, 2017.
+- A. Parikh, R. Kamalapurkar, and W. E. Dixon, "Integral concurrent learning: Adaptive control with parameter convergence using finite excitation," *International Journal of Adaptive Control and Signal Processing*, vol. 33, no. 12, pp. 1775–1787, 2019, doi:10.1002/acs.2945.
+- N. Fischer, R. Kamalapurkar, and W. E. Dixon, "LaSalle–Yoshizawa corollaries for nonsmooth systems," *IEEE Transactions on Automatic Control*, vol. 58, no. 9, pp. 2333–2338, 2013.
+- B. Xian, D. M. Dawson, M. S. de Queiroz, and J. Chen, "A continuous asymptotic tracking control strategy for uncertain nonlinear systems," *IEEE Transactions on Automatic Control*, vol. 49, no. 7, pp. 1206–1211, 2004, doi:10.1109/TAC.2004.831148.
+- G. Joshi, J. Virdi, and G. Chowdhary, "Asynchronous deep model reference adaptive control," in *Proc. Conference on Robot Learning (CoRL)*, 2020.
+- E. J. Griffis, O. S. Patil, R. G. Hart, and W. E. Dixon, "Lyapunov-based long short-term memory (Lb-LSTM) neural network-based adaptive observer," *IEEE Control Systems Letters*, vol. 8, pp. 97–102, 2024, doi:10.1109/LCSYS.2023.3348706.
+- A. Savitzky and M. J. E. Golay, "Smoothing and differentiation of data by simplified least squares procedures," *Analytical Chemistry*, vol. 36, no. 8, pp. 1627–1639, 1964.
+
+**Diagrams.** Diagrams 1–2 are Excalidraw element lists in `figures/diagrams/src/*.json`;
+`python figures/diagrams/src/render_diagrams.py` regenerates the SVGs and the editable `.excalidraw`
+scenes.

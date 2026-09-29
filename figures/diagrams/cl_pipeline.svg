@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-30 -140 1510 1002" width="1510" height="1002" role="img">
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="context-stroke"/></marker></defs>
+<rect x="-30" y="-140" width="1510" height="1002" fill="#ffffff"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="28" dominant-baseline="hanging" fill="#1e1e1e"><tspan x="0" y="-110.0">Approach C: history stack and concurrent-learning loops</tspan></text>
+<rect x="0" y="0" width="210" height="100" rx="12" fill="#a5d8ff" stroke="#4a9eed" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="18" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="105.0" y="27.5">Encoder y, input u</tspan><tspan x="105.0" y="50.0">ring buffer</tspan><tspan x="105.0" y="72.5">(251 samples)</tspan></text>
+<rect x="270" y="-10" width="300" height="120" rx="12" fill="#d0bfff" stroke="#8b5cf6" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="18" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="420.0" y="27.5">SG acceleration proxy</tspan><tspan x="420.0" y="50.0">0.25 s cubic, d²/dt² at centre</tspan><tspan x="420.0" y="72.5">noise gain ≈ 26.9σ</tspan></text>
+<polyline points="210.0,50.0 270.0,50.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="630" y="0" width="280" height="100" rx="12" fill="#fff3bf" stroke="#f59e0b" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="17" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="770.0" y="28.8">Candidate point</tspan><tspan x="770.0" y="50.0">(ζ_j, ĉ_j, ẍ_j),  r_j = h_j</tspan><tspan x="770.0" y="71.2">every 20 ms after 2 s</tspan></text>
+<polyline points="570.0,50.0 630.0,50.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="582.6" y="38.0" width="34.9" height="24.0" fill="#ffffff" opacity="0.9"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="16" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="600.0" y="50.0">ẍ_j</tspan></text>
+<polygon points="1080.0,-20 1190,50.0 1080.0,120 970,50.0" fill="#fff3bf" stroke="#f59e0b" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="16" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="1080.0" y="40.0">novel</tspan><tspan x="1080.0" y="60.0">enough?</tspan></text>
+<polyline points="910.0,50.0 970.0,50.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="1260" y="10" width="180" height="80" rx="12" fill="#e9ecef" stroke="#868e96" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="18" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="1350.0" y="50.0">reject</tspan></text>
+<polyline points="1190.0,50.0 1260.0,50.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="1212.0" y="38.0" width="25.9" height="24.0" fill="#ffffff" opacity="0.9"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="16" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="1225.0" y="50.0">no</tspan></text>
+<polygon points="1080.0,200 1190,270.0 1080.0,340 970,270.0" fill="#fff3bf" stroke="#f59e0b" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="16" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="1080.0" y="260.0">stack</tspan><tspan x="1080.0" y="280.0">full?</tspan></text>
+<polyline points="1080.0,120.0 1080.0,200.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="1062.6" y="148.0" width="34.9" height="24.0" fill="#ffffff" opacity="0.9"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="16" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="1080.0" y="160.0">yes</tspan></text>
+<rect x="1260" y="225" width="180" height="90" rx="12" fill="#e9ecef" stroke="#868e96" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="18" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="1350.0" y="270.0">append</tspan></text>
+<polyline points="1190.0,270.0 1260.0,270.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="1212.0" y="258.0" width="25.9" height="24.0" fill="#ffffff" opacity="0.9"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="16" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="1225.0" y="270.0">no</tspan></text>
+<rect x="560" y="210" width="340" height="120" rx="12" fill="#fff3bf" stroke="#f59e0b" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="17" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="730.0" y="248.8">Best single swap j*</tspan><tspan x="730.0" y="270.0">max λ_min(Ω − r_j r_jᵀ + r rᵀ)</tspan><tspan x="730.0" y="291.2">accept if gain &gt; 0.1 %</tspan></text>
+<polyline points="970.0,270.0 900.0,270.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="917.6" y="258.0" width="34.9" height="24.0" fill="#ffffff" opacity="0.9"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="16" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="935.0" y="270.0">yes</tspan></text>
+<rect x="560" y="420" width="340" height="110" rx="12" fill="#c3fae8" stroke="#06b6d4" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="17" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="730.0" y="453.8">History stack, N = 48</tspan><tspan x="730.0" y="475.0">Ω_r = HᵀH, λ_min non-decreasing</tspan><tspan x="730.0" y="496.2">rank met at 2.5 s (no PE)</tspan></text>
+<polyline points="730.0,330.0 730.0,420.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<polyline points="1350.0,315.0 1350.0,475.0 900.0,475.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="180" y="610" width="460" height="120" rx="12" fill="#eebefa" stroke="#ec4899" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="17" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="410.0" y="648.8">Readout CL (32 params), implicit step</tspan><tspan x="410.0" y="670.0">W_h⁺ = (I + T_s γ_CL Ω_r)⁻¹ ×</tspan><tspan x="410.0" y="691.2">(W_h + T_s γ_h h eᵀ + T_s γ_CL B)</tspan></text>
+<rect x="700" y="610" width="480" height="120" rx="12" fill="#eebefa" stroke="#ec4899" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="17" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="940.0" y="648.8">Gate CL (1408 params), explicit step</tspan><tspan x="940.0" y="670.0">θ̇_g = γ_CL,g Σ_j Φ′_g(t_j)ᵀ(ẍ_j − Φ̂_j)</tspan><tspan x="940.0" y="691.2">no excitation guarantee (rank ≤ 96)</tspan></text>
+<polyline points="700.0,530.0 410.0,610.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<polyline points="760.0,530.0 940.0,610.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="1250" y="625" width="200" height="90" rx="12" fill="#b2f2bb" stroke="#22c55e" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="18" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="1350.0" y="658.8">LSTM weights</tspan><tspan x="1350.0" y="681.2">→ observer</tspan></text>
+<polyline points="1180.0,670.0 1250.0,670.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<polyline points="410.0,730.0 410.0,770.0 1350.0,770.0 1350.0,715.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="18" dominant-baseline="hanging" fill="#555555"><tspan x="0" y="810.0">The instantaneous law of Approach A still runs on the readout; the stack adds the recorded-data terms.</tspan></text>
+</svg>
