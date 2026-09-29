@@ -458,8 +458,8 @@ Almost every entry exceeds 1: long open-loop runs of this marginally stable plan
 predictive for any model (§9.2). C's twin is nonetheless **less robust in long free runs** on the
 multisine and sine tests, where its errors grow by orders of magnitude. The gate loop fits the
 stored points well, but it does not constrain the twin's own closed-loop dynamics away from them.
-The only free-run win for C is θ on the chirp. Anyone planning to use the frozen C model as a
-long-horizon simulator should treat this as a real limitation.
+The only free-run win for C is θ on the chirp. The frozen C model is therefore not suitable as
+a long-horizon simulator.
 
 ## 10. Configuration (defaults of `CLLbLSTMObserverConfig`)
 
