@@ -195,9 +195,9 @@ embed only the non-cyclic coordinates, so $\hat M$, $\hat P$ and $S$ are invaria
 **by construction**, and $\hat G_x \equiv 0$. By Noether's theorem, the learned model then
 conserves the cart momentum $(\hat M\dot q)_1$ whenever $u = 0$ and $\hat F = 0$.
 
-In the final configuration this prior makes little numerical difference (§9.6). It mattered
-earlier in development: with random features and $D = I$, $x$-dependent inertia produced
-spurious Christoffel forces that destabilized adaptation.
+In the final configuration this prior makes little numerical difference (§9.6). With random
+features and $D = I$, however, an $x$-dependent inertia produces spurious Christoffel forces that
+destabilize adaptation, so the prior is kept.
 
 ## 4. Coriolis, gravity and friction sub-networks
 
@@ -305,7 +305,7 @@ $$\eta = p - (\alpha+k_r)\tilde q,\quad \dot p = -(k_r+2\alpha)p - \nu + ((\alph
 
 $$\chi = -(3\alpha+k_r)\eta + (2-\alpha^2)\tilde q - \nu.$$
 
-The corrected $(2-\alpha^2)$ coefficient is derived in Approach A's README, §3. With the
+The $(2-\alpha^2)$ coefficient is derived in Approach A's README, §3. With the
 unmeasurable filtered error $r = \tilde{\dot q} + \alpha\tilde q + \eta$ and
 $V_0 = \tfrac12(\lVert\tilde q\rVert^2 + \lVert\eta\rVert^2 + \lVert\nu\rVert^2 + \lVert r\rVert^2)$:
 
@@ -313,7 +313,7 @@ $$\dot V_0 = -\alpha(\lVert\tilde q\rVert^2 + \lVert\eta\rVert^2 + \lVert\nu\rVe
 
 Nothing in the filter requires the velocity.
 
-**Stability sketch.** This is honest about what the structure changes. Let
+**Stability sketch.** Let
 $N = \ddot q - \hat\Phi$. As in Approach A, if $\hat\theta$ stays in a compact set
 (guaranteed by projection, §6) and $N, \dot N$ are bounded along the trajectory, the RISE
 integral lemma (Approach A's README, §3.3) gives asymptotic convergence when $k_s$ exceeds its bound,
@@ -402,31 +402,19 @@ This is identical to Approach A §6. Measurements and inputs are held zero-order
 inside $\bar W_\beta$ (a safeguard; in the reported runs every block stays below 48 % of
 its radius). The frozen-model rollouts in §9.3 use RK4.
 
-## 8. Design decisions and what failed
+## 8. Design decisions
 
-These notes record the development path, because each fix is itself a statement about
-physics-informed adaptation.
+Each choice below was tested against its alternative. The last column gives the measured effect.
 
-1. **First attempt: 24 random tanh features, $D = I$, Euclidean gradient,
-   $\hat M(0) = \mathrm{diag}(1, 0.1)$.** The observer diverged at 0.13 s. The Euclidean
-   adjoint $\lambda = \hat M^{-1}e$ amplifies the pendulum channel about 100×, so the gain
-   that suits a black-box readout is 50–100× too large here.
-2. **Gains reduced.** The observer was stable, but gravity was never learned
-   ($\lVert w_G\rVert \approx 0.3$). The gradient direction was correct: with the true $M$
-   inserted, $w_G$ converged to $mgl$. The cause was coupling. With $\hat M_{11}$ wrong, the
-   cart channel carries a large $u$-correlated error, which the $x$-features of $\hat P$
-   tried to absorb. Meanwhile unlearned gravity drove $\hat M_{22}$ toward instability.
-   A trace showed $\hat M_{12}$ jumping from −0.15 to −0.70 within 250 ms, fed by the
-   $\dot q^2$ Christoffel term (the semi-global issue of §5).
-3. **Fixes, each physically motivated:**
-   - the cyclic cart coordinate (§3.5);
-   - the kinetic-energy metric (§6);
-   - harmonic instead of random features (§3.3);
-   - the dimensionless Cholesky row scale (§3.4).
+| Choice | Alternative | Measured effect of the alternative |
+|:---|:---|:---|
+| Kinetic-energy metric (§6) | Euclidean gradient | Diverges at 3.6 s (§9.6). The adjoint $\lambda = \hat M^{-1}e$ amplifies the light pendulum channel about 100× |
+| Harmonic features (§3.3) | 24 random tanh features | Slower gravity learning; post-shift $\dot\theta$ error 2.3× worse (§9.6) |
+| Dimensionless Cholesky row scale (§3.4) | $D = I$ | One gain cannot suit the 20× inertia spread. Combined with random features, the quadratic Christoffel term drove $\hat M_{12}$ from −0.15 to −0.70 within 250 ms (the semi-global effect of §5) |
+| Cyclic cart coordinate (§3.5) | $x$ among the features | Little effect in the final configuration (§9.6). With random features and $D = I$, the $x$-features of $\hat P$ absorbed the $u$-correlated cart error and gravity was not learned ($\lVert w_G\rVert \approx 0.3$, against $mgl = 0.81$) |
+| Dissipative friction (§4.3) | Unconstrained $\hat F = W_h^Th$ | Learned friction injects power in 58 % of samples |
 
-   After these, the observer is stable for every prior and seed tried.
-4. **Dissipative friction** (§4.3). This came from auditing the first full run, where
-   unconstrained friction injected power in 58 % of samples.
+With all five choices in place, the observer is stable for every prior and seed tried.
 
 The Approach A baseline was re-tuned on this scenario too: input scales, $\gamma_h$,
 $\gamma_g$ and $L$. Its published defaults, with the same data-driven normalization, were
@@ -672,7 +660,7 @@ python experiments/run_pilstm_validation.py --actuator-effects      # dead-zone 
 | `experiments/run_pilstm_validation.py` | Extreme-condition benchmark; plausibility audit; frozen-model free swing; seeds; ablations; figures. |
 | `tests/test_pilstm.py` | 19 tests: feature and $\partial\hat M/\partial q$ finite differences; SPD and skew-symmetry for random parameters; brute-force Christoffel check; cyclic invariance; energy conservation; dissipativity; blockwise Jacobians against finite differences; projection; observer tracking with invariants. |
 | `src/observers/blackbox_lstm.py`, `src/adaptation/jacobian_engine.py`, `src/simulation/open_loop.py`, and their tests | Approach A baseline, copied unchanged from `feature/approach-a-blackbox-lstm` for the comparison. The PI-LSTM reuses A's LSTM cell, Kronecker Jacobian and smooth projection. |
-| `src/observers/physics_informed_lstm_observer.py` | Earlier prototype on this branch. It uses the *known* nominal $M$, $C$, $G$ and a residual LSTM. It is superseded by the modules above and kept for reference. Note that its Lyapunov argument cancels terms in the unmeasured velocity error $e_v$, while its adaptation law uses the position error, so that law does not follow from the stated $V$. |
+| `src/observers/physics_informed_lstm_observer.py` | Superseded residual-learning variant that uses the *known* nominal $M$, $C$, $G$. Kept for reference only: its adaptation law is not consistent with its stated Lyapunov function. |
 
 ## References
 
