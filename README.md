@@ -221,17 +221,17 @@ Nothing else is touched: not the other coordinate, not the LSTM memories, not th
 wrapper amounts to a new initial condition for part of the observer state, so every stability
 argument still applies.
 
-**Design history (what did not work).** Each earlier version was benchmarked on all 90
-warm-start runs:
+**Why position, velocity and filter are reset together.**
 
-| Version | Cart channel | Pendulum channel |
-|:---|:---|:---|
-| (a) Reset the whole observer to the fit at 0.1 s | Much better | Worse: θ̇ RMSE up to +16 %, peak up to +27 %. The reset threw away 0.1 s of adaptation and restarted the filter transient, and the fitted θ̇ is noise when the pendulum is at rest. |
-| (b) As (a), plus the 3σ significance gate | Much better | Unchanged from (a), peak up to +33 %. By 0.1 s the pendulum is already moving, so the gated zero was wrong too. |
-| (c) Inject the velocity only, keeping the observer running | The error re-grew to about 0.2 m/s | Filter states still encoded the old error, and the position estimate still lagged. |
-| **(d) Current: inject position and velocity, re-initialize that coordinate's filter** | **Error stays below 0.02 m/s after injection** | See the table below |
+- **Velocity only:** injecting only the velocity leaves the position estimate and the filter
+  states inconsistent with it, and the cart error re-grows to about 0.2 m/s.
+- **Whole observer:** resetting the whole observer at 0.1 s discards the adaptation done so far and
+  restarts the filter transient. The pendulum channel then gets worse (θ̇ RMSE up to +16 %, peak up
+  to +27 %).
+- **This design:** resetting one coordinate's position, velocity and filter keeps the cart error
+  below 0.02 m/s after injection.
 
-**Result of (d).** Warm / cold ratio of the median over 5 seeds (below 1 = warm start is
+**Result.** Warm / cold ratio of the median over 5 seeds (below 1 = warm start is
 better):
 
 | | ẋ RMSE 0.1–5 s | Peak ẋ error 0.1–2 s | θ̇ RMSE 0.1–5 s | Peak θ̇ error 0.1–2 s | Steady θ̇ RMSE |
@@ -243,9 +243,9 @@ better):
 - **Cart channel: large, consistent gains.** The transient error falls 1.2–15× and the peak
   1.5–27×. B and D gain most, because once their state is right their models hold it.
 - **Pendulum channel: neutral on S2 and S3, slightly worse on S1.** On S1 it is 3–8 % worse
-  (peak 12–14 %). The pendulum is not reset there, so the loss is indirect. My best explanation
-  is that the large initial cart error was acting as free early excitation for the adaptation
-  laws, and removing it slows the first second of model learning. It is a real trade-off.
+  (peak 12–14 %). The pendulum is not reset there, so the loss is indirect. The likely cause is
+  that the large initial cart error acts as early excitation for the adaptation laws, and removing
+  it slows the first second of model learning. This is a real trade-off.
 - **What the warm start cannot fix.** The pendulum's early transient (peaks 0.12–0.53 rad/s)
   comes from the *unlearned model*. Only faster model learning reduces it, and no approach here
   does that within the first 2 s.
@@ -254,7 +254,7 @@ better):
 
 ![Warm start](figures/shared_benchmark/warm_start.png)
 
-*Version (d). Each panel shows cold start (light) against warm start (solid), per model.*
+*Each panel shows cold start (light) against warm start (solid), per model.*
 
 ## 6. Reproducing the results
 
