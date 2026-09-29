@@ -1,645 +1,361 @@
-# Approach B: Physics-Informed Lb-LSTM (PI-LSTM) Adaptive Observer
+# Approach D: Physics-Structured Observer with Integral Concurrent Learning (PI-ICL)
 
-[![Branch](https://img.shields.io/badge/Branch-feature%2Fapproach--b--physics--informed-purple.svg)](#)
-[![Paradigm](https://img.shields.io/badge/Paradigm-Structured%20Euler--Lagrange%20Lyapunov%20LSTM-brightgreen.svg)](#)
-[![Tests](https://img.shields.io/badge/tests-53%2F53%20passing-success.svg)](#13-reproducing-the-results)
+[![Branch](https://img.shields.io/badge/Branch-feature%2Fapproach--d--physics--icl-teal.svg)](#)
+[![Paradigm](https://img.shields.io/badge/Paradigm-Euler--Lagrange%20%2B%20Integral%20CL-brightgreen.svg)](#)
+[![Tests](https://img.shields.io/badge/tests-76%2F76%20passing-success.svg)](#11-reproducing-the-results)
 
-This branch implements a Lyapunov-based **physics-informed** LSTM state observer in the
-spirit of **Hart, Griffis, Patil & Dixon (2024)**. It runs on the Feedback Instruments 33-936S
-cart-pendulum testbed. Approach A (`feature/approach-a-blackbox-lstm`) learns the whole
-acceleration field $g(x,u)$ as a black box. Approach B instead learns the four terms of the
-Euler–Lagrange equation,
+Approach D combines the two ideas that worked best in Approaches B and C:
 
-$$M(q)\ddot q + V_m(q,\dot q)\dot q + G(q) + F(\dot q) = Bu,$$
+- **From B**, the Euler–Lagrange structure of the model. The inertia is symmetric and positive
+  definite, the Coriolis term comes from the Christoffel symbols, gravity is the gradient of a
+  potential, friction is dissipative, and the cart position is cyclic.
+- **From C**, concurrent learning. A history stack of recorded data identifies the model after
+  the excitation that produced that data is gone.
 
-with sub-networks whose **parametrization** enforces the mechanical invariants. The
-invariants hold for *every* parameter value, so they hold throughout the adaptation
-transient, not only at convergence:
+To make the two fit, every sub-model is written **linearly** in its parameters. The rank
+condition then applies to the *whole* parameter vector, and the true rig is representable
+exactly. The stack stores *integration windows*, not points, so no acceleration estimate is ever
+needed (integral CL).
 
-| Invariant | How it is enforced | Holds for |
-|:---|:---|:---|
-| $\hat M = \hat M^T \succeq \epsilon_M I$ | modified Cholesky $\hat M = LL^T + \epsilon_M I$, softplus diagonal | all $\theta_M$ |
-| $z^T(\dot{\hat M} - 2\hat V_m)z = 0$ | $\hat V_m$ from Christoffel symbols of $\hat M$, plus a skew gyroscopic term | all $\theta_M, \theta_V$ |
-| $\hat G$ conservative | $\hat G = \nabla_q \hat P$, gradient of a learned potential | all $\theta_G$ |
-| $\dot q^T\hat F \ge 0$ | $\hat F = \mathrm{diag}(d_i)\dot q$, $d_i = d^0_i\,\mathrm{softplus}(\cdot) > 0$ | all $\theta_F$ |
-| $\hat M, \hat P$ independent of the cart position $x$ | $x$ is a cyclic coordinate of the learned Lagrangian | all $\theta$ |
+Approach B's README lists incomplete inertia identification as its main open problem: 16 % error,
+and $\hat M_{22}$ does not follow a change of the pendulum. Approach D identifies all four rigid-body
+parameters and re-identifies them after the plant changes.
 
-Together these make the learned model **passive**: $\frac{d}{dt}(\hat T + \hat P) \le \dot q^TBu$.
+**Results at a glance.** Approach B's own extreme-condition scenario and metrics: a 50 s run
+starting 0.5 rad from upright, ±1° encoder noise, and pendulum mass and inertia +50 % at 25 s.
+Medians over 5 seeds.
 
-All updates are analytical ODEs in NumPy, with no autograd. The Jacobians of all four
-parameter blocks match central finite differences to about $10^{-9}$.
+| | A: Lb-LSTM | B: PI-LSTM | **D: PI-ICL** | D, CL off |
+|:---|---:|---:|---:|---:|
+| θ̇ RMSE, pre-shift 15–25 s [rad/s] | 0.060 | 0.030 | **0.019** | 0.106 |
+| θ̇ RMSE, post-shift 25–30 s | 0.046 | 0.022 | **0.018** | 0.093 |
+| θ̇ RMSE, steady 35–50 s | 0.036 | 0.020 | **0.019** | 0.061 |
+| ẋ RMSE, steady 35–50 s [m/s] | 0.0057 | 0.0025 | **0.0018** | 0.0055 |
+| Peak θ̇ error after the step, 25–27 s | 0.110 | 0.054 | **0.045** | 0.196 |
+| Peak θ̇ error, initial transient 0–2 s | **0.440** | 0.459 | 0.533 | 0.533 |
+| Inertia error $\lVert\hat M - M\rVert/\lVert M\rVert$ @ 50 s | — | 16.3 % | **0.19 %** | 21.9 % |
+| Online θ̈ model NMSE, steady | 0.0062 | 0.0010 | **0.0005** | 0.0216 |
 
-**Results in brief.** Scenario: 50 s; $\theta(0) = 0.5$ rad from upright; U(±1°) encoder
-noise; pendulum mass +50 % at $t = 25$ s. Details in §9.
-
-| | Black-box Lb-LSTM (A) | **PI-LSTM (B)** |
-|:---|---:|---:|
-| Steady $\dot x$ RMSE (35–50 s), median of 5 seeds | 0.0061 m/s | **0.0025 m/s** |
-| Steady $\dot\theta$ RMSE (35–50 s), median of 5 seeds | 0.041 rad/s | **0.020 rad/s** |
-| Post-shift $\dot\theta$ RMSE (25–30 s), median of 5 seeds | 0.047 rad/s | **0.020 rad/s** |
-| Peak $\lvert\dot\theta\text{ error}\rvert$ right after the mass step (25–27 s) | 0.106 rad/s | **0.047 rad/s** |
-| Peak $\lvert\dot\theta\text{ error}\rvert$ in the initial transient (0–2 s), median of 5 seeds | **0.43 rad/s** | 0.46 rad/s |
-| Samples with physically impossible input gain, $(\hat M^{-1})_{11} \le 0$ | 0.7–7.0 % | **0 %** (structural) |
-| Frozen model, free swing on unseen data: $\theta$ RMSE | 0.61 rad | **0.07 rad** |
-| Frozen model: true energy lost in a 0.56 J swing | up to 0.55 J (spurious) | < 0.01 J |
-| Parameters | 1440 | **398** |
-
-- **What the structure buys.** It halves the steady-state velocity error. It recovers from
-  the parameter step twice as fast. The frozen model is a usable, energy-consistent digital
-  twin.
-- **What it does not buy.** It does not reduce the *initial* peaking (§9.5). Inertia
-  identification is incomplete: $\hat M$ has 16 % relative error at 50 s, and $\hat M_{22}$
-  does not track the post-shift increase (§9.4).
+- **Velocity estimation.** D is the best of the four in every steady and post-shift window. The
+  seed ranges do not overlap: D's worst steady θ̇ RMSE (0.0196) is below B's best (0.0199).
+- **Identification.** The inertia matrix is identified to 0.2–0.3 % instead of 16 %.
+  - **Mass and coupling.** M+m and ml are within 1 % before and after the step.
+  - **Pendulum inertia and gravity.** I+ml² and mgl are within 4–8 % (median). These two are
+    identifiable only through the weak cart–pendulum coupling (§5).
+- **Plant change.** The change is detected 0.45–0.50 s after the step in every seed, with no
+  false alarms, and the parameters are re-identified about 4 s later.
+- **The price.** The initial transient is worse (peak 0.53 vs 0.46 rad/s): D's
+  instantaneous gain is small, and the stack needs about 3 s of windows before CL acts.
+- **The history stack does the work.** With CL off, the same observer is worse than A.
 
 ---
 
-## 1. Problem setting
+## 1. Model: linear-in-parameters Euler–Lagrange structure
 
-For the rig, the coordinates are $q = [x,\ \theta]^T$ and the input is $u = F$ (with $n = 2$,
-$m = 1$). Only $q$ is measured, $y = q + v$, and $\dot q$ must be estimated. Approach B uses
-**structural** knowledge only:
+`src/observers/el_linear_model.py`. For $q = [x, \theta]$ and $B = [1, 0]^T$:
 
-- the plant is an Euler–Lagrange system;
-- the joint types: $x$ is prismatic, $\theta$ is revolute;
-- the input matrix $B = [1,\ 0]^T$: the force acts on the cart;
-- the track is level, so $x$ is cyclic;
-- the order of magnitude of the inertia (§3.4).
+$$M(q)\ddot q + C(q,\dot q)\dot q + G(q) + F(\dot q) = Bu$$
 
-It uses **no** parameter values: no $M$, $m$, $l$, $I$, $g$, $b$ or $d$.
+$$M(q) = \sum_{e=(i\le j)}\sum_k \theta_{e,k}\,\rho_k(q)\,E_e,\qquad C\dot q = \dot M\dot q - \tfrac12\partial_q(\dot q^TM\dot q),\qquad G = \partial_q P,\ P = \sum_{k\ge1} w_{G,k}\rho_k(q),$$
 
-## 2. Euler–Lagrange invariants
+$$F = \mathrm{diag}(d_v)\,\dot q + \mathrm{diag}(d_c)\tanh(\dot q / v_c),\qquad d_v, d_c \ge 0.$$
 
-For a mechanical system with Lagrangian $\mathcal L = \tfrac12\dot q^TM(q)\dot q - P(q)$:
+The features $\rho(q) = [1, \cos\theta, \sin\theta]$ are Approach B's feature layer, with $x$
+cyclic, so it is not embedded. With first harmonics ($K = 1$) there are $p = 15$ parameters. The
+constant feature is left out of the potential, because it has zero gradient and would be
+unidentifiable.
 
-- **(P1)** $M(q) = M(q)^T \succ 0$. The kinetic energy $T = \tfrac12\dot q^TM\dot q$ is a
-  positive-definite metric.
-- **(P2)** With $V_m$ built from the Christoffel symbols of $M$, the matrix $\dot M - 2V_m$
-  is skew-symmetric. So $\dot q^T(\tfrac12\dot M - V_m)\dot q = 0$: Coriolis and centripetal
-  forces do no work.
-- **(P3)** $G = \nabla_q P$ is conservative.
-- **(P4)** Friction is dissipative: $\dot q^TF \ge 0$.
-- **(P5)** Power balance: $\dot H = \dot q^T(Bu - F) \le \dot q^TBu$ for $H = T + P$. The
-  system is passive from $u$ to $B^T\dot q$.
-
-An unconstrained approximator of $\ddot q$ satisfies none of these. Its implied inertia can
-be indefinite, and its free response can create or destroy energy. §9.3 measures both
-effects for Approach A.
-
-## 3. Inertia sub-network: modified Cholesky parametrization
-
-`src/observers/pilstm_network.py::cholesky_inertia`
-
-$$\hat M(q) = L(q)L(q)^T + \epsilon_M I,\qquad L = D\tilde L,\qquad
-\tilde L_{ii} = \mathrm{softplus}(a_{ii}),\quad \tilde L_{ij} = a_{ij}\ (i>j),\quad a = W_M^T\rho(q),$$
-
-where $D = \mathrm{diag}(d_i) \succ 0$ is a fixed row scale (§3.4) and $\rho(q)$ is the
-feature layer (§3.3).
-
-### 3.1 Proofs
-
-**Proposition 1 (symmetry and uniform positive-definiteness).** For every $W_M$ and every
-$q$: $\hat M = \hat M^T$, $\lambda_{\min}(\hat M) \ge \epsilon_M$, and
-$\lVert\hat M^{-1}\rVert_2 \le 1/\epsilon_M$.
-
-*Proof.* $(LL^T)^T = LL^T$. For any $z$,
-$z^T\hat Mz = \lVert L^Tz\rVert^2 + \epsilon_M\lVert z\rVert^2 \ge \epsilon_M\lVert z\rVert^2$.
-Hence $\lambda_{\min} \ge \epsilon_M$ and $\lVert\hat M^{-1}\rVert_2 = 1/\lambda_{\min} \le 1/\epsilon_M$. ∎
-
-The softplus diagonal makes $L$ nonsingular ($\det L = \prod_i d_i\tilde L_{ii} > 0$), so
-$LL^T \succ 0$ already. The $\epsilon_M I$ term adds a margin that is **uniform in the
-parameters**: softplus can approach 0, so $\lambda_{\min}(LL^T)$ alone has no parameter-free
-lower bound. Consequently, $\hat\Phi = \hat M^{-1}\hat\tau$ is always well defined, and no
-adaptation transient can produce a singular inertia.
-
-**Proposition 2 (no loss of generality).** The map $L \mapsto LL^T + \epsilon_MI$, over
-lower-triangular $L$ with positive diagonal, is a bijection onto
-$\{M = M^T : M - \epsilon_MI \succ 0\}$.
-
-*Proof.* Every symmetric positive-definite matrix $M - \epsilon_MI$ has a unique Cholesky
-factor with positive diagonal. Softplus maps $\mathbb R$ onto $(0,\infty)$, so every such
-factor is reached. ∎
-
-So the constraint excludes only physically impossible inertias (and those lighter than
-$\epsilon_M$). $\epsilon_M = 0.05$, while the rig's true $\lambda_{\min}(M) \approx 0.126$.
-
-**Proposition 3 (upper bound).** With the harmonic features of §3.3, $\lVert\rho\rVert^2 = 1 + K$
-for one revolute joint. So $\lvert a_r\rvert \le \lVert W_M\rVert\sqrt{1+K} \le \bar W_M\sqrt{1+K}$
-under the projection of §6, and $\hat M$ is bounded above by an explicit
-$\bar M(\bar W_M, D)$. The adapted inertia therefore lives in the compact set
-$\epsilon_MI \preceq \hat M \preceq \bar MI$.
-
-### 3.2 Configuration derivatives
-
-The Christoffel symbols and the adaptation law both need $\partial\hat M/\partial q_k$:
-
-$$\frac{\partial L_r}{\partial q_k} = g_r'(a_r)\,W_{M,r}^T\frac{\partial\rho}{\partial q_k},\qquad
-\frac{\partial\hat M}{\partial q_k} = \frac{\partial L}{\partial q_k}L^T + L\frac{\partial L}{\partial q_k}^T,$$
-
-with $g_r = d_i\,\mathrm{softplus}$ on the diagonal and $g_r = d_i\cdot\mathrm{id}$ below
-it. `tests/test_pilstm.py` checks $\partial\hat M/\partial q$ against finite differences.
-
-### 3.3 Feature layer
-
-$$\rho(q) = \big[\,1,\ \xi(q),\ \tanh(V_0^T\xi(q) + b_0)\,\big],\qquad
-\xi(q) = \big[\cos k\theta,\ \sin k\theta\big]_{k=1..K}\ \ (\text{revolute}),\quad s(x - \mu)\ \ (\text{prismatic}).$$
-
-The first layer is fixed; only the output layers $W_M$, $W_V$ and $w_G$ adapt. This keeps
-$\partial^2\hat M/\partial q\,\partial\theta_M$, which the Christoffel Jacobian needs
-(§6), in closed form.
-
-- **Default:** $K = 2$ harmonics and no random tanh units. For the rig this gives 5 features.
-- **Why harmonics.** They are orthogonal over a revolution, so the adaptation is well
-  conditioned.
-- **Measured alternative.** A random tanh layer (24 units, $K = 1$) makes the gravity block
-  adapt 2–3× more slowly and worsens the post-shift $\dot\theta$ error 2.3× (§9.6).
-- **Capacity.** `n_features > 0` adds random tanh capacity for mechanisms outside the
-  harmonic span.
-
-### 3.4 Dimensionless row scale and the inertia prior
-
-On the rig, $M_{11} \approx 2.6$ kg and $M_{22} \approx 0.13$ kg·m², a 20× spread. With
-$D = I$, a single adaptation gain $\gamma_M$ is simultaneously too slow for the cart row
-and too fast for the pendulum row.
-
-Setting $D = \mathrm{diag}(\sqrt{m^0_i})$, where $m^0$ is the inertia prior, makes $W_M$
-dimensionless. $DL$ is still lower-triangular with a positive diagonal, so Propositions
-1–3 are unchanged. The row scale folds into $g'$ and $g''$, so the Jacobian engine is
-unchanged too.
-
-The initial parameters give $\hat M(q;\theta(0)) = \mathrm{diag}(m^0)$ for all $q$. The
-default $m^0 = (2.0, 0.2)$ is an order-of-magnitude, datasheet-level prior. It is 24 % and
-55 % off the true pre-shift values, and 27 % and 3 % off the post-shift values. §9.6
-reports $m^0 = (1, 0.1)$ and $(5, 0.5)$ as well.
-
-### 3.5 Cyclic coordinates
-
-On a level track, $x$ does not appear in $\mathcal L$. The configuration features therefore
-embed only the non-cyclic coordinates, so $\hat M$, $\hat P$ and $S$ are invariant to $x$
-**by construction**, and $\hat G_x \equiv 0$. By Noether's theorem, the learned model then
-conserves the cart momentum $(\hat M\dot q)_1$ whenever $u = 0$ and $\hat F = 0$.
-
-In the final configuration this prior makes little numerical difference (§9.6). It mattered
-earlier in development: with random features and $D = I$, $x$-dependent inertia produced
-spurious Christoffel forces that destabilized adaptation.
-
-## 4. Coriolis, gravity and friction sub-networks
-
-### 4.1 Skew-symmetry by construction (Christoffel symbols)
-
-$$\hat C_{ij}(q,\dot q) = \sum_k \Gamma_{ijk}\dot q_k,\qquad
-\Gamma_{ijk} = \tfrac12\left(\frac{\partial\hat M_{ij}}{\partial q_k} + \frac{\partial\hat M_{ik}}{\partial q_j} - \frac{\partial\hat M_{jk}}{\partial q_i}\right).$$
-
-**Proposition 4.** For every $\theta_M$, $N := \dot{\hat M} - 2\hat C$ is skew-symmetric.
-
-*Proof.* With $\dot{\hat M}_{ij} = \sum_k \partial_k\hat M_{ij}\,\dot q_k$:
-
-$$N_{ij} = \sum_k\left(\partial_k\hat M_{ij} - \partial_k\hat M_{ij} - \partial_j\hat M_{ik} + \partial_i\hat M_{jk}\right)\dot q_k
-= \sum_k\left(\partial_i\hat M_{jk} - \partial_j\hat M_{ik}\right)\dot q_k.$$
-
-Swapping $i \leftrightarrow j$ flips the sign, so $N^T = -N$. The proof uses only symmetry
-and differentiability of $\hat M$, and Proposition 1 guarantees both for every parameter
-value. ∎
-
-- **Implementation.** The code evaluates the equivalent vector form
-  $\hat C\dot q = \dot{\hat M}\dot q - \tfrac12\nabla_q(\dot q^T\hat M\dot q)$.
-- **Check against the true rig.** For the true $M(\theta)$ this reproduces
-  $C = \begin{bmatrix}0 & -ml\dot\theta\sin\theta\\ 0 & 0\end{bmatrix}$.
-- **Tests.** The tests check the matrix against a brute-force Christoffel sum over
-  finite-difference derivatives, and check $z^TNz = 0$ for random parameters.
-- **Measured along the trajectory.** $\max\lvert z^TNz\rvert/\lVert z\rVert^2 = 7\times10^{-17}$.
-
-**Gyroscopic block $\theta_V$.** The Christoffel term is fully determined by $\theta_M$.
-The separate block $\theta_V$ parametrizes
-
-$$S(q,\dot q) = \sum_{i<j} s_{ij}\,(E_{ij} - E_{ji}),\qquad s_{ij} = W_{V,ij}^T\big(\rho(q)\otimes\dot q\big),$$
-
-and $\hat V_m = \hat C + S$. $S$ is skew, so $\dot{\hat M} - 2\hat V_m = N - 2S$ remains
-skew-symmetric, and $\dot q^TS\dot q = 0$: the extra force does no work. It is quadratic
-in $\dot q$, like a real Coriolis force. It can represent power-neutral forces outside the
-Christoffel family, such as gyroscopic coupling. The rig has none, and $\theta_V$ indeed
-stays near 0: its drift from initialization is below 0.01 (Fig. 6).
-
-### 4.2 Conservative gravity
-
-$$\hat P(q) = w_G^T\rho(q),\qquad \hat G(q) = \nabla_q\hat P = D\rho(q)^Tw_G.$$
-
-$\hat G$ is a gradient, so it is curl-free for every $w_G$, and it is linear in $w_G$. On
-the rig's true potential $P = mgl\cos\theta$, the idealized test (true $M$, 1° noise)
-converges to $w_{G,\cos\theta} = 0.808$ against the true $mgl = 0.812$.
-
-### 4.3 Dissipative recurrent friction
-
-A continuous-time LSTM with the same cell as Approach A (§2 of its README) runs on
-$\zeta_F = [s\odot\dot q,\ \hat h_F,\ 1]$. Its readout $\phi_F = W_h^Th$ sets a diagonal,
-velocity- and history-dependent damping:
-
-$$\hat F = \mathrm{diag}(d)\,\dot q,\qquad d_i = d^0_i\,\mathrm{softplus}(\phi_{F,i} - 3) > 0
-\ \ \Rightarrow\ \ \dot q^T\hat F = \textstyle\sum_i d_i\dot q_i^2 \ge 0.$$
-
-Viscous, Coulomb and Stribeck laws all have this form, with
-$d_i(v) = F_i(v)/v \ge 0$. The LSTM memory lets $d_i$ depend on the velocity history, so it
-can capture dynamic friction and belt hysteresis *to the extent that these are dissipative*.
-
-- **The price.** Pre-sliding hysteresis that temporarily returns energy (as in LuGre bristle
-  dynamics) cannot be represented.
-- **Unconstrained option.** `dissipative_friction=False` gives $\hat F = \phi_F$. Its
-  learned friction injected power in **58 %** of samples (§9.6). The dissipative form gives
-  0 %.
-
-### 4.4 Power balance of the learned model
-
-**Proposition 5.** Along the learned dynamics
-$\hat M\ddot q + \hat V_m\dot q + \hat G + \hat F = Bu$, the learned energy
-$\hat H = \tfrac12\dot q^T\hat M\dot q + \hat P$ satisfies
-$\dot{\hat H} = \dot q^TBu - \dot q^T\hat F \le \dot q^TBu$, for every $\theta$.
-
-*Proof.*
-
-$$\dot{\hat H} = \dot q^T\hat M\ddot q + \tfrac12\dot q^T\dot{\hat M}\dot q + \nabla\hat P^T\dot q
-= \dot q^T(Bu - \hat V_m\dot q - \hat G - \hat F) + \tfrac12\dot q^T\dot{\hat M}\dot q + \hat G^T\dot q
-= \dot q^T(Bu - \hat F) + \tfrac12\dot q^T(\dot{\hat M} - 2\hat V_m)\dot q.$$
-
-The last term vanishes by Proposition 4, and $\dot q^T\hat F \ge 0$ by §4.3. ∎
-
-- **Consequence.** The frozen PI-LSTM is passive. With $u = 0$ it can never gain energy,
-  and with $u = 0$, $\hat F = 0$ it conserves $\hat H$ exactly.
-- **Numerical check.** On the adapted model (RK4, 1 ms, 10 s free swing),
-  $\max\lvert\hat H(t) - \hat H(0)\rvert = 7.5\times10^{-14}$ J (§9.3).
-
-## 5. Observer
-
-`src/observers/pilstm_observer.py`
-
-The observer is Approach A's structure with the black box replaced by the structured model:
-
-$$\dot{\hat q} = \hat{\dot q},\qquad
-\dot{\hat{\dot q}} = \hat\Phi + k_s\,\mathrm{sgn}(e) + \chi,\qquad
-\hat\Phi = \hat M^{-1}(\hat q)\big[Bu - \hat V_m(\hat q,\hat{\dot q})\hat{\dot q} - \hat G(\hat q) - \hat F\big].$$
-
-The auxiliary filter $(p,\nu,\eta,e)$ and the feedback $\chi$ are identical to Approach A:
-
-$$\eta = p - (\alpha+k_r)\tilde q,\quad \dot p = -(k_r+2\alpha)p - \nu + ((\alpha+k_r)^2+1)\tilde q,\quad
-\dot\nu = p - \alpha\nu - (\alpha+k_r)\tilde q,\quad e = \tilde q + \nu,$$
-
-$$\chi = -(3\alpha+k_r)\eta + (2-\alpha^2)\tilde q - \nu.$$
-
-The corrected $(2-\alpha^2)$ coefficient is derived in Approach A's README, §3. With the
-unmeasurable filtered error $r = \tilde{\dot q} + \alpha\tilde q + \eta$ and
-$V_0 = \tfrac12(\lVert\tilde q\rVert^2 + \lVert\eta\rVert^2 + \lVert\nu\rVert^2 + \lVert r\rVert^2)$:
-
-$$\dot V_0 = -\alpha(\lVert\tilde q\rVert^2 + \lVert\eta\rVert^2 + \lVert\nu\rVert^2) - k_r\lVert r\rVert^2 + r^T\big(\ddot q - \hat\Phi - k_s\,\mathrm{sgn}(e)\big).$$
-
-Nothing in the filter requires the velocity.
-
-**Stability sketch.** This is honest about what the structure changes. Let
-$N = \ddot q - \hat\Phi$. As in Approach A, if $\hat\theta$ stays in a compact set
-(guaranteed by projection, §6) and $N, \dot N$ are bounded along the trajectory, the RISE
-argument gives asymptotic convergence when $k_s > \lVert N\rVert_\infty + \lVert\dot N\rVert_\infty/\alpha$.
-Otherwise it gives uniform ultimate boundedness. The default $k_s = 0.2$ is below the
-bound, so the experiments run in the UUB regime, as in A.
-
-The structure changes the bound on $\hat\Phi$ in two opposite ways:
-
-- **Tighter.** By Propositions 1 and 3, $\lVert\hat M^{-1}\rVert \le 1/\epsilon_M$, and
-  $\hat G$ and $\hat F$ are bounded on compact sets, uniformly over the projection balls.
-  Every learned term has a physical interpretation and a certified bound.
-- **Looser.** The Christoffel term is **quadratic** in $\hat{\dot q}$:
-  $\lVert\hat C\hat{\dot q}\rVert \le k_C\lVert\hat{\dot q}\rVert^2$. Approach A's
-  $\hat\Phi = W_h^T h$ is instead globally bounded, because $\lVert h\rVert_\infty \le 1$.
-  The PI-LSTM's boundedness argument is therefore **semi-global**, not global: a large
-  velocity-estimate transient can feed itself through the learned Coriolis term. The true
-  plant has the same quadratic term, so this is the price of representing it faithfully.
-  §8 shows this failure mode with the Euclidean-metric gradient.
-
-## 6. Jacobian engine and blockwise adaptation
-
-`src/adaptation/pilstm_jacobian_engine.py`
-
-$\theta = [\theta_M, \theta_V, \theta_G, \theta_F]$ has 398 parameters on the rig: 15, 20,
-5 and 358. Every block adapts simultaneously:
-
-$$\dot{\hat\theta}_\beta = \mathrm{proj}_\beta\big(\Gamma_\beta\,\Phi_\beta'^T W e\big),\qquad \lVert\hat\theta_\beta\rVert \le \bar W_\beta,\qquad \beta \in \{M, V, G, F\},$$
-
-with Approach A's smooth projection applied per block.
-
-**Adjoint form.** $\hat\Phi = \hat M^{-1}\hat\tau$, so
-$\Phi'_\beta = \hat M^{-1}(\partial\hat\tau/\partial\theta_\beta - (\partial\hat M/\partial\theta_\beta)\hat\Phi)$.
-With the adjoint vector $\lambda = \hat M^{-1}We$:
-
-$$\Phi_\beta'^TWe = \frac{\partial}{\partial\theta_\beta}\Big[\lambda^T\hat\tau - \lambda^T\hat M\hat\Phi\Big]_{\lambda,\hat\Phi\ \text{held}}.$$
-
-This is evaluated in $O(p)$ without forming $\Phi'$:
-
-| Block | $\Phi_\beta'^TWe$ |
+| Invariant | How it holds |
 |:---|:---|
-| $G$ | $-D\rho\,\lambda$ |
-| $V$ (pair $ij$) | $-(\lambda_i\dot q_j - \lambda_j\dot q_i)\,(\rho\otimes\dot q)$ |
-| $F$ | $\Phi_F'^T(-\lambda\odot\partial\hat F/\partial\phi_F)$, via Approach A's Kronecker product form |
-| $M$ (entry $r$) | $-(Z + K)_r\,g_r'\rho - \sum_k Y_{k,r}\big(g_r''\,\beta_{rk}\,\rho + g_r'\,\partial_k\rho\big)$ |
+| $M = M^T$ | By construction: the parameters are its unique entries |
+| $\dot M - 2C$ skew-symmetric | By construction: Christoffel symbols of $M$ |
+| $G$ conservative | By construction: $G = \nabla P$ |
+| Power balance $\frac{d}{dt}(T + P) = \dot q^T(Bu - F)$ | Follows from the three rows above |
+| $\dot q^TF \ge 0$ (passive friction) | Projection onto $d_v, d_c \ge 0$ (exact, a clip) |
+| $M(q) \succeq \epsilon_M I$ | Projection onto a convex set (§4) |
+| $M$, $P$ independent of $x$ | By construction (cyclic coordinate) |
 
-The inertia block is the only nontrivial one. $\hat M$ enters both through $\hat M^{-1}$
-and through the Christoffel vector
-$\lambda^T\hat C\dot q = \sum_k a_k^T\,\partial_k\hat M\,\dot q$, with
-$a_k = \dot q_k\lambda - \tfrac12\lambda_k\dot q$. That gives
+Positive-definiteness moves from B's Cholesky parameterization (valid for every $\theta$) to a
+projection. This is the price of linearity. The set
+$\{\theta : M(q_g;\theta) \succeq \epsilon_M I\}$ over a grid of angles $q_g$ is an intersection
+of LMIs, each linear in $\theta$, so it is convex.
 
-$$K = (\lambda\hat\Phi^T + \hat\Phi\lambda^T)L,\qquad
-Z = \sum_k(\dot q\,a_k^T + a_k\dot q^T)\,\partial_kL,\qquad
-Y_k = a_k\dot q^TL + \dot q\,a_k^TL,$$
+**Exactness.** The true rig is one point of this family:
+$\theta^\ast = \{m_{11} = M+m,\ m_{12} = ml\cos\theta,\ m_{22} = I + ml^2,\ P = mgl\cos\theta,\ d_v = (b, d)\}$.
+It reproduces the plant's accelerations to $10^{-15}$ (`test_true_parameters_reproduce_the_plant`).
+*True parameter convergence* therefore has a concrete meaning here, which it cannot have for the
+LSTM models of Approaches A–C.
 
-with $\beta_{rk} = W_{M,r}^T\partial_k\rho$. The second-order term
-$\partial(\partial_kL_r)/\partial W_r = g_r''\beta_{rk}\rho + g_r'\partial_k\rho$ is why the
-feature layer is kept fixed.
+## 2. Integral concurrent learning: no acceleration needed
 
-`tests/test_pilstm.py` checks all four blocks against central finite differences (for both
-friction forms), and checks the fast product against the explicit $\Phi'^TWe$.
+Every term of the model has an analytic regressor that is linear in $\theta$:
 
-**Error metric $W$** (`metric=`):
+| Regressor | Equals |
+|:---|:---|
+| Torque $Y(q,\dot q,a)\,\theta$ | $Ma + C\dot q + G + F$ |
+| Momentum $Y_{mom}\,\theta$ | $M\dot q$ |
+| Integrand $Y_{int}\,\theta$ | $-\tfrac12\partial_q(\dot q^TM\dot q) + G + F$ |
 
-| `metric` | $W$ | $\lambda$ | Gradient of |
-|:---|:---|:---|:---|
-| `"euclidean"` | $I$ | $\hat M^{-1}e$ | $\tfrac12\lVert e\rVert^2$ |
-| `"kinetic"` (default) | $\hat M$ | $e$ | $\tfrac12 e^T\hat Me$, the kinetic-energy metric |
+Because $\frac{d}{dt}(M\dot q) - \frac12\partial_q(\dot q^TM\dot q) = M\ddot q + C\dot q$,
+integrating the equations of motion over a window $[t-\Delta, t]$ gives the **ICL identity**
+(Parikh, Kamalapurkar & Dixon 2019):
 
-Both are descent directions, since $\Phi'^TW\Phi' \succeq 0$, and both keep $\hat\theta$
-in the projection balls. They differ in loop gain. The Euclidean law's effective gain
-scales as $\hat M^{-2}$: that is $\hat M_{22}^{-2} \approx 60$ for the light pendulum
-coordinate, against $\hat M_{11}^{-2} \approx 0.14$ for the cart, a ratio of about 400. It also grows further whenever
-adaptation shrinks $\hat M$. The kinetic metric removes one factor of $\hat M^{-1}$ and,
-together with the dimensionless row scale of §3.4, balances the two channels. Measured:
-the Euclidean law diverges at $t = 3.6$ s on the benchmark (§9.6).
+$$\underbrace{[Y_{mom}]_{t-\Delta}^{t} + \int_{t-\Delta}^{t}Y_{int}\,d\tau}_{\mathcal Y_j}\ \theta^\ast = \underbrace{\int_{t-\Delta}^{t}Bu\,d\tau}_{b_j}.$$
 
-## 7. Discretization
+It needs positions and velocities only. They come from a causal, delayed-centre Savitzky–Golay
+smoother: 0.1 s cubic fit, evaluated 50 ms back. For velocity its noise gain is 8.5, against
+about 260 for the second derivative over the same window, which Approach C needed. The smoother is **model-free**, so windows
+are valid from the first 0.35 s, before the observer itself has converged.
 
-This is identical to Approach A §6. Measurements and inputs are held zero-order between
-1 kHz samples, and all observer states are integrated with forward Euler
-($n_s = 1$ sub-step). After each step a radial rescale per block keeps the discrete flow
-inside $\bar W_\beta$ (a safeguard; in the reported runs every block stays below 48 % of
-its radius). The frozen-model rollouts in §9.3 use RK4.
+The integral uses the trapezoid rule. The input is exact because the plant holds $u$ over each
+sample. On the true trajectory the identity holds to $5\times10^{-5}$
+(`test_icl_identity_holds_on_a_trajectory`).
 
-## 8. Design decisions and what failed
+Windows of $\Delta = 0.25$ s are offered every 50 ms to history stacks of 300 windows, using
+Approach C's recording policy: a novelty gate, then a swap only if it increases
+$\lambda_{\min}$ (`src/concurrent_learning/history_stack.py`, generalized to block regressors).
 
-These notes record the development path, because each fix is itself a statement about
-physics-informed adaptation.
+## 3. Why the pendulum row needs a different regression
 
-1. **First attempt: 24 random tanh features, $D = I$, Euclidean gradient,
-   $\hat M(0) = \mathrm{diag}(1, 0.1)$.** The observer diverged at 0.13 s. The Euclidean
-   adjoint $\lambda = \hat M^{-1}e$ amplifies the pendulum channel about 100×, so the gain
-   that suits a black-box readout is 50–100× too large here.
-2. **Gains reduced.** The observer was stable, but gravity was never learned
-   ($\lVert w_G\rVert \approx 0.3$). The gradient direction was correct: with the true $M$
-   inserted, $w_G$ converged to $mgl$. The cause was coupling. With $\hat M_{11}$ wrong, the
-   cart channel carries a large $u$-correlated error, which the $x$-features of $\hat P$
-   tried to absorb. Meanwhile unlearned gravity drove $\hat M_{22}$ toward instability.
-   A trace showed $\hat M_{12}$ jumping from −0.15 to −0.70 within 250 ms, fed by the
-   $\dot q^2$ Christoffel term (the semi-global issue of §5).
-3. **Fixes, each physically motivated:**
-   - the cyclic cart coordinate (§3.5);
-   - the kinetic-energy metric (§6);
-   - harmonic instead of random features (§3.3);
-   - the dimensionless Cholesky row scale (§3.4).
+The first attempt used plain least squares on all rows. It recovered the cart row exactly, but
+the pendulum-row scale collapsed: $I + ml^2$ came out as 0.02 instead of 0.129 with the 0.1 s
+smoother, and 0.003 with a 0.05 s one. Batch fits separate the causes:
 
-   After these, the observer is stable for every prior and seed tried.
-4. **Dissipative friction** (§4.3). This came from auditing the first full run, where
-   unconstrained friction injected power in 58 % of samples.
-
-The Approach A baseline was re-tuned on this scenario too: input scales, $\gamma_h$,
-$\gamma_g$ and $L$. Its published defaults, with the same data-driven normalization, were
-within noise of its best, so they are used unchanged.
-
-## 9. Simulation results
-
-### 9.1 Scenario
-
-`python experiments/run_pilstm_validation.py --seeds 5 --ablations`
-
-The whole run takes about 2.5 min.
-
-- **Large deflection.** $\theta(0) = 0.5$ rad from **upright**, in the plant's convention.
-  The pendulum falls and swings almost full circle: $\theta \in [0.5, 5.8]$ rad and
-  $\lvert\dot\theta\rvert$ up to 5 rad/s. This exercises $\hat M(\theta)$ and $\hat P(\theta)$
-  over their whole domain.
-- **Noise.** U(±1.0°) encoder noise on $\theta$, twice the testbed default, plus ±0.2 mm
-  cart noise and 4096-count quantization.
-- **Sudden parameter shift.** At $t = 25$ s the pendulum becomes 50 % heavier: $m$ and $I$
-  are both scaled by 1.5 (same geometry, denser rod; `--mass-only` keeps $I$). The true
-  $M_{22}$ jumps from 0.129 to 0.193, the amplitude of $M_{12}$ from 0.083 to 0.124, and
-  $mgl$ from 0.81 to 1.22.
-- **Excitation.** Open-loop $u = 2\sin 3t + 1.2\cos 6t$. The cart starts at the
-  drift-cancelling velocity $-2/(3(M+m))$. Approach A's $1.5$ rad/s excitation drives the
-  cart into the ±0.5 m bumpers once the mass step breaks the momentum balance. With this
-  excitation the cart stays within ±0.16 m.
-- **Observer inputs.** Encoder data and the *commanded* force. Both LSTMs are normalized
-  from the first 5 s of encoder data.
-
-### 9.2 Velocity reconstruction (noise seed 42)
-
-| RMSE / peak | PI-LSTM | Lb-LSTM (A) | Dirty derivative |
+| Windows built from | $I+ml^2$ | $mgl$ | $mgl/(I+ml^2)$ |
 |:---|---:|---:|---:|
-| $\dot x$, transient 0–5 s [m/s] | 0.0348 | 0.0469 | **0.0198** |
-| $\dot\theta$, transient 0–5 s [rad/s] | **0.147** | 0.158 | 0.502 |
-| $\dot x$, pre-shift 15–25 s | **0.0026** | 0.0147 | 0.0161 |
-| $\dot\theta$, pre-shift 15–25 s | **0.0265** | 0.0590 | 0.502 |
-| $\dot x$, post-shift 25–30 s | **0.0038** | 0.0103 | 0.0131 |
-| $\dot\theta$, post-shift 25–30 s | **0.0244** | 0.0375 | 0.496 |
-| $\dot x$, steady 35–50 s | **0.0026** | 0.0057 | 0.0149 |
-| $\dot\theta$, steady 35–50 s | **0.0225** | 0.0340 | 0.496 |
-| peak $\lvert\dot\theta\text{ err}\rvert$, 0–2 s | 0.470 | **0.441** | 1.14 |
-| peak $\lvert\dot\theta\text{ err}\rvert$, 25–27 s | **0.047** | 0.106 | 1.17 |
-| chatter ratio $\dot\theta$ (steady) | **1.06** | 1.07 | 140 |
+| True states | 0.1288 | 0.812 | 6.31 (exact) |
+| Smoothed, noise-free encoder | 0.1288 | 0.812 | 6.31 |
+| Smoothed, noisy encoder, plain LS | 0.0197 | 0.118 | 6.0 |
 
-Online model fit (35–50 s), as NMSE of $\hat\Phi$ against the true acceleration:
+Smoothing is not the problem; noise is. The pendulum row has no input ($B_2 = 0$), so its
+equation is **homogeneous**: $\mathcal Y_{2}\theta^\ast = 0$. Least squares with noisy
+regressors then shrinks the row towards $\theta = 0$ (errors-in-variables attenuation). Only the
+small cart–pendulum coupling term $ml\cos\theta\,\ddot x$ resists, because $ml$ is pinned by the
+cart row. The ratio $mgl/(I+ml^2) = \omega^2$ survives; the absolute scale does not. Approach B's
+README observed the same limit: "the learned $\hat M_{22}$ stays wrong while the ratio is right".
 
-| | PI-LSTM | Lb-LSTM (A) |
+**Fix: normalize the homogeneous row so the noisy term becomes the target.** Divide the pendulum
+row by its leading coefficient $J = [M_{22}]_{const}$. Take the columns it shares with the cart
+row (the coupling inertia) from the cart-row estimate $\phi_A$. That leaves
+
+$$\kappa\,z + \sum_{c\ \text{own}}\mathcal Y_{2c}\,\psi_c = -\mathcal Y_{2J},\qquad z = \sum_{c\ \text{shared}}\mathcal Y_{2c}\,\phi_{A,c},\quad \kappa = 1/\phi_J,\quad \psi_c = \phi_c/\phi_J.$$
+
+The noisy momentum term $\mathcal Y_{2J} = \Delta\dot\theta$ is now the **target**, and noise in
+the target causes no bias. The regressors are built from positions and from $\dot x$. On this rig the smoothed
+$\dot x$ has about 70× less noise (0.001 m/s) than $\dot\theta$ (0.09 rad/s). On the same noisy data this gives
+$I+ml^2 = 0.1299$ (true 0.1288) and $mgl = 0.788$ (true 0.812).
+
+The CL target $\phi_H$ has three parts:
+
+- **Cart row:** $\phi_A$, from actuated-row least squares on stack A. The target $\int Bu$ carries
+  no noise.
+- **Pendulum inertia:** $\phi_J = 1/\kappa$.
+- **Remaining pendulum-row columns:** $\phi_J\psi$, from the normalized regression on stack U.
+
+This construction generalizes to any system: actuated rows use ordinary least squares, and each
+unactuated row is normalized by its own diagonal inertia and anchored through its coupling with
+the actuated rows. If an unactuated row shares no parameter with the actuated rows, its scale is
+unobservable, and the constructor refuses it.
+
+## 4. Adaptation law
+
+In scaled parameters $\phi = \theta / s$, where $s$ holds unit scales derived from the inertia
+prior:
+
+$$\dot\phi = \underbrace{-\gamma\, s\odot Y(\hat q, \hat{\dot q}, \hat\Phi)^T e}_{\text{instantaneous (B's kinetic metric)}} + \underbrace{\gamma_{CL}\,(\phi_H - \phi)}_{\text{integral CL}},\qquad \hat\Phi = \hat M^{-1}(Bu - Y_{rest}\,\theta).$$
+
+- **Instantaneous term.** Since $\partial\hat\Phi/\partial\theta = -\hat M^{-1}Y(\hat q,\hat{\dot q},\hat\Phi)$,
+  this term is the gradient of $\tfrac12 e^T\hat M e$. That is Approach B's kinetic metric, with
+  no Jacobian engine needed.
+- **CL term.** This is the Newton (information-normalized) form of the classical CL term:
+  $\Gamma_{CL}\sum_j\mathcal Y_j^T(b_j - \mathcal Y_j\phi) = \Gamma_{CL}\Omega(\phi_{LS} - \phi)$
+  with $\Omega$ normalized away. It is integrated implicitly.
+- **Projections**, applied after every step:
+  1. $\lVert\phi - \phi_0\rVert \le \bar W$.
+  2. $d_v, d_c \ge 0$.
+  3. $M(q_g) \succeq \epsilon_M I$ on a 72-point angle grid. Each iteration projects onto the
+     supporting half-space $v^TM(q_g)v \ge \epsilon_M$ of the most violated constraint.
+
+  All three are Euclidean in $\phi$. Each is onto a convex set containing $\phi^\ast$, so none of
+  them can increase $\lVert\phi - \phi^\ast\rVert$.
+- **Rank gate.** $\phi_H$ is used only when every stack holds at least 60 windows and satisfies
+  $\lambda_{\min} \ge \bar\lambda = 10^{-4}$: the rank condition with a margin.
+
+**Change detection.** The detector tests how well the cart-row stack model predicts fresh
+windows. It compares an EMA (0.5 s) of the new windows' residuals under $\phi_A$ with the stack's
+in-sample residual. If the ratio stays above 8 for 0.3 s (outside a 3 s refractory period), all
+stacks are purged and refill with post-change data. The cart row is used because its target is
+noise-free, and because a change that scales $m$ and $I$ together leaves the normalized pendulum
+row *invariant* ($\omega^2$ and $ml/J$ unchanged). Observed ratios: at most 4.9 without a change,
+13–22 after the step.
+
+### Stability and convergence (sketch)
+
+Let $\tilde\phi = \phi^\ast - \phi$, and let $V_0 + P$ be Approach A's filter Lyapunov function
+with its RISE term (A's README, §3; B's §5). Between stack updates $\phi_H$ is constant, and
+
+$$\dot{\tilde\phi} = -\gamma_{CL}\tilde\phi + \gamma_{CL}(\phi^\ast - \phi_H) + \gamma\, s\odot Y^Te.$$
+
+Take $V = V_0 + P + \tfrac{\beta}{2}\lVert\tilde\phi\rVert^2$. The regressors are bounded on
+the compact set kept invariant by the projections, so $\lVert s\odot Y^Te\rVert \le c\lVert e\rVert$
+with $\lVert e\rVert \le \lVert\tilde x_1\rVert + \lVert\nu\rVert$. Young's inequality then gives
+
+$$\dot V \le -\tfrac{\alpha}{2}(\lVert\tilde x_1\rVert^2 + \lVert\nu\rVert^2) - \alpha\lVert\eta\rVert^2 - k_r\lVert r\rVert^2 - \tfrac{\beta\gamma_{CL}}{2}\lVert\tilde\phi\rVert^2 + \beta\gamma_{CL}\lVert\phi^\ast - \phi_H\rVert^2,\qquad \beta \le \frac{\alpha\gamma_{CL}}{2\gamma^2c^2}.$$
+
+1. **Ideal case** ($\phi_H = \phi^\ast$: noise-free windows and a gated, full-rank stack). $\dot V$
+   is negative definite in the state and parameter errors together, so by LaSalle–Yoshizawa both
+   converge to zero, with no persistence of excitation. $V$ is common to all stack contents, so
+   no dwell-time argument is needed. With a noise-free encoder, the test
+   `test_identifies_physical_parameters_without_noise_and_detects_a_change` recovers all four
+   rigid-body parameters to within 5 % before and after a +50 % step.
+2. **Noisy case.** The system is uniformly ultimately bounded, and
+   $\limsup\lVert\tilde\phi\rVert \lesssim \lVert\phi^\ast - \phi_H\rVert$. So the parameter
+   error ends up about as large as the error of the stack estimate itself. That error is small
+   because the normalized regression puts the noise in the target (§3), and the rank gate
+   $\bar\lambda$ bounds how much noise it can amplify.
+
+What the sketch does not cover:
+
+- Projection is applied at discrete steps, and the stack estimate $\phi_H$ changes
+  discontinuously when windows are swapped. Both are handled as in Approach C, by the argument
+  in item 1 applied at each stack configuration.
+- The small errors-in-variables bias that remains on the cart row (ml is attenuated by about 1 %).
+
+## 5. Model order: why $K = 1$
+
+Approach B uses two harmonics. With $K = 2$, D's batch fit is exact before the step, when the
+pendulum falls from upright and sweeps most of the circle. After the step, the pendulum only
+swings over $\theta \in [1.66, 4.57]$. Over that range the second harmonics are almost
+collinear with the first, and noise wrecks the fit:
+
+| Post-step windows (26–50 s), noisy | $I+ml^2$ (true 0.193) | $mgl$ (true 1.218) |
 |:---|---:|---:|
-| $\ddot x$ | 0.044 | 0.095 |
-| $\ddot\theta$ | 0.0011 | 0.0052 |
+| $K = 2$ | 0.936 | 3.15 |
+| $K = 1$ | 0.203 | 1.229 |
+| $K = 1$, with Coulomb terms | 0.204 | 1.231 |
 
-![Velocity tracking](figures/approach_b/velocity_tracking.png)
-![Error norm](figures/approach_b/error_norm.png)
+$K = 1$ is exactly what a rigid pendulum needs, so it is the default. The Coulomb terms are kept
+(`coulomb=True`): the simulation has no Coulomb friction, but a lab rig does, and they cost only
+conditioning. **Identifiability, not capacity, limits structured models under partial excitation.**
+Extra harmonics make sense only when the data sweeps the configuration space.
 
-**Robustness over seeds 1–5**, where the seed sets the noise realization and both
-observers' initialization. Values are median [min, max]; neither observer diverged in any
-run.
+## 6. Validation on Approach B's scenario
 
-| Metric | PI-LSTM | Lb-LSTM (A) |
-|:---|:---|:---|
-| $\dot x$ RMSE, steady | **0.0025** [0.0025, 0.0026] | 0.0061 [0.0041, 0.0092] |
-| $\dot\theta$ RMSE, steady | **0.020** [0.020, 0.022] | 0.041 [0.032, 0.043] |
-| $\dot\theta$ RMSE, post-shift 25–30 s | **0.020** [0.018, 0.023] | 0.047 [0.042, 0.069] |
-| peak $\lvert\dot\theta\text{ err}\rvert$, 0–2 s | 0.46 [0.44, 0.47] | **0.43** [0.40, 0.45] |
-| samples with $(\hat M^{-1})_{11} \le 0$ | **0 %** [0, 0] | 1.6 % [0.7, 7.0] |
+`experiments/run_d_validation.py`. The scenario, trajectory, normalization, B and A runs, and all
+metric definitions are imported unchanged from `experiments/run_pilstm_validation.py`.
 
-The PI-LSTM's seed-to-seed spread is 5–50× smaller than Approach A's.
+![Parameter tracking](figures/approach_d/parameter_tracking.png)
 
-### 9.3 Physical plausibility and energy
+*Fig. 1 (seed 0). D's physical reading of $\hat\theta$ against the truth. For comparison, B's
+$\hat M_{11}$ and $\hat M_{22}$ at $\hat q$ are shown, which oscillate with the swing and never
+approach the truth. With CL off, D stays near its prior. The dotted line marks the purge 0.4 s
+after the step.*
 
-| Along the 50 s trajectory | PI-LSTM | Lb-LSTM (A) |
-|:---|---:|---:|
-| $\min_t\lambda_{\min}(\hat M(\hat q))$ (floor $\epsilon_M = 0.05$) | 0.115 | n/a (no $\hat M$) |
-| $\min_t\hat T$ | 0 (at $\hat{\dot q} = 0$) | n/a |
-| $\max\lvert z^T(\dot{\hat M} - 2\hat V_m)z\rvert/\lVert z\rVert^2$ | $7\times10^{-17}$ | n/a |
-| friction injects power | 0 % of samples | n/a |
-| implied input gain $\partial\hat\Phi_x/\partial u \le 0$ | **0 %** | **5.7 %** |
-| median $\lVert\partial\hat\Phi/\partial u - M^{-1}B\rVert / \lVert M^{-1}B\rVert$ (steady) | 0.19 | 0.88 |
+![Rank condition](figures/approach_d/rank_condition.png)
 
-**Why the input gain is the right comparison.** The black box has no inertia matrix, but
-for any Euler–Lagrange plant, $\partial\ddot q/\partial u = M^{-1}B$. Its first entry
-$(M^{-1})_{11} > 0$ because the inverse of a positive-definite matrix has a positive
-diagonal. A black box that predicts $\partial\hat\Phi_x/\partial u \le 0$ is predicting
-that pushing the cart forward accelerates it backward: a negative effective mass.
-Approach A does this in 5.7 % of samples, and its implied gain is off by 88 % even in
-steady state. The PI-LSTM's is off by 19 %, and positive by construction.
+*Fig. 2 (seed 0). $\lambda_{\min}$ of the actuated stack and of the normalized pendulum-row
+regression. Both cross the gate $\bar\lambda$ (dashed) about 3 s after the start and about 3 s
+after the purge; CL acts from then on.*
 
-![Inertia learning](figures/approach_b/inertia_learning.png)
-![Physical invariants](figures/approach_b/physical_invariants.png)
+**Identification (5 seeds, median [min, max] relative error of D's physical parameters):**
 
-**Frozen models on an unseen free swing.** Weights are frozen at 50 s. Each model is
-released from rest at $\theta = \pi - 1$ with $u = 0$ for 10 s and compared with the true
-post-shift rigid body (friction removed).
+| | M+m | ml | I+ml² | mgl |
+|:---|:---:|:---:|:---:|:---:|
+| @ 25 s (before the step) | 0.0 % [0.0, 0.2] | 0.3 % [0.1, 0.7] | 6.3 % [2.2, 8.6] | 6.7 % [2.5, 8.5] |
+| @ 50 s (after the step) | 0.2 % [0.0, 0.5] | 0.9 % [0.6, 1.7] | 8.0 % [6.2, 27.3] | 4.3 % [2.5, 23.4] |
+| D with CL off, @ 50 s | 23 % | 63 % | 26 % | 46 % |
 
-| Frozen model | $\theta$ RMSE | True energy along the response |
-|:---|---:|:---|
-| PI-LSTM | **0.070 rad** | stays within 0.01 J of the truth |
-| Lb-LSTM (A) | 0.613 rad | **loses up to 0.55 J of the 0.56 J swing** |
+![Velocity error](figures/approach_d/velocity_error.png)
 
-The black box encodes a spurious, configuration-dependent dissipation. The PI-LSTM's own
-energy $\hat H$ is conserved to $7.5\times10^{-14}$ J, as Proposition 5 requires.
+*Fig. 3 (seed 0). 0.5 s RMS velocity error.*
 
-![Free swing](figures/approach_b/free_swing_energy.png)
+**Frozen models released from rest** (u = 0, true post-shift rigid body, seed 0; B's protocol):
 
-### 9.4 Resilience to the parameter shift
+| | θ RMSE over 10 s | True-energy drift | Learned-energy drift |
+|:---|---:|---:|---:|
+| A | 0.613 rad | 0.546 J | — |
+| B | 0.070 rad | 0.008 J | 0 (structural) |
+| **D** | **0.070 rad** | 0.017 J | 0 (structural) |
 
-**Velocity estimation.** After the +50 % mass step, the PI-LSTM's $\dot\theta$ error peaks
-at 0.047 rad/s, versus 0.106 for A. Its 25–30 s RMSE (0.024) is already at its
-steady-state level. There is no transient peaking, because nothing in the structured
-model can jump: $\hat M$ is bounded, $\hat G$ is bounded, and the adaptation of each block
-is rate-limited by its projection. See Fig. 6, where no block's drift steps at 25 s.
+The swing carries about 0.56 J. D's twin is as accurate as B's. Its slightly larger drift in
+true energy reflects its 4–8 % error in $I+ml^2$ and $mgl$.
 
-**Identification is only partial:**
+![Free swing](figures/approach_d/free_swing.png)
 
-- **$\hat M_{11}$ (cart + pendulum mass).** It rises steadily, 2.0 → 2.30 kg over 50 s,
-  but is still 16 % below the true 2.745 kg at the end. Cart-mass learning is slow at
-  $\gamma_M = 5$; $\gamma_M \ge 30$ diverges.
-- **$\hat M_{22}$ does not track the step (0.129 → 0.193).** The θ channel constrains the
-  ratio $\hat P/\hat M_{22}$ well: $\ddot\theta$ NMSE is 0.001. The absolute scale of
-  $M_{22}$ is visible only through the weak $M_{12}$ coupling to $\ddot x$. This is an
-  identifiability limit of the open-loop excitation, not of the parametrization: with the
-  true pre-shift inertia as prior, $\hat M$ error falls to 4 % (§9.6). The learned
-  $\hat M_{22}$ also varies spuriously with $\theta$: by up to ±0.05 early on and ±0.015
-  at the end, where the truth is constant.
-- **$\hat M_{12}(\theta)$.** It has the right shape and sign ($\propto\cos\theta$), with
-  about 60 % of the post-shift amplitude.
+## 7. What D does not do better
 
-![Block adaptation](figures/approach_b/block_adaptation.png)
+- **The initial transient.** The peak θ̇ error in 0–2 s is 0.53 rad/s, against 0.46 for B and
+  0.44 for A. D starts from B's prior with a small instantaneous gain ($\gamma = 2$), and its
+  stacks need about 3 s of windows before the gate opens. Larger instantaneous gains made the
+  instantaneous law fight the CL target (at $\gamma = 20$ the pre-shift θ̇ RMSE rose to 0.5 rad/s),
+  so the transient is the trade-off made.
+- **Re-identification delay.** After a detected change, CL waits about 3 s for new data. During
+  that time the old parameters stay active, and the velocity estimate is still good (post-shift
+  RMSE 0.018).
+- **Structure assumptions.** D assumes more structure than B: a linear-in-parameters
+  Euler–Lagrange model with known joint types and input matrix. It cannot learn effects outside
+  that family. B's friction LSTM, for example, is replaced by viscous plus Coulomb terms.
+- **Non-smooth events.** Bumper impacts are not Euler–Lagrange dynamics. In a test variant where
+  the cart hits the track end, the detector flags the impact as a change, and the estimates made
+  from impact data are wrong until the next purge. Real use should gate windows on track contact.
 
-### 9.5 Initial peaking
+## 8. Configuration (`PIICLObserverConfig` defaults)
 
-The PI-LSTM does **not** reduce the peak velocity error in the first 2 s: 0.47 rad/s versus
-0.44 rad/s, and this holds for every seed. At $t = 0$, $\hat M$, $\hat P$ and $\hat F$ are
-still the uninformed prior. Gravity, the dominant $\ddot\theta$ term (up to 6 rad/s²), is
-entirely unmodelled. The initial transient is governed by the filter gains $(\alpha, k_r)$
-and the zero initial velocity estimate, which both observers share.
+| Parameter | Default | Role |
+|:---|:---:|:---|
+| `harmonics`, `coulomb` | 1, True | Model order (§5) |
+| `inertia_init`, `eps_M` | (2, 0.2), 0.05 | Prior $M = \mathrm{diag}$ (as B); positive-definiteness margin |
+| `alpha, k_r, k_s` | 4, 8, 0.2 | Approach A/B filter gains, unchanged |
+| `gamma_inst` | 2 | Instantaneous gain (scaled parameters) |
+| `gamma_cl` | 2 1/s | Rate of the pull towards $\phi_H$ (implicit step) |
+| `icl_window`, `record_interval` | 0.25 s, 50 ms | ICL window $\Delta$; candidate spacing |
+| `stack_capacity`, `cl_min_windows`, `lambda_bar` | 300, 60, 1e-4 | Stack size; rank gate |
+| `sg_window`, `sg_order` | 0.1 s, 3 | Model-free smoother |
+| `detect_ratio`, `detect_tau`, `detect_hold`, `detect_refractory` | 8, 0.5 s, 0.3 s, 3 s | Change detector |
 
-The structure bounds the model terms, but it cannot supply knowledge the prior lacks.
-Cutting the initial peak needs a better prior (for example a rough $mgl$) or higher filter
-gains.
+**How these were chosen.** The defaults came from a handful of design runs on seed 0 of this
+scenario: stack size 60/150/300, instantaneous gain 0/2/5/20, detector ratio 3/8/10, harmonics
+1/2. The 5-seed results above use noise seeds 42–46, so seed 0 (noise seed 42) was also used for
+design.
 
-### 9.6 Ablations
+## 9. Relation to Approaches A–C
 
-Same trajectory, noise seed 42. `--ablations`.
+| | A | B | C | **D** |
+|:---|:---|:---|:---|:---|
+| Model | Black-box LSTM | EL-structured sub-networks | Black-box LSTM | EL-structured, linear in θ |
+| Adaptation | Instantaneous | Instantaneous | Instantaneous + CL (point stack) | Instantaneous + **integral** CL |
+| Rank condition on | — | — | Readout (32 of 1440 parameters) | **All** parameters (15) |
+| Needs acceleration | no | no | yes (SG proxy) | **no** |
+| True parameters exist | no | no | no | **yes** |
+| Handles plant change | slowly | partially | no | **detects and re-identifies** |
 
-| PI-LSTM variant | Diverged | $\dot x$ steady | $\dot\theta$ steady | $\dot\theta$ post-shift | $\hat M$ rel. err @ 50 s |
-|:---|:---|---:|---:|---:|---:|
-| **default** (prior diag(2, 0.2)) | no | 0.0026 | 0.0225 | 0.0244 | 0.163 |
-| prior diag(1, 0.1) | no | 0.0083 | 0.0233 | 0.0256 | 0.263 |
-| prior diag(5, 0.5) | no | 0.0039 | 0.0265 | 0.0300 | 0.302 |
-| prior = true $M(\pi/2)$, pre-shift | no | 0.0019 | 0.0226 | 0.0248 | 0.043 |
-| inertia frozen at prior ($\gamma_M = 0$) | no | 0.0090 | 0.0266 | 0.0271 | 0.276 |
-| **Euclidean-metric gradient** | **at 3.6 s** | – | – | – | – |
-| $x$ not cyclic | no | 0.0024 | 0.0226 | 0.0252 | 0.164 |
-| random tanh features, no 2nd harmonic | no | 0.0020 | 0.0329 | 0.0564 | 0.054 |
-| no friction adaptation | no | 0.0026 | 0.0225 | 0.0244 | 0.163 |
-| unconstrained friction $\hat F = W_h^Th$ | no | 0.0026 | 0.0249 | 0.0272 | 0.164 |
-
-- **Metric.** The kinetic-energy metric is what makes the design work at all.
-- **Inertia adaptation.** It is what gives the 3.5× better cart-velocity error: compare
-  the frozen-inertia row.
-- **Prior.** Every prior tried, from diag(1, 0.1) to diag(5, 0.5), is stable and beats
-  Approach A on $\dot\theta$.
-- **Harmonic features.** They matter for velocity estimation (2.3× on the post-shift error).
-  Random features happen to give a better $\hat M$, so capacity and conditioning trade off.
-- **Friction.** Adapting it has no measurable effect on accuracy here: the rig's true
-  friction is tiny ($b = 0.05$, $d = 0.005$). The dissipative form is justified by physics
-  and by the passive twin of §4.4, and it is slightly better than the unconstrained form
-  on accuracy too.
-- **Actuator effects.** `--actuator-effects` adds the PCI-1711 dead-zone and 0.35 N Coulomb
-  friction. The dead-zone bias pushes the open-loop cart into a bumper, so the scenario
-  becomes non-smooth. In that stress run the PI-LSTM stayed ahead on $\dot\theta$ (steady
-  0.025 vs 0.052). Both observers were equally poor on $\dot x$ (about 0.033), because
-  neither can see the input dead-zone. The diag(5, 0.5) prior diverged at 16 s in that run.
-
-## 10. Comparison with unconstrained black-box estimators
-
-| | Black-box Lb-LSTM (A) | PI-LSTM (B) |
-|:---|:---|:---|
-| Hypothesis class | any $g(x,u)$ that a 16-cell LSTM can represent | Euler–Lagrange systems |
-| Prior knowledge | relative degree | + EL structure, joint types, $B$, cyclic $x$, inertia scale |
-| Parameters on the rig | 1440 | 398 |
-| Implied inertia | may be indefinite (5.7 % of samples) | $\succeq \epsilon_M I$ always |
-| Learned model energy | uncontrolled (frozen twin lost up to 0.55 J of a 0.56 J swing) | passive; conserved exactly with $u = 0$, $F = 0$ |
-| Bound on $\hat\Phi$ | global, $\lVert W_h\rVert\sqrt L$ | certified per term, but quadratic in $\hat{\dot q}$ (semi-global) |
-| Sensitivity to gain choice | forgiving (tanh saturation) | needs the kinetic metric and dimensionless scaling |
-| Transfers to non-EL plants | yes | no |
-
-## 11. Resilience against parameter variations: why structure helps
-
-A +50 % mass step changes $M$, $P$ and the coupling at once. For the black box it is a
-change in an arbitrary function of $(x, u, h)$, and relearning spreads across all 1440
-weights. Its implied input gain wanders without constraint, including through negative
-values.
-
-For the PI-LSTM, the same step is a change of a few physically meaningful coefficients.
-Those coefficients live in a compact set of plausible models
-($\epsilon_M \preceq \hat M \preceq \bar M$, conservative $\hat G$, dissipative $\hat F$),
-so every intermediate model during re-adaptation is itself a valid mechanical system. That
-is why the post-shift error does not peak (§9.4).
-
-The limitation is identifiability. The observer adapts toward whatever EL model reproduces
-the measured *positions*. When the excitation does not separate $M_{22}$ from $mgl$, the
-learned $\hat M_{22}$ stays wrong while the ratio, and hence the velocity estimate, is
-right.
-
-## 12. Limitations and open items
-
-1. **Incomplete inertia identification** (§9.4). $\hat M$ ends with 16 % relative error,
-   and $M_{22}$ does not track the shift. A parameter-error-driven term, such as Approach
-   C's concurrent learning, or a richer excitation should address this.
-2. **No initial-transient improvement** (§9.5).
-3. **The stability argument is semi-global** because of the quadratic Coriolis term (§5).
-   Proposition 1's $1/\epsilon_M$ bound does not by itself prevent velocity-estimate
-   escape.
-4. **The static sub-networks have fixed feature layers.** Only their output layers adapt,
-   whereas the friction LSTM adapts fully. Adapting the feature layers would need
-   third-order terms in the inertia Jacobian.
-5. **Dissipative friction** cannot represent energy-returning pre-sliding hysteresis.
-6. **All results are simulation.** The robust gain $k_s$ runs below the RISE bound (UUB
-   regime), as in Approach A.
-
-## 13. Reproducing the results
-
-```bash
-pip install -r requirements.txt
-pytest -q                                                   # 53 tests
-python experiments/run_pilstm_validation.py --seeds 5 --ablations   # about 2.5 min; figures/approach_b/*.png
-python experiments/run_pilstm_validation.py --actuator-effects      # dead-zone / Coulomb stress run
-```
+## 10. Files
 
 | File | Contents |
 |:---|:---|
-| `src/observers/pilstm_network.py` | Harmonic/random feature layer with analytic $\partial\rho/\partial q$; Cholesky inertia; Christoffel $\hat C$ and gyroscopic $S$; potential gravity; dissipative recurrent friction; `PILSTMNetwork` (forward pass, energy, skew-residual diagnostics); `PILSTMLayout`. |
-| `src/adaptation/pilstm_jacobian_engine.py` | Adjoint Jacobian-transpose products per block, including the second-order Christoffel term; explicit $\Phi'$ for tests; Euclidean and kinetic metrics; `PILSTMAdaptationLaw` with blockwise gains and projection. |
-| `src/observers/pilstm_observer.py` | `PILSTMObserver`, `PILSTMObserverConfig`: auxiliary filter, $\chi$, robust term, Euler integration, physics diagnostics. Same interface as `LbLSTMObserver`. |
-| `experiments/run_pilstm_validation.py` | Extreme-condition benchmark; plausibility audit; frozen-model free swing; seeds; ablations; figures. |
-| `tests/test_pilstm.py` | 19 tests: feature and $\partial\hat M/\partial q$ finite differences; SPD and skew-symmetry for random parameters; brute-force Christoffel check; cyclic invariance; energy conservation; dissipativity; blockwise Jacobians against finite differences; projection; observer tracking with invariants. |
-| `src/observers/blackbox_lstm.py`, `src/adaptation/jacobian_engine.py`, `src/simulation/open_loop.py`, and their tests | Approach A baseline, copied unchanged from `feature/approach-a-blackbox-lstm` for the comparison. The PI-LSTM reuses A's LSTM cell, Kronecker Jacobian and smooth projection. |
-| `src/observers/physics_informed_lstm_observer.py` | Earlier prototype on this branch. It uses the *known* nominal $M$, $C$, $G$ and a residual LSTM. It is superseded by the modules above and kept for reference. Note that its Lyapunov argument cancels terms in the unmeasured velocity error $e_v$, while its adaptation law uses the position error, so that law does not follow from the stated $V$. |
+| `src/observers/el_linear_model.py` | Linear EL model, all regressors, physical mapping, positive-definiteness projection |
+| `src/observers/pi_icl_observer.py` | Observer, two-part stack estimate, rank gate, Newton-form CL, change detection |
+| `src/concurrent_learning/history_stack.py` | Block-regressor stack with singular-value-maximizing recording |
+| `src/concurrent_learning/savitzky_golay.py` | Causal Savitzky–Golay smoother / differentiator |
+| `experiments/run_d_validation.py` | 5-seed benchmark vs A and B, identification, free swing, figures |
+| `tests/test_pi_icl.py`, `tests/test_history_stack.py` | Approach D tests (23) |
+| `src/observers/pilstm_*.py`, `src/adaptation/*`, `experiments/run_pilstm_validation.py` | Approach B and A code, unchanged from `feature/approach-b-physics-informed` |
+
+## 11. Reproducing the results
+
+```bash
+python -m pytest -q                                # 76 tests (Approach B's 53 + D's 23)
+python experiments/run_d_validation.py --seeds 5   # about 1 min on 8 cores; figures + CSVs
+```
+
+The script sets `OMP_NUM_THREADS=1` for its worker processes.
+
+## References
+
+- R. Hart, E. Griffis, O. Patil, W. E. Dixon. Physics-informed Lb-LSTM (the basis of Approach B), 2024.
+- A. Parikh, R. Kamalapurkar, W. E. Dixon. *Integral concurrent learning: Adaptive control with parameter convergence using finite excitation.* Int. J. Adaptive Control and Signal Processing, 2019.
+- G. Chowdhary, E. Johnson. *A singular value maximizing data recording algorithm for concurrent learning.* ACC, 2011.
+- J.-J. E. Slotine, W. Li. *On the adaptive control of robot manipulators.* Int. J. Robotics Research, 1987.
+- N. Fischer, R. Kamalapurkar, W. E. Dixon. *LaSalle–Yoshizawa corollaries for nonsmooth systems.* IEEE TAC, 2013.
+- S. Van Huffel, J. Vandewalle. *The Total Least Squares Problem.* SIAM, 1991 (errors-in-variables background for §3).
+- A. Savitzky, M. J. E. Golay. *Smoothing and differentiation of data by simplified least squares procedures.* Analytical Chemistry, 1964.
