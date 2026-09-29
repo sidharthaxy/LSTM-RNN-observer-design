@@ -113,14 +113,13 @@ $$\dot{\hat x}_1 = \hat x_2, \qquad \dot{\hat x}_2 = \hat\Phi + k_s\,\mathrm{sgn
 `sign_mode="tanh"` replaces $\mathrm{sgn}(e)$ with the boundary-layer approximation
 $\tanh(e/\epsilon)$.
 
-> **Note on the $\tilde x_1$ coefficient in $\chi$.** The task specification, and Griffis et al.
-> [1, Eq. (11)], give $(\alpha^2 + 2)$. With the filter exactly as written above, the cross terms of the
-> Lyapunov derivative cancel **only for $(2 - \alpha^2)$**. The derivation follows, a
-> SymPy check reproduces it, and `tests/test_blackbox_lstm.py` asserts it against the
-> implemented vector field. With $(\alpha^2+2)$, a residual $-2\alpha^2\,\tilde x_1^T r$
-> remains. That residual is bounded and can be dominated with Young's inequality, but it
-> is no longer an exact cancellation. If the paper does use $(\alpha^2 + 2)$, some other
-> filter coefficient must differ; set `chi_x1_coeff=alpha**2 + 2` to reproduce that variant.
+> **Note on the $\tilde x_1$ coefficient in $\chi$.** Griffis et al. [1, Eq. (11)] print
+> $(\alpha^2 + 2)$. With the filter exactly as written above, the cross terms of the Lyapunov
+> derivative cancel **only for $(2 - \alpha^2)$**. The derivation follows, a SymPy check reproduces
+> it, and `tests/test_blackbox_lstm.py` asserts it against the implemented vector field. With
+> $(\alpha^2+2)$, a residual $-2\alpha^2\,\tilde x_1^T r$ remains. It is bounded and can be
+> dominated with Young's inequality, but the cancellation is no longer exact. The printed variant
+> is available as `chi_x1_coeff=alpha**2 + 2`.
 
 ### 3.1 Filter algebra and exact cancellation
 
@@ -250,7 +249,7 @@ term) and no exponential rate; an exponential variant needs a modified $P$-funct
 al. [1] use that variant and obtain $k_s \ge \kappa_1 + \kappa_2 + (\alpha\kappa_2+\kappa_3)/(\alpha-1)$
 with $\alpha > 1$.
 
-**What the code actually runs.** With $\tanh(e/\epsilon)$, or with $k_s$ below the lemma's bound,
+**Operating regime of the tuned observer.** With $\tanh(e/\epsilon)$, or with $k_s$ below the lemma's bound,
 the conclusion weakens to uniform ultimate boundedness, with the residual set shrinking as
 $\hat\Phi \to g$. **The tuned $k_s = 0.2$ is below the bound**: the unlearned acceleration mismatch
 is of order $1\ \text{rad/s}^2$. The experiments therefore run in the UUB regime. The linear
@@ -284,12 +283,12 @@ $$\big[\Phi'^T e\big]_{W_\bullet} = \mathrm{vec}\big(\zeta\,(\delta_\bullet \odo
 differences (agreement to about $10^{-11}$, all five blocks non-degenerate) and checks the
 fast product against $\Phi'^Te$ to machine precision.
 
-> **Layout convention, and a correction to the survey.** With gates written as $W z$,
+> **Layout convention.** With gates written as $W z$,
 > $W \in \mathbb R^{l_2\times l_1}$, and column-stacking $\mathrm{vec}$, the factor above appears as
 > $(z^T\otimes I_{l_2})$. For the output gate:
 > $\partial h/\partial\,\mathrm{vec}(W_o) = D(\sigma_c(c))\,D(\sigma_g'(W_oz))\,(z^T\otimes I_{l_2})$.
-> The survey on `main` (its Eq. (27)) omitted that factor, which leaves an $l_2\times l_2$ matrix
-> where an $l_2 \times l_1l_2$ one is needed. $(z^T\otimes I_{l_2})$ and the $I_L\otimes\zeta^T$
+> Without that factor the result would be $l_2\times l_2$, where an $l_2 \times l_1l_2$ matrix is
+> needed. $(z^T\otimes I_{l_2})$ and the $I_L\otimes\zeta^T$
 > used here are the same derivative in different memory layouts. A finite-difference check of the
 > full set, in the $Wz$ layout, agrees to $7.6\times10^{-11}$.
 
@@ -386,7 +385,7 @@ inputs**. Defaults are in `LbLSTMObserverConfig`.
 | $L$ | 16 | $L = 8$ halves the parameters but gives 3× worse cart-velocity error and unstable twins. |
 | $s,\ \mu$ | see §2 | Scale each signal to about $\pm1$ over its expected range. Center using measured data. Essential for the angle channel. |
 
-**Tuning procedure that worked:**
+**Tuning procedure:**
 1. Fix $\alpha$ and $k_r$ from the desired bandwidth with $\Gamma = 0$.
 2. Raise $\gamma_h$ until the online acceleration NMSE stops improving.
 3. Add a small $\gamma_g$.
