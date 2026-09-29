@@ -180,6 +180,8 @@ def main() -> None:
     parser.add_argument("--workers", type=int, default=min(8, os.cpu_count() or 1))
     parser.add_argument("--no-plots", action="store_true")
     parser.add_argument("--plots-only", action="store_true", help="redraw the figures from the saved CSVs")
+    parser.add_argument("--warm-only", action="store_true",
+                        help="rerun only the warm-start runs and merge them into the saved CSVs (after a warm-start change)")
     args = parser.parse_args()
     res_dir = ROOT_DIR / "results" / "shared_benchmark"
     fig_dir = ROOT_DIR / "figures" / "shared_benchmark"
@@ -187,6 +189,9 @@ def main() -> None:
         runs = pd.read_csv(res_dir / "velocity_runs.csv")
         twins = pd.read_csv(res_dir / "held_out_twins.csv")
         make_figures(runs, twins, fig_dir)
+        return
+    if args.warm_only:
+        rerun_warm(args.seeds, args.workers, res_dir, fig_dir, plots=not args.no_plots)
         return
 
     jobs = [(s, m, seed, w) for s in SCENARIOS for m in MODELS for seed in range(args.seeds) for w in (False, True)]
@@ -242,6 +247,34 @@ def main() -> None:
     if not args.no_plots:
         make_figures(runs, twins, fig_dir)
     print(f"Results: {res_dir}")
+
+
+WARM_COLS = ["RMSE x_dot transient", "RMSE th_dot transient", "peak x_dot err 0.1-2 s", "peak th_dot err 0.1-2 s", "RMSE th_dot steady"]
+
+
+def warm_summary(runs: pd.DataFrame) -> pd.DataFrame:
+    wt = runs.groupby(["scenario", "model", "warm start"])[WARM_COLS].median().unstack("warm start")
+    for c in WARM_COLS:
+        wt[(c, "ratio")] = wt[(c, True)] / wt[(c, False)]
+    return wt
+
+
+def rerun_warm(seeds: int, workers: int, res_dir: Path, fig_dir: Path, plots: bool) -> None:
+    jobs = [(s, m, seed, True) for s in SCENARIOS for m in MODELS for seed in range(seeds)]
+    t0 = time.time()
+    with ProcessPoolExecutor(workers) as ex:
+        rows = [r for out in ex.map(job, jobs) for r in out]
+    print(f"{len(jobs)} warm-start runs in {time.time() - t0:.0f} s")
+    runs = pd.read_csv(res_dir / "velocity_runs.csv")
+    runs["warm start"] = runs["warm start"].astype(bool)
+    runs = pd.concat([runs[~runs["warm start"]], pd.DataFrame(rows)], ignore_index=True)
+    runs.to_csv(res_dir / "velocity_runs.csv", index=False)
+    wt = warm_summary(runs)
+    wt.to_csv(res_dir / "warm_start_summary.csv")
+    with pd.option_context("display.width", 250, "display.float_format", "{:.4f}".format):
+        print(wt[[(c, "ratio") for c in WARM_COLS]].to_string())
+    if plots:
+        make_figures(runs, pd.read_csv(res_dir / "held_out_twins.csv"), fig_dir)
 
 
 def make_figures(runs: pd.DataFrame, twins: pd.DataFrame, fig_dir: Path) -> None:

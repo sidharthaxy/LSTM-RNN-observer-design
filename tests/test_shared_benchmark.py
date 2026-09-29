@@ -96,8 +96,7 @@ def test_el_twin_with_true_parameters_is_exact() -> None:
 
 
 def test_warm_start_removes_the_initial_velocity_error() -> None:
-    p = PendulumParameters()
-    d = simulate("ramp", lambda t: 0.0, 1.0, np.array([0.0, -0.5, np.pi, 0.0]), 0.5, 1)
+    d = simulate("drift", lambda t: 0.0, 1.0, np.array([0.0, -0.5, np.pi, 0.0]), 0.5, 1)
     cold = make_observer("D", d, 0)
     warm = WarmStartObserver(make_observer("D", d, 0), DT)
     for o in (cold, warm):
@@ -107,19 +106,22 @@ def test_warm_start_removes_the_initial_velocity_error() -> None:
         e_cold.append(cold.update(d.meas[k], d.u[k], DT)[1] - d.state[k, 1])
         e_warm.append(warm.update(d.meas[k], d.u[k], DT)[1] - d.state[k, 1])
     k0 = warm.sg.window
-    assert warm.started and warm.initial_estimate is not None
-    assert abs(warm.initial_estimate[1] - d.state[k0 - 1, 1]) < 0.01
+    assert warm.started and warm.initial_estimate is not None and warm.injected is not None
+    assert warm.injected[0] and abs(warm.initial_estimate[1] - d.state[k0 - 1, 1]) < 0.01
     assert np.max(np.abs(e_warm[k0:])) < 0.1 * np.max(np.abs(e_cold[k0:]))
-    assert p.M > 0
 
 
-def test_warm_start_gate_keeps_a_resting_coordinate_at_zero() -> None:
-    """The pendulum starts at rest: its fitted velocity is noise and must be gated to 0."""
+def test_warm_start_leaves_a_resting_coordinate_untouched() -> None:
+    """The pendulum is at rest: its fitted velocity is noise, is not injected, and its estimate
+    evolves exactly as without the wrapper."""
     d = simulate("rest", lambda t: 0.0, 0.3, np.array([0.0, -0.5, np.pi, 0.0]), 1.0, 3)
+    cold = make_observer("D", d, 0)
     warm = WarmStartObserver(make_observer("D", d, 0), DT)
-    warm.reset()
+    for o in (cold, warm):
+        o.reset(np.array([d.meas[0, 0], 0.0, d.meas[0, 1], 0.0]))
     for k in range(warm.sg.window):
-        warm.update(d.meas[k], 0.0, DT)
-    assert warm.initial_estimate is not None
-    assert warm.initial_estimate[3] == 0.0                   # theta_dot gated
-    assert abs(warm.initial_estimate[1] + 0.5) < 0.01        # x_dot kept
+        ec = cold.update(d.meas[k], 0.0, DT)
+        ew = warm.update(d.meas[k], 0.0, DT)
+    assert warm.injected is not None and warm.injected[0] and not warm.injected[1]
+    assert ew[3] == ec[3]                                    # theta_dot untouched
+    assert abs(ew[1] + 0.5) < 0.01                           # x_dot injected

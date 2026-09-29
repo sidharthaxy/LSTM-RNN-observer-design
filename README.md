@@ -146,46 +146,55 @@ input scale to 0 (the A-x and C-x variants).
 
 Every observer starts from $\hat q = y(0)$ and $\hat{\dot q} = 0$. In all three scenarios the
 cart starts moving, at the drift-cancelling velocity, while the pendulum starts at rest.
-`src/benchmark/warm_start.py` works as follows:
+`src/benchmark/warm_start.py` wraps any observer:
 
-1. **Buffer.** It holds the first 0.1 s of encoder data.
-2. **Fit.** It fits a quadratic and differentiates it at the last sample (a causal
-   Savitzky–Golay end-point estimate).
-3. **Gate.** It keeps each fitted velocity only if it exceeds 3σ of its own noise, estimated
-   from the fit residual.
-4. **Hand over.** It resets the wrapped observer to that state.
+1. **Run the observer normally from the first sample**, and buffer the first 0.1 s of encoder data.
+2. **Fit.** Fit a quadratic and differentiate it at the last sample (a causal Savitzky–Golay
+   end-point estimate).
+3. **Gate.** For each coordinate, test whether the fitted velocity is significant:
+   $|\dot q_{fit}| > 3\sigma_v$, with $\sigma_v$ taken from the fit residual.
+4. **Inject.** For significant coordinates only, overwrite the position and velocity estimates
+   with the fit, and re-initialize that coordinate's auxiliary filter exactly as at start-up
+   ($p = (\alpha + k_r)\tilde q$, $\nu = 0$).
 
-The wrapper never touches the observer's dynamics or adaptation, so every stability argument
-still holds from the reset on.
+Nothing else is touched: not the other coordinate, not the LSTM memories, not the weights. The
+wrapper amounts to a new initial condition for part of the observer state, so every stability
+argument still applies.
 
-**Status.** The benchmark numbers below come from the version *without* step 3, the
-significance gate. They show why the gate was added. The gated version is implemented and
-unit-tested (`test_warm_start_gate_keeps_a_resting_coordinate_at_zero`), but its 5-seed rerun
-was stopped before it finished, to spare the laptop. To reproduce it, run
-`python experiments/run_shared_benchmark.py --workers 2`.
+**Design history (what did not work).** Each earlier version was benchmarked on all 90
+warm-start runs:
 
-Warm / cold ratio of the median over 5 seeds, ungated version (below 1 = warm start is better):
+| Version | Cart channel | Pendulum channel |
+|:---|:---|:---|
+| (a) Reset the whole observer to the fit at 0.1 s | Much better | Worse: θ̇ RMSE up to +16 %, peak up to +27 %. The reset threw away 0.1 s of adaptation and restarted the filter transient, and the fitted θ̇ is noise when the pendulum is at rest. |
+| (b) As (a), plus the 3σ significance gate | Much better | Unchanged from (a), peak up to +33 %. By 0.1 s the pendulum is already moving, so the gated zero was wrong too. |
+| (c) Inject the velocity only, keeping the observer running | The error re-grew to about 0.2 m/s | Filter states still encoded the old error, and the position estimate still lagged. |
+| **(d) Current: inject position and velocity, re-initialize that coordinate's filter** | **Error stays below 0.02 m/s after injection** | See the table below |
 
-| | ẋ RMSE 0.1–5 s | peak ẋ error 0.1–2 s | θ̇ RMSE 0.1–5 s | peak θ̇ error 0.1–2 s | steady θ̇ RMSE |
+**Result of (d).** Warm / cold ratio of the median over 5 seeds (below 1 = warm start is
+better):
+
+| | ẋ RMSE 0.1–5 s | Peak ẋ error 0.1–2 s | θ̇ RMSE 0.1–5 s | Peak θ̇ error 0.1–2 s | Steady θ̇ RMSE |
 |:---|:---:|:---:|:---:|:---:|:---:|
-| S1 (all 6 models) | 0.08–0.31 | 0.03–0.16 | 1.00–1.12 | 1.02–1.13 | 0.93–1.18 |
-| S2 | 0.56–0.83 | 0.25–0.65 | 1.02–1.07 | 1.00–1.07 | 0.93–1.07 |
-| S3 | 0.07–0.16 | 0.04–0.08 | 1.00–1.16 | 1.13–1.27 | 1.00–1.04 |
+| S1 (all 6 models) | 0.07–0.37 | 0.04–0.21 | 1.03–1.08 | 1.12–1.14 | 0.90–1.07 |
+| S2 | 0.56–0.83 | 0.27–0.65 | 1.00–1.02 | 0.98–1.00 | 0.95–1.00 |
+| S3 | 0.07–0.18 | 0.05–0.11 | 1.00–1.05 | 1.00 | 0.99–1.01 |
 
-- **Cart channel: large gains.** The ẋ transient error falls up to 14×, and the peak up to 38×.
-  The cart's initial velocity (−0.25 to −0.5 m/s) is exactly what the fit recovers.
-- **Pendulum channel: slightly worse, 0–27 %.** The pendulum starts at rest in every
-  scenario, so the fit can only add its own velocity noise, about 0.07 rad/s at ±0.5°. The
-  significance gate is meant to remove exactly this: a resting coordinate keeps 0, and a moving
-  one (|v| > 3σ_v) keeps its fit.
+- **Cart channel: large, consistent gains.** The transient error falls 1.2–15× and the peak
+  1.5–27×. B and D gain most, because once their state is right their models hold it.
+- **Pendulum channel: neutral on S2 and S3, slightly worse on S1.** On S1 it is 3–8 % worse
+  (peak 12–14 %). The pendulum is not reset there, so the loss is indirect. My best explanation
+  is that the large initial cart error was acting as free early excitation for the adaptation
+  laws, and removing it slows the first second of model learning. It is a real trade-off.
 - **What the warm start cannot fix.** The pendulum's early transient (peaks 0.12–0.53 rad/s)
-  comes from the *unlearned model*, not the initial state. Only faster model learning reduces
-  it, and no approach here does that within the first 2 s.
-- **Steady-state estimation is unaffected**, as expected from a one-time reset.
+  comes from the *unlearned model*. Only faster model learning reduces it, and no approach here
+  does that within the first 2 s.
+- **Steady state is unaffected.** The largest difference is 10 %, in C-x on S1; everything else
+  is within ±8 %.
 
 ![Warm start](figures/shared_benchmark/warm_start.png)
 
-*Ungated version (see Status above). Each panel shows cold start (light) against warm start (solid), per model.*
+*Version (d). Each panel shows cold start (light) against warm start (solid), per model.*
 
 ## 6. Reproducing the results
 
@@ -193,15 +202,16 @@ Warm / cold ratio of the median over 5 seeds, ungated version (below 1 = warm st
 python -m pytest -q                                     # 113 tests
 python experiments/run_shared_benchmark.py --seeds 5    # 180 runs, about 15 min on 8 cores
 python experiments/run_shared_benchmark.py --plots-only # redraw figures from results/shared_benchmark/*.csv
+python experiments/run_shared_benchmark.py --warm-only --workers 2  # rerun only the warm-start runs (about 9 min)
 ```
 
 | File | Contents |
 |:---|:---|
 | `src/benchmark/scenarios.py` | S1–S3 (each branch's home scenario) and the held-out inputs H1–H4 |
 | `src/benchmark/models.py` | Model registry (A, A-x, B, C, C-x, D), shared normalization, twin adapters, prediction metrics |
-| `src/benchmark/warm_start.py` | Significance-gated warm start (improvement 3) |
+| `src/benchmark/warm_start.py` | Significance-gated state injection (improvement 3) |
 | `experiments/run_shared_benchmark.py` | The benchmark; CSVs in `results/shared_benchmark/`, figures in `figures/shared_benchmark/` |
-| `tests/test_shared_benchmark.py` | Harness tests (twin exactness with true parameters, x-free inputs, warm start and its gate) |
+| `tests/test_shared_benchmark.py` | Harness tests (twin exactness with true parameters, x-free inputs, warm-start injection and gate) |
 
 ## 7. Caveats
 
