@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-30 -155 1500 1090" width="1500" height="1090" role="img">
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="context-stroke"/></marker></defs>
+<rect x="-30" y="-155" width="1500" height="1090" fill="#ffffff"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="28" dominant-baseline="hanging" fill="#1e1e1e"><tspan x="0" y="-125.0">Approach A: black-box Lb-LSTM observer, block diagram</tspan></text>
+<rect x="20" y="70" width="150" height="60" rx="12" fill="#a5d8ff" stroke="#4a9eed" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="22" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="95.0" y="100.0">Input u(t)</tspan></text>
+<polyline points="170.0,100.0 205.0,100.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="205" y="45" width="335" height="110" rx="12" fill="#ffd8a8" stroke="#f59e0b" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="20" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="372.5" y="87.5">Plant (cart-pendulum)</tspan><tspan x="372.5" y="112.5">M(q)q̈ + C(q,q̇)q̇ + G + F = Bu</tspan></text>
+<polyline points="540.0,100.0 600.0,100.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="560.4" y="85.5" width="19.2" height="29.0" fill="#ffffff" opacity="0.9"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="20" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="570.0" y="100.0">q</tspan></text>
+<rect x="530" y="-40" width="190" height="50" rx="12" fill="#ffc9c9" stroke="#ef4444" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="20" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="625.0" y="-15.0">Encoder noise v</tspan></text>
+<polyline points="625.0,10.0 625.0,75.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<ellipse cx="625.0" cy="100.0" rx="25.0" ry="25.0" fill="#ffffff" stroke="#1e1e1e" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="22" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="625.0" y="100.0">+</tspan></text>
+<rect x="20" y="200" width="1420" height="660" rx="12" fill="#e5dbff" stroke="#8b5cf6" stroke-width="1" stroke-dasharray="8 6" opacity="0.30"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="20" dominant-baseline="hanging" fill="#6d28d9"><tspan x="40" y="212.0">Adaptive observer (1 kHz, forward Euler)</tspan></text>
+<polyline points="625.0,125.0 625.0,260.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="570.6" y="178.0" width="108.8" height="29.0" fill="#ffffff" opacity="0.9"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="20" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="625.0" y="192.5">y = q + v</tspan></text>
+<ellipse cx="625.0" cy="295.0" rx="35.0" ry="35.0" fill="#ffffff" stroke="#1e1e1e" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="24" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="625.0" y="295.0">Σ</tspan></text>
+<rect x="760" y="245" width="280" height="100" rx="12" fill="#d0bfff" stroke="#8b5cf6" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="22" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="900.0" y="281.2">Auxiliary filter</tspan><tspan x="900.0" y="308.8">ṗ, ν̇  →  η, ν</tspan></text>
+<polyline points="660.0,295.0 760.0,295.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="694.8" y="280.5" width="30.4" height="29.0" fill="#ffffff" opacity="0.9"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="20" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="710.0" y="295.0">x̃₁</tspan></text>
+<rect x="1120" y="255" width="220" height="80" rx="12" fill="#ffd8a8" stroke="#f59e0b" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="22" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="1230.0" y="281.2">e = x̃₁ + ν</tspan><tspan x="1230.0" y="308.8">(measurable)</tspan></text>
+<polyline points="1040.0,295.0 1120.0,295.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="1070.4" y="280.5" width="19.2" height="29.0" fill="#ffffff" opacity="0.9"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="20" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="1080.0" y="295.0">ν</tspan></text>
+<rect x="745" y="400" width="310" height="100" rx="12" fill="#d0bfff" stroke="#8b5cf6" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="20" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="900.0" y="437.5">Linear feedback χ</tspan><tspan x="900.0" y="462.5">−(3α+kᵣ)η + (2−α²)x̃₁ − ν</tspan></text>
+<polyline points="900.0,345.0 900.0,400.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="875.8" y="359.2" width="48.3" height="26.5" fill="#ffffff" opacity="0.9"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="18" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="900.0" y="372.5">η, ν</tspan></text>
+<rect x="1120" y="405" width="220" height="90" rx="12" fill="#ffc9c9" stroke="#ef4444" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="22" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="1230.0" y="436.2">Robust term</tspan><tspan x="1230.0" y="463.8">kₛ sgn(e)</tspan></text>
+<polyline points="1230.0,335.0 1230.0,405.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<ellipse cx="900.0" cy="610.0" rx="35.0" ry="35.0" fill="#ffffff" stroke="#1e1e1e" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="24" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="900.0" y="610.0">Σ</tspan></text>
+<polyline points="900.0,500.0 900.0,575.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<polyline points="1120.0,470.0 1070.0,470.0 1070.0,610.0 935.0,610.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="700" y="575" width="100" height="70" rx="12" fill="#ffffff" stroke="#1e1e1e" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="28" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="750.0" y="610.0">∫</tspan></text>
+<polyline points="865.0,610.0 800.0,610.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="500" y="575" width="100" height="70" rx="12" fill="#ffffff" stroke="#1e1e1e" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="28" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="550.0" y="610.0">∫</tspan></text>
+<polyline points="700.0,610.0 600.0,610.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="634.8" y="595.5" width="30.4" height="29.0" fill="#ffffff" opacity="0.9"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="20" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="650.0" y="610.0">x̂₂</tspan></text>
+<polyline points="500.0,610.0 440.0,610.0 440.0,295.0 590.0,295.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="402.4" y="393.0" width="75.2" height="29.0" fill="#ffffff" opacity="0.9"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="20" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="440.0" y="407.5">x̂₁ (−)</tspan></text>
+<rect x="745" y="720" width="310" height="110" rx="12" fill="#a5d8ff" stroke="#4a9eed" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="18" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="900.0" y="752.5">Continuous-time LSTM</tspan><tspan x="900.0" y="775.0">Φ̂ = W_hᵀ h̄(ζ, ĉ; θ̂)</tspan><tspan x="900.0" y="797.5">1440 weights, no physics</tspan></text>
+<polyline points="900.0,720.0 900.0,645.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="890.4" y="668.0" width="19.2" height="29.0" fill="#ffffff" opacity="0.9"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="20" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="900.0" y="682.5">Φ̂</tspan></text>
+<polyline points="670.0,610.0 670.0,775.0 745.0,775.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="660.4" y="715.5" width="19.2" height="29.0" fill="#ffffff" opacity="0.9"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="20" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="670.0" y="730.0">ζ</tspan></text>
+<rect x="60" y="730" width="300" height="90" rx="12" fill="#b2f2bb" stroke="#22c55e" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="22" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="210.0" y="761.2">Velocity estimate</tspan><tspan x="210.0" y="788.8">x̂₂ ≈ [ẋ, θ̇]</tspan></text>
+<polyline points="630.0,610.0 630.0,680.0 210.0,680.0 210.0,730.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="1100" y="730" width="300" height="100" rx="12" fill="#eebefa" stroke="#ec4899" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="20" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="1250.0" y="767.5">Adaptation law</tspan><tspan x="1250.0" y="792.5">θ̂̇ = proj(Γ Φ′ᵀ e)</tspan></text>
+<polyline points="1340.0,295.0 1415.0,295.0 1415.0,780.0 1400.0,780.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<polyline points="1100.0,755.0 1055.0,755.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<polyline points="1055.0,805.0 1100.0,805.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="20" dominant-baseline="hanging" fill="#555555"><tspan x="40" y="880.0">Adaptation uses only the measurable error e; the unmeasurable r = ė + αe never appears in the implementation.</tspan></text>
+</svg>

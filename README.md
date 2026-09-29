@@ -60,6 +60,16 @@ $$\dot{\hat c} = -b_c\,\hat c + b_c\,(f\odot\hat c + i\odot c^\ast), \qquad \dot
 where $\sigma_g$ is the logistic sigmoid, $\sigma_c = \tanh$, $W_{c,i,f,o}\in\mathbb{R}^{d\times L}$
 and $W_h\in\mathbb{R}^{L\times n}$.
 
+![LSTM data flow](figures/diagrams/lstm_dataflow.svg)
+
+*Diagram 1. Data flow through the continuous-time LSTM. The inputs are normalized and stacked with the
+hidden memory and a bias into $\zeta$ (written $z$ in the figure). The four gates produce the
+instantaneous cell $c$ and hidden output $h$ (drawn $\bar c$, $\bar h$), and the readout gives
+$\hat\Phi$. The memories $\hat c$, $\hat h$ follow first-order ODEs. The dashed path is learning:
+the measurable error $e$ and the forward-pass quantities give $\Phi'^Te$ in $O(p)$ (§4), and the
+adaptation law (§5) updates every weight block. The green note marks the cart-position input scale,
+which the shared benchmark sets to zero (x-free variant).*
+
 **Interpretation used here.** $\hat c$ and $\hat h$ are the recurrent *memory states*.
 They are first-order low-pass copies of the cell and hidden outputs, the continuous-time
 analogue of the one-step delay in a discrete LSTM. $c$ and $h$ are the *instantaneous*
@@ -79,6 +89,13 @@ $\ddot\theta$ NMSE 0.85–1.5; the chosen centered configuration reaches 0.06–
 
 ## 3. Dynamic auxiliary filter and the algebraic cancellation (Eqs. 3–6, 11)
 
+![Observer block diagram](figures/diagrams/observer_block_diagram.svg)
+
+*Diagram 2. Block diagram of the observer. The auxiliary filter turns the measurable error
+$\tilde x_1$ into $\eta$ and $\nu$. The linear feedback $\chi$, the robust term and the LSTM
+output $\hat\Phi$ add up to $\dot{\hat x}_2$, and two integrators give the estimates. Adaptation is
+driven only by the measurable error $e$.*
+
 With the measurable error $\tilde x_1 = y - \hat x_1$:
 
 $$\eta = p - (\alpha + k_r)\tilde x_1$$
@@ -96,14 +113,16 @@ $$\dot{\hat x}_1 = \hat x_2, \qquad \dot{\hat x}_2 = \hat\Phi + k_s\,\mathrm{sgn
 `sign_mode="tanh"` replaces $\mathrm{sgn}(e)$ with the boundary-layer approximation
 $\tanh(e/\epsilon)$.
 
-> **Note on the $\tilde x_1$ coefficient in $\chi$.** The task specification gave
-> $(\alpha^2 + 2)$. With the filter exactly as written above, the cross terms of the
+> **Note on the $\tilde x_1$ coefficient in $\chi$.** The task specification, and Griffis et al.
+> [1, Eq. (11)], give $(\alpha^2 + 2)$. With the filter exactly as written above, the cross terms of the
 > Lyapunov derivative cancel **only for $(2 - \alpha^2)$**. The derivation follows, a
 > SymPy check reproduces it, and `tests/test_blackbox_lstm.py` asserts it against the
 > implemented vector field. With $(\alpha^2+2)$, a residual $-2\alpha^2\,\tilde x_1^T r$
 > remains. That residual is bounded and can be dominated with Young's inequality, but it
 > is no longer an exact cancellation. If the paper does use $(\alpha^2 + 2)$, some other
 > filter coefficient must differ; set `chi_x1_coeff=alpha**2 + 2` to reproduce that variant.
+
+### 3.1 Filter algebra and exact cancellation
 
 **Derivation.** Define the unmeasurable filtered error $r = \tilde x_2 + \alpha\tilde x_1 + \eta$,
 with $\tilde x_2 = x_2 - \hat x_2$.
@@ -149,22 +168,93 @@ with $\tilde x_2 = x_2 - \hat x_2$.
    ($(\alpha+k_r)^2+1$ in $\dot p$, $-(\alpha+k_r)$ in $\dot\nu$) remove $\tilde x_1^T\eta$
    and $\eta^T\nu$.
 
-**Stability sketch (what the code relies on; the full non-smooth proof is in the paper).**
-Write $g = \Phi(\zeta, \hat c; \theta^\ast) + \varepsilon$ on a compact set. The remaining
-term is $r^T N$ with $N = g - \hat\Phi$. $\hat\theta$ stays bounded by projection (§5), so
-$N$ and $\dot N$ are bounded on any compact set of trajectories. Since $r = \dot e + \alpha e$,
-the RISE integral lemma (Xian et al., 2004) gives
+### 3.2 An implementable adaptation law
 
-$$\int_0^t r^T(N - k_s\,\mathrm{sgn}(e))\,d\tau \le k_s\|e(0)\|_1 - e(0)^TN(0)$$
+The weights adapt on the measurable error (§5): $\dot{\hat\theta} = \mathrm{proj}(\Gamma\,\Phi'^Te)$.
+A law driven by $r$, as in the tracking controllers [3], [4], cannot be implemented here, because
+$r$ contains the unmeasured velocity error $\tilde x_2$. It is not needed either. The argument is
+as follows.
 
-whenever $k_s > \|N\|_\infty + \alpha^{-1}\|\dot N\|_\infty$. That yields asymptotic
-convergence of $(\tilde x_1, \eta, \nu, r)$ and hence of $\tilde x_2$.
+Write $g = \Phi(\zeta,c;\theta^\ast) + \varepsilon$ on a compact set, with bounded ideal weights
+$\theta^\ast$, and split the mismatch as
 
-With $\tanh(e/\epsilon)$, or with $k_s$ below that bound, the conclusion weakens to uniform
-ultimate boundedness, with the residual set shrinking as $\hat\Phi \to g$. **The tuned
-$k_s = 0.2$ is below the bound** (the unlearned acceleration mismatch is of order
-$1\ \text{rad/s}^2$). The experiments therefore run in the UUB regime: the linear feedback
-$\chi$ and the learned $\hat\Phi$ do the work, and a larger $k_s$ mostly injects noise
+$$g - \hat\Phi = N_2 + N_3,\qquad N_3 \triangleq \Phi'\tilde\theta,\qquad N_2 \triangleq \big[\Phi(\zeta,c;\theta^\ast) - \Phi(\hat\zeta,\hat c;\theta^\ast)\big] + \mathcal O^2(\tilde\theta) + \varepsilon,$$
+
+where $\tilde\theta = \theta^\ast - \hat\theta$. Add $\tfrac{\alpha}{2}\tilde\theta^T\Gamma^{-1}\tilde\theta$
+to the Lyapunov function. The projection property
+$\tilde\theta^T\Gamma^{-1}(\mathrm{proj}(\tau)-\tau) \ge 0$ [7] gives
+
+$$\frac{d}{dt}\Big(\tfrac{\alpha}{2}\tilde\theta^T\Gamma^{-1}\tilde\theta\Big) \le -\alpha\,e^TN_3.$$
+
+Since $r = \dot e + \alpha e$, the cross term $r^TN_3$ in $\dot V_0$ splits into
+$\dot e^TN_3 + \alpha e^TN_3$. The measurable law cancels **only the $\alpha e^TN_3$ half**. The
+remainder $\dot e^TN_3$ is bounded, because $\tilde\theta$ is bounded (by projection), and it is
+dominated by the robust term through the integral bound of §3.3. The weight error is therefore
+handled by boundedness and domination, not by an exact cancellation. Griffis et al. [1] use the
+same law without projection.
+
+> **Remark.** By integration by parts,
+> $\int_0^t\Gamma\Phi'^Tr = \Gamma\Phi'^Te\big|_0^t - \int_0^t\Gamma\dot\Phi'^Te + \alpha\int_0^t\Gamma\Phi'^Te$.
+> An $r$-driven law could therefore be realized if $\dot\Phi'$ were computable, which needs $\dot u$
+> and the second derivatives of the network. It would restore the exact cancellation but could not be
+> combined directly with projection, so it is not used.
+
+### 3.3 Robustness: the RISE integral lemma
+
+The observer injects $k_s\,\mathrm{sgn}(e)$, not $\mathrm{sgn}(r)$. The pointwise product
+$r^T(N - k_s\,\mathrm{sgn}(e))$ can be positive for any $k_s$, because $r$ and $e$ need not share
+signs at a given instant, so "$k_s$ larger than the disturbance" does **not** give domination.
+Domination holds in integral, because $e$ is a filtered version of $r$. This is the lemma of
+Xian et al. [5].
+
+**Lemma 1 (RISE integral bound).** Let $r = \dot e + \alpha e$ with $\alpha > 0$. Let
+$\lVert N_B\rVert \le \zeta_1$, $\lVert N_D\rVert \le \zeta_2$ and
+$\lVert\dot N_B + \dot N_D\rVert \le \zeta_3$, and define
+$L \triangleq r^T(N_B + N_D - k_s\,\mathrm{sgn}(e)) - \alpha e^TN_D$. If
+
+$$k_s \ge \max\Big\{\zeta_1 + \zeta_2,\ \ \zeta_1 + \tfrac{1}{\alpha}\zeta_3\Big\},$$
+
+then $\int_0^tL\,d\tau \le \zeta_b \triangleq k_s\lVert e(0)\rVert_1 - e(0)^T\big(N_B(0)+N_D(0)\big)$
+for all $t \ge 0$.
+
+*Proof.* Substitute $r = \dot e + \alpha e$; the $\alpha e^TN_D$ terms cancel. Integrate
+$\dot e^T(N_B + N_D)$ by parts, use $\int_0^t\dot e^T\mathrm{sgn}(e) = \lVert e(t)\rVert_1 - \lVert e(0)\rVert_1$
+and $\lvert e^Tv\rvert \le \lVert e\rVert_1\lVert v\rVert$:
+
+$$\int_0^tL \le \lVert e(t)\rVert_1(\zeta_1+\zeta_2-k_s) + \alpha\int_0^t\lVert e\rVert_1\Big(\zeta_1+\tfrac{\zeta_3}{\alpha}-k_s\Big) + \zeta_b \le \zeta_b.\ ∎$$
+
+With $N_B = N_2$ and $N_D = N_3$, define $P(t) \triangleq \zeta_b - \int_0^tL\,d\tau \ge 0$, so that
+$\dot P = -L$.
+
+**Proposition 1 (convergence).** Let
+$V = V_0 + \tfrac{\alpha}{2}\tilde\theta^T\Gamma^{-1}\tilde\theta + P$ and
+$\xi = [\tilde x_1^T,\eta^T,\nu^T,r^T,\tilde\theta^T,\sqrt P]^T$. Suppose the bounds of Lemma 1 hold
+while $\xi$ is in the ball $\mathcal S = \{\lVert\xi\rVert < \omega\}$, $k_s$ satisfies the lemma's
+condition, and $\xi(0) \in \{\lVert\xi\rVert < \sqrt{\beta_1/\beta_2}\,\omega\}$, where
+$\beta_1\lVert\xi\rVert^2 \le V \le \beta_2\lVert\xi\rVert^2$. Then all signals stay bounded, and
+$\tilde x_1, \eta, \nu, r \to 0$, hence $\tilde x_2 = r - \alpha\tilde x_1 - \eta \to 0$.
+
+*Proof sketch.* By the cancellation above, §3.2 and $\dot P = -L$, for almost all $t$ with
+$\xi \in \mathcal S$,
+
+$$\dot V \le -\alpha\big(\lVert\tilde x_1\rVert^2 + \lVert\eta\rVert^2 + \lVert\nu\rVert^2\big) - k_r\lVert r\rVert^2.$$
+
+So $\lVert\xi(t)\rVert \le \sqrt{\beta_2/\beta_1}\lVert\xi(0)\rVert < \omega$, and $\xi$ stays in
+$\mathcal S$. The closed loop is a Filippov differential inclusion because of $\mathrm{sgn}(e)$
+[8], [9], and the nonsmooth LaSalle–Yoshizawa corollary [6] gives
+$(\tilde x_1, \eta, \nu, r) \to 0$. ∎
+
+The result is semi-global: $\omega$ can be as large as desired, at the price of larger bounds and a
+larger $k_s$. It gives **no** parameter convergence ($\dot V$ has no $-\lVert\tilde\theta\rVert^2$
+term) and no exponential rate; an exponential variant needs a modified $P$-function [2]. Griffis et
+al. [1] use that variant and obtain $k_s \ge \kappa_1 + \kappa_2 + (\alpha\kappa_2+\kappa_3)/(\alpha-1)$
+with $\alpha > 1$.
+
+**What the code actually runs.** With $\tanh(e/\epsilon)$, or with $k_s$ below the lemma's bound,
+the conclusion weakens to uniform ultimate boundedness, with the residual set shrinking as
+$\hat\Phi \to g$. **The tuned $k_s = 0.2$ is below the bound**: the unlearned acceleration mismatch
+is of order $1\ \text{rad/s}^2$. The experiments therefore run in the UUB regime. The linear
+feedback $\chi$ and the learned $\hat\Phi$ do the work, and a larger $k_s$ mostly injects noise
 (§8).
 
 ## 4. Analytical Jacobians
@@ -193,6 +283,21 @@ $$\big[\Phi'^T e\big]_{W_\bullet} = \mathrm{vec}\big(\zeta\,(\delta_\bullet \odo
 `tests/test_jacobian_engine.py` checks the explicit $\Phi'$ against central finite
 differences (agreement to about $10^{-11}$, all five blocks non-degenerate) and checks the
 fast product against $\Phi'^Te$ to machine precision.
+
+> **Layout convention, and a correction to the survey.** With gates written as $W z$,
+> $W \in \mathbb R^{l_2\times l_1}$, and column-stacking $\mathrm{vec}$, the factor above appears as
+> $(z^T\otimes I_{l_2})$. For the output gate:
+> $\partial h/\partial\,\mathrm{vec}(W_o) = D(\sigma_c(c))\,D(\sigma_g'(W_oz))\,(z^T\otimes I_{l_2})$.
+> The survey on `main` (its Eq. (27)) omitted that factor, which leaves an $l_2\times l_2$ matrix
+> where an $l_2 \times l_1l_2$ one is needed. $(z^T\otimes I_{l_2})$ and the $I_L\otimes\zeta^T$
+> used here are the same derivative in different memory layouts. A finite-difference check of the
+> full set, in the $Wz$ layout, agrees to $7.6\times10^{-11}$.
+
+> **Caveat: static-map Jacobian.** $\Phi'$ differentiates the instantaneous map
+> $(\zeta, \hat c) \mapsto \hat\Phi$ with the memories held fixed. It drops the dependence of
+> $\hat c$ and $\hat h$ on $\theta$ through their ODEs, which backpropagation-through-time or
+> real-time recurrent learning would keep. This is the standard choice in [1] and in the Lyapunov
+> analysis, but it is an approximation of the true sensitivity, not the exact gradient.
 
 ## 5. Adaptation law and smooth projection
 
@@ -405,9 +510,19 @@ python -m src.identification.extract_model --weights results/approach_a/lblstm_f
 
 ## References
 
-1. E. J. Griffis, O. S. Patil, R. G. Hart, W. E. Dixon, "Lyapunov-Based Long Short-Term Memory (Lb-LSTM) Neural Network-Based Adaptive Observer," *IEEE Control Systems Letters*, vol. 8, pp. 97–102, 2024.
-2. H. T. Dinh, R. Kamalapurkar, S. Bhasin, W. E. Dixon, "Dynamic neural network-based robust observers for uncertain nonlinear systems," *Neural Networks*, vol. 60, pp. 44–52, 2014.
-3. B. Xian, D. M. Dawson, M. S. de Queiroz, J. Chen, "A continuous asymptotic tracking control strategy for uncertain nonlinear systems," *IEEE Trans. Automatic Control*, vol. 49, no. 7, pp. 1206–1211, 2004.
-4. J.-B. Pomet, L. Praly, "Adaptive nonlinear regulation: estimation from the Lyapunov equation," *IEEE Trans. Automatic Control*, vol. 37, no. 6, pp. 729–740, 1992.
-5. E. Lavretsky, K. A. Wise, *Robust and Adaptive Control*, Springer, 2013 (projection operator).
-6. G. Chowdhary, E. Johnson, "Concurrent learning for convergence in adaptive control without persistency of excitation," *IEEE CDC*, 2010.
+1. E. J. Griffis, O. S. Patil, R. G. Hart, and W. E. Dixon, "Lyapunov-based long short-term memory (Lb-LSTM) neural network-based adaptive observer," *IEEE Control Systems Letters*, vol. 8, pp. 97–102, 2024, doi:10.1109/LCSYS.2023.3348706.
+2. O. S. Patil, A. Isaly, B. Xian, and W. E. Dixon, "Exponential stability with RISE controllers," *IEEE Control Systems Letters*, vol. 6, pp. 1592–1597, 2022.
+3. E. J. Griffis, O. S. Patil, Z. I. Bell, and W. E. Dixon, "Lyapunov-based long short-term memory (Lb-LSTM) neural network-based control," *IEEE Control Systems Letters*, vol. 7, pp. 2976–2981, 2023, doi:10.1109/LCSYS.2023.3291328.
+4. R. G. Hart, E. J. Griffis, O. S. Patil, and W. E. Dixon, "Lyapunov-based physics-informed long short-term memory (LSTM) neural network-based adaptive control," *IEEE Control Systems Letters*, vol. 8, pp. 13–18, 2024, doi:10.1109/LCSYS.2023.3347485.
+5. B. Xian, D. M. Dawson, M. S. de Queiroz, and J. Chen, "A continuous asymptotic tracking control strategy for uncertain nonlinear systems," *IEEE Transactions on Automatic Control*, vol. 49, no. 7, pp. 1206–1211, 2004, doi:10.1109/TAC.2004.831148.
+6. N. Fischer, R. Kamalapurkar, and W. E. Dixon, "LaSalle–Yoshizawa corollaries for nonsmooth systems," *IEEE Transactions on Automatic Control*, vol. 58, no. 9, pp. 2333–2338, 2013.
+7. E. Lavretsky and K. A. Wise, *Robust and Adaptive Control with Aerospace Applications*. London: Springer, 2013 (projection operator).
+8. B. E. Paden and S. S. Sastry, "A calculus for computing Filippov's differential inclusion with application to the variable structure control of robot manipulators," *IEEE Transactions on Circuits and Systems*, vol. 34, no. 1, pp. 73–82, 1987.
+9. D. Shevitz and B. Paden, "Lyapunov stability theory of nonsmooth systems," *IEEE Transactions on Automatic Control*, vol. 39, no. 9, pp. 1910–1914, 1994.
+10. H. T. Dinh, R. Kamalapurkar, S. Bhasin, and W. E. Dixon, "Dynamic neural network-based robust observers for uncertain nonlinear systems," *Neural Networks*, vol. 60, pp. 44–52, 2014.
+11. J.-B. Pomet and L. Praly, "Adaptive nonlinear regulation: Estimation from the Lyapunov equation," *IEEE Transactions on Automatic Control*, vol. 37, no. 6, pp. 729–740, 1992.
+12. G. Chowdhary and E. Johnson, "Concurrent learning for convergence in adaptive control without persistency of excitation," in *Proc. 49th IEEE Conference on Decision and Control*, pp. 3674–3679, 2010.
+
+**Diagrams.** Diagrams 1–2 are Excalidraw element lists in `figures/diagrams/src/*.json`;
+`python figures/diagrams/src/render_diagrams.py` regenerates the SVGs and the editable `.excalidraw`
+scenes.
