@@ -10,7 +10,8 @@ System Constants:
 - M = 2.4 kg (cart mass)
 - m = 0.23 kg (pendulum rod mass)
 - l = 0.36 m (distance from pivot to center of mass)
-- I = 0.099 kg*m^2 (pendulum moment of inertia about pivot)
+- I = 0.099 kg*m^2 (pendulum moment of inertia about its center of mass;
+  the inertia about the pivot is I + m*l^2, as in equation (2))
 - b = 0.05 Ns/m (cart viscous damping)
 - d = 0.005 Nms/rad (pendulum joint viscous damping)
 - g = 9.81 m/s^2 (gravitational acceleration)
@@ -33,7 +34,7 @@ class PendulumParameters:
     M: float = 2.4          # Cart mass [kg]
     m: float = 0.23         # Pendulum mass [kg]
     l: float = 0.36         # Center of mass distance from pivot [m]
-    I: float = 0.099        # Pendulum inertia about pivot [kg*m^2]
+    I: float = 0.099        # Pendulum inertia about its center of mass [kg*m^2]
     b: float = 0.05         # Cart viscous damping [N*s/m]
     d: float = 0.005        # Pendulum joint damping [N*m*s/rad]
     g: float = 9.81         # Gravitational acceleration [m/s^2]
