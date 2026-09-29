@@ -1,0 +1,599 @@
+[
+{
+"type": "cameraUpdate",
+"width": 800,
+"height": 600,
+"x": -30,
+"y": -160
+},
+{
+"type": "text",
+"id": "title",
+"x": 0,
+"y": -125,
+"text": "Approach D: integral concurrent learning pipeline, with no acceleration signal",
+"fontSize": 28
+},
+{
+"type": "rectangle",
+"id": "enc",
+"x": 0,
+"y": 40,
+"width": 180,
+"height": 80,
+"roundness": {
+"type": 3
+},
+"backgroundColor": "#a5d8ff",
+"fillStyle": "solid",
+"strokeColor": "#4a9eed",
+"label": {
+"text": "Encoder y\nand input u",
+"fontSize": 20
+}
+},
+{
+"type": "rectangle",
+"id": "sg",
+"x": 230,
+"y": 30,
+"width": 270,
+"height": 100,
+"roundness": {
+"type": 3
+},
+"backgroundColor": "#d0bfff",
+"fillStyle": "solid",
+"strokeColor": "#8b5cf6",
+"label": {
+"text": "Causal Savitzky-Golay\n0.1 s cubic, 50 ms delay\n→ q, q̇   (no q̈)",
+"fontSize": 18
+}
+},
+{
+"type": "arrow",
+"id": "a1",
+"x": 180,
+"y": 80,
+"width": 50,
+"height": 0,
+"points": [
+[
+0,
+0
+],
+[
+50,
+0
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "rectangle",
+"id": "win",
+"x": 560,
+"y": 30,
+"width": 300,
+"height": 100,
+"roundness": {
+"type": 3
+},
+"backgroundColor": "#d0bfff",
+"fillStyle": "solid",
+"strokeColor": "#8b5cf6",
+"label": {
+"text": "ICL window, Δ = 0.25 s\nY_j = [Y_mom] + ∫ Y_int\nb_j = ∫ Bu",
+"fontSize": 18
+}
+},
+{
+"type": "arrow",
+"id": "a2",
+"x": 500,
+"y": 80,
+"width": 60,
+"height": 0,
+"points": [
+[
+0,
+0
+],
+[
+60,
+0
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "diamond",
+"id": "gate",
+"x": 920,
+"y": 10,
+"width": 180,
+"height": 140,
+"backgroundColor": "#fff3bf",
+"fillStyle": "solid",
+"strokeColor": "#f59e0b",
+"label": {
+"text": "novel and\nraises λ_min?",
+"fontSize": 16
+}
+},
+{
+"type": "arrow",
+"id": "a3",
+"x": 860,
+"y": 80,
+"width": 60,
+"height": 0,
+"points": [
+[
+0,
+0
+],
+[
+60,
+0
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "cameraUpdate",
+"width": 1600,
+"height": 1200,
+"x": -30,
+"y": -160
+},
+{
+"type": "rectangle",
+"id": "stA",
+"x": 1150,
+"y": -45,
+"width": 320,
+"height": 110,
+"roundness": {
+"type": 3
+},
+"backgroundColor": "#c3fae8",
+"fillStyle": "solid",
+"strokeColor": "#06b6d4",
+"label": {
+"text": "Stack A: actuated cart row\nOLS; target ∫Bu is noise-free\n→ φ_A",
+"fontSize": 18
+}
+},
+{
+"type": "rectangle",
+"id": "stU",
+"x": 1160,
+"y": 110,
+"width": 300,
+"height": 110,
+"roundness": {
+"type": 3
+},
+"backgroundColor": "#c3fae8",
+"fillStyle": "solid",
+"strokeColor": "#06b6d4",
+"label": {
+"text": "Stack U: pendulum row\nnormalized by J = [M₂₂]\nnoisy Δθ̇ is the target\n→ κ, ψ",
+"fontSize": 18
+}
+},
+{
+"type": "arrow",
+"id": "a4",
+"x": 1100,
+"y": 80,
+"width": 60,
+"height": 70,
+"points": [
+[
+0,
+0
+],
+[
+60,
+-70
+]
+],
+"endArrowhead": "arrow",
+"label": {
+"text": "yes",
+"fontSize": 16
+}
+},
+{
+"type": "arrow",
+"id": "a5",
+"x": 1100,
+"y": 80,
+"width": 60,
+"height": 85,
+"points": [
+[
+0,
+0
+],
+[
+60,
+85
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "rectangle",
+"id": "note",
+"x": 0,
+"y": 165,
+"width": 760,
+"height": 90,
+"roundness": {
+"type": 3
+},
+"backgroundColor": "#fff3bf",
+"fillStyle": "solid",
+"strokeColor": "#f59e0b",
+"label": {
+"text": "Approach C needed q̈ from a 2nd-derivative Savitzky-Golay proxy:\nnoise gain ≈ 27σ, ≈ 10 % RMS error on θ̈.  ICL uses only q and q̇.",
+"fontSize": 18
+}
+},
+{
+"type": "rectangle",
+"id": "comb",
+"x": 1160,
+"y": 300,
+"width": 300,
+"height": 90,
+"roundness": {
+"type": 3
+},
+"backgroundColor": "#b2f2bb",
+"fillStyle": "solid",
+"strokeColor": "#22c55e",
+"label": {
+"text": "Stack estimate\nφ_H = [φ_A, 1/κ, ψ/κ]",
+"fontSize": 20
+}
+},
+{
+"type": "arrow",
+"id": "a6",
+"x": 1310,
+"y": 220,
+"width": 0,
+"height": 80,
+"points": [
+[
+0,
+0
+],
+[
+0,
+80
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "arrow",
+"id": "a7",
+"x": 1460,
+"y": 10,
+"width": 40,
+"height": 335,
+"points": [
+[
+0,
+0
+],
+[
+40,
+0
+],
+[
+40,
+335
+],
+[
+0,
+335
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "diamond",
+"id": "rank",
+"x": 820,
+"y": 270,
+"width": 260,
+"height": 150,
+"backgroundColor": "#fff3bf",
+"fillStyle": "solid",
+"strokeColor": "#f59e0b",
+"label": {
+"text": "Rank gate\n≥ 60 windows and\nλ_min ≥ 10⁻⁴?",
+"fontSize": 16
+}
+},
+{
+"type": "arrow",
+"id": "a8",
+"x": 1160,
+"y": 345,
+"width": 80,
+"height": 0,
+"points": [
+[
+0,
+0
+],
+[
+-80,
+0
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "rectangle",
+"id": "clt",
+"x": 440,
+"y": 295,
+"width": 300,
+"height": 100,
+"roundness": {
+"type": 3
+},
+"backgroundColor": "#eebefa",
+"fillStyle": "solid",
+"strokeColor": "#ec4899",
+"label": {
+"text": "CL term\nγ_CL (φ_H − φ)\nimplicit step",
+"fontSize": 20
+}
+},
+{
+"type": "arrow",
+"id": "a9",
+"x": 820,
+"y": 345,
+"width": 80,
+"height": 0,
+"points": [
+[
+0,
+0
+],
+[
+-80,
+0
+]
+],
+"endArrowhead": "arrow",
+"label": {
+"text": "yes",
+"fontSize": 16
+}
+},
+{
+"type": "text",
+"id": "no",
+"x": 1000,
+"y": 425,
+"text": "no: CL term off",
+"fontSize": 16,
+"strokeColor": "#555555"
+},
+{
+"type": "rectangle",
+"id": "inst",
+"x": 440,
+"y": 470,
+"width": 300,
+"height": 100,
+"roundness": {
+"type": 3
+},
+"backgroundColor": "#eebefa",
+"fillStyle": "solid",
+"strokeColor": "#ec4899",
+"label": {
+"text": "Instantaneous term\n−γ s ⊙ Yᵀ e\n(kinetic metric)",
+"fontSize": 20
+}
+},
+{
+"type": "rectangle",
+"id": "proj",
+"x": 40,
+"y": 350,
+"width": 320,
+"height": 140,
+"roundness": {
+"type": 3
+},
+"backgroundColor": "#ffc9c9",
+"fillStyle": "solid",
+"strokeColor": "#ef4444",
+"label": {
+"text": "Projections\n‖φ − φ₀‖ ≤ W̄,   d_v, d_c ≥ 0\nM(q_g) ⪰ ε_M I on 72 angles",
+"fontSize": 18
+}
+},
+{
+"type": "arrow",
+"id": "a10",
+"x": 440,
+"y": 345,
+"width": 80,
+"height": 55,
+"points": [
+[
+0,
+0
+],
+[
+-80,
+55
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "arrow",
+"id": "a11",
+"x": 440,
+"y": 520,
+"width": 80,
+"height": 75,
+"points": [
+[
+0,
+0
+],
+[
+-80,
+-75
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "rectangle",
+"id": "model",
+"x": 40,
+"y": 580,
+"width": 320,
+"height": 110,
+"roundness": {
+"type": 3
+},
+"backgroundColor": "#a5d8ff",
+"fillStyle": "solid",
+"strokeColor": "#4a9eed",
+"label": {
+"text": "Linear-in-θ EL model (p = 15)\nΦ̂ = M̂⁻¹(Bu − Y_rest θ̂)",
+"fontSize": 18
+}
+},
+{
+"type": "arrow",
+"id": "a12",
+"x": 200,
+"y": 490,
+"width": 0,
+"height": 90,
+"points": [
+[
+0,
+0
+],
+[
+0,
+90
+]
+],
+"endArrowhead": "arrow",
+"label": {
+"text": "φ̂",
+"fontSize": 20
+}
+},
+{
+"type": "arrow",
+"id": "a13",
+"x": 200,
+"y": 690,
+"width": 0,
+"height": 60,
+"points": [
+[
+0,
+0
+],
+[
+0,
+60
+]
+],
+"endArrowhead": "arrow",
+"label": {
+"text": "Φ̂ → observer",
+"fontSize": 18
+}
+},
+{
+"type": "rectangle",
+"id": "det",
+"x": 860,
+"y": 560,
+"width": 320,
+"height": 110,
+"roundness": {
+"type": 3
+},
+"backgroundColor": "#ffd8a8",
+"fillStyle": "solid",
+"strokeColor": "#f59e0b",
+"label": {
+"text": "Change detector\ncart-row residual ratio > 8\nfor 0.3 s → purge stacks",
+"fontSize": 18
+}
+},
+{
+"type": "arrow",
+"id": "a14",
+"x": 1180,
+"y": 615,
+"width": 350,
+"height": 450,
+"points": [
+[
+0,
+0
+],
+[
+350,
+0
+],
+[
+350,
+-450
+],
+[
+280,
+-450
+]
+],
+"endArrowhead": "arrow",
+"strokeStyle": "dashed",
+"strokeColor": "#c2410c",
+"label": {
+"text": "purge on change",
+"fontSize": 16
+}
+},
+{
+"type": "text",
+"id": "legend",
+"x": 0,
+"y": 790,
+"text": "Every signal used for identification is a position, a smoothed velocity or an integral of the input.",
+"fontSize": 20,
+"strokeColor": "#555555"
+},
+{
+"type": "cameraUpdate",
+"width": 1600,
+"height": 1200,
+"x": -30,
+"y": -160
+}
+]

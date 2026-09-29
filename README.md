@@ -17,6 +17,12 @@ condition then applies to the *whole* parameter vector, and the true rig is repr
 exactly. The stack stores *integration windows*, not points, so no acceleration estimate is ever
 needed (integral CL).
 
+![Observer block diagram](figures/diagrams/observer_block_diagram.svg)
+
+*Diagram 1. Block diagram of the PI-ICL observer. The filter, the feedback $\chi$ and the robust term
+are Approach A's. The model is a linear-in-parameters Euler–Lagrange model (§1). The dashed path is
+integral concurrent learning, detailed in Diagram 2 (§4).*
+
 Approach B's README lists incomplete inertia identification as its main open problem: 16 % error,
 and $\hat M_{22}$ does not follow a change of the pendulum. Approach D identifies all four rigid-body
 parameters and re-identifies them after the plant changes.
@@ -126,6 +132,7 @@ smoother, and 0.003 with a 0.05 s one. Batch fits separate the causes:
 | True states | 0.1288 | 0.812 | 6.31 (exact) |
 | Smoothed, noise-free encoder | 0.1288 | 0.812 | 6.31 |
 | Smoothed, noisy encoder, plain LS | 0.0197 | 0.118 | 6.0 |
+| Smoothed, noisy encoder, **row-normalized** (fix below) | 0.1299 | 0.788 | 6.07 |
 
 Smoothing is not the problem; noise is. The pendulum row has no input ($B_2 = 0$), so its
 equation is **homogeneous**: $\mathcal Y_{2}\theta^\ast = 0$. Least squares with noisy
@@ -133,6 +140,17 @@ regressors then shrinks the row towards $\theta = 0$ (errors-in-variables attenu
 small cart–pendulum coupling term $ml\cos\theta\,\ddot x$ resists, because $ml$ is pinned by the
 cart row. The ratio $mgl/(I+ml^2) = \omega^2$ survives; the absolute scale does not. Approach B's
 README observed the same limit: "the learned $\hat M_{22}$ stays wrong while the ratio is right".
+
+**Why noise shrinks the row.** Write the noisy regressors as $\hat{\mathcal Y} = \mathcal Y + E$,
+with $E$ zero-mean and covariance $\Sigma_E$. Least squares on the homogeneous row minimizes
+
+$$\textstyle\sum_j\lVert\hat{\mathcal Y}_{2,j}\theta\rVert^2 \approx \theta^T\big(\mathcal Y_2^T\mathcal Y_2 + N\Sigma_E\big)\theta,$$
+
+so the noise acts as a Tikhonov penalty that pulls the row's parameters towards $\theta = 0$.
+Actuated rows escape this because their target $\int Bu$ is non-zero and noise-free. This failure
+cannot occur on the fully actuated two-link manipulators used by the published observers this
+project builds on (Dinh 2014; Griffis 2024; Hart 2024). It is specific to underactuated systems,
+and the survey on `main` does not mention it.
 
 **Fix: normalize the homogeneous row so the noisy term becomes the target.** Divide the pendulum
 row by its leading coefficient $J = [M_{22}]_{const}$. Take the columns it shares with the cart
@@ -158,6 +176,16 @@ the actuated rows. If an unactuated row shares no parameter with the actuated ro
 unobservable, and the constructor refuses it.
 
 ## 4. Adaptation law
+
+![PI-ICL pipeline](figures/diagrams/pi_icl_pipeline.svg)
+
+*Diagram 2. The identification pipeline. Encoder data are smoothed to positions and velocities only
+(no $\ddot q$) and integrated over 0.25 s windows into the ICL identity (§2). Windows enter two
+history stacks through a novelty and minimum-singular-value test. The actuated row is solved by
+ordinary least squares with a noise-free target, and the unactuated row in the normalized form of
+§3. The combined estimate $\phi_H$ drives the CL term once the rank gate opens. Projections keep the
+inertia positive definite and the friction dissipative. A residual-based detector purges the stacks
+after a plant change.*
 
 In scaled parameters $\phi = \theta / s$, where $s$ holds unit scales derived from the inertia
 prior:
@@ -192,7 +220,7 @@ row *invariant* ($\omega^2$ and $ml/J$ unchanged). Observed ratios: at most 4.9 
 ### Stability and convergence (sketch)
 
 Let $\tilde\phi = \phi^\ast - \phi$, and let $V_0 + P$ be Approach A's filter Lyapunov function
-with its RISE term (A's README, §3; B's §5). Between stack updates $\phi_H$ is constant, and
+with its RISE term (A's README, §3.3; B's §5). Between stack updates $\phi_H$ is constant, and
 
 $$\dot{\tilde\phi} = -\gamma_{CL}\tilde\phi + \gamma_{CL}(\phi^\ast - \phi_H) + \gamma\, s\odot Y^Te.$$
 
@@ -329,6 +357,21 @@ design.
 | True parameters exist | no | no | no | **yes** |
 | Handles plant change | slowly | partially | no | **detects and re-identifies** |
 
+**What D resolves.** D removes the two limitations that stopped B and C from identifying the rig:
+
+1. **B's scale collapse**, which D removes by normalizing the homogeneous pendulum row (§3).
+2. **C's rank deficit and acceleration proxy.**
+   - C's rank condition could only be imposed on 32 of 1440 parameters. D's linear
+     parameterization makes it attainable on all 15.
+   - C's second-derivative proxy had noise gain ≈ 26.9σ and about 10 % RMS error on θ̈. The ICL
+     identity (§2) needs no acceleration at all.
+
+The costs are listed in §7:
+
+- a larger initial transient;
+- loose pendulum parameters when the excitation stays near the hanging equilibrium;
+- a model class that cannot represent effects outside the linear Euler–Lagrange family.
+
 ## 10. Files
 
 | File | Contents |
@@ -352,10 +395,15 @@ The script sets `OMP_NUM_THREADS=1` for its worker processes.
 
 ## References
 
-- R. Hart, E. Griffis, O. Patil, W. E. Dixon. Physics-informed Lb-LSTM (the basis of Approach B), 2024.
-- A. Parikh, R. Kamalapurkar, W. E. Dixon. *Integral concurrent learning: Adaptive control with parameter convergence using finite excitation.* Int. J. Adaptive Control and Signal Processing, 2019.
-- G. Chowdhary, E. Johnson. *A singular value maximizing data recording algorithm for concurrent learning.* ACC, 2011.
-- J.-J. E. Slotine, W. Li. *On the adaptive control of robot manipulators.* Int. J. Robotics Research, 1987.
-- N. Fischer, R. Kamalapurkar, W. E. Dixon. *LaSalle–Yoshizawa corollaries for nonsmooth systems.* IEEE TAC, 2013.
-- S. Van Huffel, J. Vandewalle. *The Total Least Squares Problem.* SIAM, 1991 (errors-in-variables background for §3).
-- A. Savitzky, M. J. E. Golay. *Smoothing and differentiation of data by simplified least squares procedures.* Analytical Chemistry, 1964.
+- R. G. Hart, E. J. Griffis, O. S. Patil, and W. E. Dixon, "Lyapunov-based physics-informed long short-term memory (LSTM) neural network-based adaptive control," *IEEE Control Systems Letters*, vol. 8, pp. 13–18, 2024, doi:10.1109/LCSYS.2023.3347485 (the basis of Approach B).
+- E. J. Griffis, O. S. Patil, R. G. Hart, and W. E. Dixon, "Lyapunov-based long short-term memory (Lb-LSTM) neural network-based adaptive observer," *IEEE Control Systems Letters*, vol. 8, pp. 97–102, 2024, doi:10.1109/LCSYS.2023.3348706.
+- A. Parikh, R. Kamalapurkar, and W. E. Dixon, "Integral concurrent learning: Adaptive control with parameter convergence using finite excitation," *International Journal of Adaptive Control and Signal Processing*, vol. 33, no. 12, pp. 1775–1787, 2019, doi:10.1002/acs.2945.
+- G. Chowdhary and E. Johnson, "A singular value maximizing data recording algorithm for concurrent learning," in *Proc. American Control Conference*, pp. 3547–3552, 2011.
+- J.-J. E. Slotine and W. Li, "On the adaptive control of robot manipulators," *International Journal of Robotics Research*, vol. 6, no. 3, pp. 49–59, 1987.
+- N. Fischer, R. Kamalapurkar, and W. E. Dixon, "LaSalle–Yoshizawa corollaries for nonsmooth systems," *IEEE Transactions on Automatic Control*, vol. 58, no. 9, pp. 2333–2338, 2013.
+- S. Van Huffel and J. Vandewalle, *The Total Least Squares Problem: Computational Aspects and Analysis*. Philadelphia, PA: SIAM, 1991 (errors-in-variables background for §3).
+- A. Savitzky and M. J. E. Golay, "Smoothing and differentiation of data by simplified least squares procedures," *Analytical Chemistry*, vol. 36, no. 8, pp. 1627–1639, 1964.
+
+**Diagrams.** Diagrams 1–2 are Excalidraw element lists in `figures/diagrams/src/*.json`;
+`python figures/diagrams/src/render_diagrams.py` regenerates the SVGs and the editable `.excalidraw`
+scenes.
