@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-30 -170 1610 922" width="1610" height="922" role="img">
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="context-stroke"/></marker></defs>
+<rect x="-30" y="-170" width="1610" height="922" fill="#ffffff"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="28" dominant-baseline="hanging" fill="#1e1e1e"><tspan x="0" y="-140.0">Approach B: structure of the physics-informed model (PI-LSTM)</tspan></text>
+<rect x="0" y="60" width="180" height="60" rx="12" fill="#a5d8ff" stroke="#4a9eed" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="20" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="90.0" y="90.0">q̂ = x̂₁</tspan></text>
+<rect x="0" y="330" width="180" height="60" rx="12" fill="#a5d8ff" stroke="#4a9eed" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="20" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="90.0" y="360.0">q̂̇ = x̂₂</tspan></text>
+<rect x="240" y="30" width="280" height="120" rx="12" fill="#fff3bf" stroke="#f59e0b" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="18" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="380.0" y="67.5">Feature layer (fixed)</tspan><tspan x="380.0" y="90.0">ρ(q) = [1, cos kθ, sin kθ]</tspan><tspan x="380.0" y="112.5">cart x cyclic: not used</tspan></text>
+<polyline points="180.0,90.0 240.0,90.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="600" y="-70" width="330" height="110" rx="12" fill="#d0bfff" stroke="#8b5cf6" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="18" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="765.0" y="-37.5">Inertia block (15 params)</tspan><tspan x="765.0" y="-15.0">M̂ = D L Lᵀ D + ε_M I</tspan><tspan x="765.0" y="7.5">softplus diagonal ⇒ SPD</tspan></text>
+<rect x="600" y="70" width="330" height="100" rx="12" fill="#d0bfff" stroke="#8b5cf6" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="18" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="765.0" y="108.8">Potential block (5)</tspan><tspan x="765.0" y="131.2">P̂ = w_Gᵀρ,   Ĝ = ∇_q P̂</tspan></text>
+<rect x="600" y="210" width="330" height="110" rx="12" fill="#d0bfff" stroke="#8b5cf6" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="18" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="765.0" y="242.5">Coriolis block (20)</tspan><tspan x="765.0" y="265.0">Ĉq̇ = Ṁq̇ − ½∇(q̇ᵀM̂q̇)</tspan><tspan x="765.0" y="287.5">+ skew gyroscopic S</tspan></text>
+<rect x="600" y="360" width="330" height="120" rx="12" fill="#c3fae8" stroke="#06b6d4" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="18" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="765.0" y="397.5">Friction LSTM (358)</tspan><tspan x="765.0" y="420.0">d = d⁰ softplus(φ_F − 3) &gt; 0</tspan><tspan x="765.0" y="442.5">F̂ = diag(d) q̇</tspan></text>
+<polyline points="520.0,90.0 600.0,-15.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="551.5" y="25.5" width="17.0" height="24.0" fill="#ffffff" opacity="0.9"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="16" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="560.0" y="37.5">ρ</tspan></text>
+<polyline points="520.0,90.0 600.0,120.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<polyline points="180.0,360.0 560.0,360.0 560.0,265.0 600.0,265.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<polyline points="180.0,380.0 600.0,410.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<polyline points="930.0,20.0 955.0,20.0 955.0,190.0 900.0,190.0 900.0,210.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="931.4" y="119.2" width="47.2" height="21.5" fill="#ffffff" opacity="0.9"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="14" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="955.0" y="130.0">∂M̂/∂q</tspan></text>
+<rect x="1010" y="150" width="300" height="120" rx="12" fill="#a5d8ff" stroke="#4a9eed" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="18" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="1160.0" y="187.5">Assemble</tspan><tspan x="1160.0" y="210.0">τ̂ = Bu − V̂_m q̇ − Ĝ − F̂</tspan><tspan x="1160.0" y="232.5">Φ̂ = M̂⁻¹ τ̂</tspan></text>
+<polyline points="930.0,-40.0 1160.0,-40.0 1160.0,150.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="1131.5" y="-52.0" width="17.0" height="24.0" fill="#ffffff" opacity="0.9"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="16" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="1140.0" y="-40.0">M̂</tspan></text>
+<polyline points="930.0,120.0 1010.0,190.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<polyline points="930.0,265.0 1010.0,230.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<polyline points="930.0,410.0 1010.0,250.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="1370" y="165" width="180" height="90" rx="12" fill="#b2f2bb" stroke="#22c55e" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="18" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="1460.0" y="198.8">Φ̂ ≈ q̈</tspan><tspan x="1460.0" y="221.2">to observer</tspan></text>
+<polyline points="1310.0,210.0 1370.0,210.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="1010" y="320" width="540" height="110" rx="12" fill="#b2f2bb" stroke="#22c55e" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="18" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="1280.0" y="352.5">Holds for every θ̂:  M̂ ⪰ ε_M I;  Ṁ − 2V̂_m skew;</tspan><tspan x="1280.0" y="375.0">Ĝ conservative;  q̇ᵀF̂ ≥ 0</tspan><tspan x="1280.0" y="397.5">⇒ the learned model is passive</tspan></text>
+<rect x="0" y="560" width="220" height="90" rx="12" fill="#ffd8a8" stroke="#f59e0b" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="18" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="110.0" y="593.8">Measurable error</tspan><tspan x="110.0" y="616.2">e = x̃₁ + ν</tspan></text>
+<rect x="280" y="550" width="420" height="110" rx="12" fill="#eebefa" stroke="#ec4899" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="18" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="490.0" y="582.5">Adjoint Jacobian engine, O(p)</tspan><tspan x="490.0" y="605.0">kinetic metric W = M̂ ⇒ λ = e</tspan><tspan x="490.0" y="627.5">Φ′_βᵀ M̂ e for each block</tspan></text>
+<polyline points="220.0,605.0 280.0,605.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="760" y="550" width="440" height="110" rx="12" fill="#eebefa" stroke="#ec4899" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="18" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="980.0" y="582.5">Blockwise adaptation</tspan><tspan x="980.0" y="605.0">θ̂̇_β = proj_β(Γ_β Φ′_βᵀ M̂ e)</tspan><tspan x="980.0" y="627.5">β ∈ {M, V, G, F}</tspan></text>
+<polyline points="700.0,605.0 760.0,605.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<polyline points="980.0,550.0 980.0,510.0 765.0,510.0 765.0,480.0" fill="none" stroke="#be185d" stroke-width="2" stroke-dasharray="8 6" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="792.9" y="498.0" width="169.3" height="24.0" fill="#ffffff" opacity="0.9"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="16" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="877.5" y="510.0">θ_M, θ_V, θ_G, θ_F</tspan></text>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="18" dominant-baseline="hanging" fill="#555555"><tspan x="0" y="700.0">Purple: static sub-networks (only output layers adapt).  Teal: recurrent friction.  Dashed: weight updates.</tspan></text>
+</svg>

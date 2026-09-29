@@ -26,6 +26,23 @@ transient, not only at convergence:
 
 Together these make the learned model **passive**: $\frac{d}{dt}(\hat T + \hat P) \le \dot q^TBu$.
 
+![PI-LSTM structure](figures/diagrams/pilstm_structure.svg)
+
+*Diagram 1. Structure of the PI-LSTM. Fixed harmonic features of the configuration feed the inertia
+and potential blocks. The Coriolis force follows from the inertia by the Christoffel construction,
+and a recurrent block learns a dissipative friction. The blocks are assembled into
+$\hat\Phi = \hat M^{-1}\hat\tau$. The invariants in the green box hold for every parameter value.
+Learning (dashed) uses only the measurable error $e$, through an adjoint Jacobian in the kinetic
+metric (§6).*
+
+**Relation to Hart et al. (2024) [1].** [1] is a *tracking controller*. Its adaptation laws and its
+$\mathrm{sgn}$ term use $r = \dot e + \alpha e$ with $e = q - q_d$, which is measurable under
+full-state feedback. Carried into an observer, $r$ contains the unmeasured velocity error, so this
+branch adapts on the measurable error $e = \tilde q + \nu$ of Approach A's filter, and its
+robustness rests on Approach A's integral (RISE) argument instead (§5). [1] also lists
+positive-definiteness of the learned inertia as future work. Here it holds by construction for
+every parameter value (§3).
+
 All updates are analytical ODEs in NumPy, with no autograd. The Jacobians of all four
 parameter blocks match central finite differences to about $10^{-9}$.
 
@@ -272,6 +289,11 @@ The last term vanishes by Proposition 4, and $\dot q^T\hat F \ge 0$ by §4.3. �
 
 The observer is Approach A's structure with the black box replaced by the structured model:
 
+![Observer block diagram](figures/diagrams/observer_block_diagram.svg)
+
+*Diagram 2. Block diagram of the PI-LSTM observer. The filter, the feedback $\chi$ and the robust
+term are Approach A's. Only the model block (Diagram 1) and the blockwise adaptation law differ.*
+
 $$\dot{\hat q} = \hat{\dot q},\qquad
 \dot{\hat{\dot q}} = \hat\Phi + k_s\,\mathrm{sgn}(e) + \chi,\qquad
 \hat\Phi = \hat M^{-1}(\hat q)\big[Bu - \hat V_m(\hat q,\hat{\dot q})\hat{\dot q} - \hat G(\hat q) - \hat F\big].$$
@@ -294,7 +316,11 @@ Nothing in the filter requires the velocity.
 **Stability sketch.** This is honest about what the structure changes. Let
 $N = \ddot q - \hat\Phi$. As in Approach A, if $\hat\theta$ stays in a compact set
 (guaranteed by projection, §6) and $N, \dot N$ are bounded along the trajectory, the RISE
-argument gives asymptotic convergence when $k_s > \lVert N\rVert_\infty + \lVert\dot N\rVert_\infty/\alpha$.
+integral lemma (Approach A's README, §3.3) gives asymptotic convergence when $k_s$ exceeds its bound,
+$\max\{\zeta_1+\zeta_2,\ \zeta_1+\zeta_3/\alpha\}$. With the kinetic metric of §6 the adaptation
+cancels $\alpha e^T\hat M\Phi'\tilde\theta$ rather than $\alpha e^T\Phi'\tilde\theta$. The difference,
+$\alpha e^T(I - \hat M)\Phi'\tilde\theta$, is bounded and adds its bound to the second entry of that
+maximum.
 Otherwise it gives uniform ultimate boundedness. The default $k_s = 0.2$ is below the
 bound, so the experiments run in the UUB regime, as in A.
 
@@ -612,8 +638,12 @@ right.
 ## 12. Limitations and open items
 
 1. **Incomplete inertia identification** (§9.4). $\hat M$ ends with 16 % relative error,
-   and $M_{22}$ does not track the shift. A parameter-error-driven term, such as Approach
-   C's concurrent learning, or a richer excitation should address this.
+   and $M_{22}$ does not track the shift. The cause was later identified on
+   `feature/approach-d-physics-icl` (its README, §3). The pendulum row of the equations of motion
+   has no input, so it is homogeneous. With noisy regressors, fitting it shrinks the row's scale
+   towards zero (errors-in-variables attenuation), while the ratio $mgl/(I+ml^2)$ survives, which
+   is exactly the "right ratio, wrong scale" seen here. Approach D normalizes that row and adds
+   integral concurrent learning, and it identifies the inertia to 0.19 %.
 2. **No initial-transient improvement** (§9.5).
 3. **The stability argument is semi-global** because of the quadratic Coriolis term (§5).
    Proposition 1's $1/\epsilon_M$ bound does not by itself prevent velocity-estimate
@@ -643,3 +673,16 @@ python experiments/run_pilstm_validation.py --actuator-effects      # dead-zone 
 | `tests/test_pilstm.py` | 19 tests: feature and $\partial\hat M/\partial q$ finite differences; SPD and skew-symmetry for random parameters; brute-force Christoffel check; cyclic invariance; energy conservation; dissipativity; blockwise Jacobians against finite differences; projection; observer tracking with invariants. |
 | `src/observers/blackbox_lstm.py`, `src/adaptation/jacobian_engine.py`, `src/simulation/open_loop.py`, and their tests | Approach A baseline, copied unchanged from `feature/approach-a-blackbox-lstm` for the comparison. The PI-LSTM reuses A's LSTM cell, Kronecker Jacobian and smooth projection. |
 | `src/observers/physics_informed_lstm_observer.py` | Earlier prototype on this branch. It uses the *known* nominal $M$, $C$, $G$ and a residual LSTM. It is superseded by the modules above and kept for reference. Note that its Lyapunov argument cancels terms in the unmeasured velocity error $e_v$, while its adaptation law uses the position error, so that law does not follow from the stated $V$. |
+
+## References
+
+1. R. G. Hart, E. J. Griffis, O. S. Patil, and W. E. Dixon, "Lyapunov-based physics-informed long short-term memory (LSTM) neural network-based adaptive control," *IEEE Control Systems Letters*, vol. 8, pp. 13–18, 2024, doi:10.1109/LCSYS.2023.3347485.
+2. E. J. Griffis, O. S. Patil, R. G. Hart, and W. E. Dixon, "Lyapunov-based long short-term memory (Lb-LSTM) neural network-based adaptive observer," *IEEE Control Systems Letters*, vol. 8, pp. 97–102, 2024, doi:10.1109/LCSYS.2023.3348706.
+3. B. Xian, D. M. Dawson, M. S. de Queiroz, and J. Chen, "A continuous asymptotic tracking control strategy for uncertain nonlinear systems," *IEEE Transactions on Automatic Control*, vol. 49, no. 7, pp. 1206–1211, 2004, doi:10.1109/TAC.2004.831148.
+4. N. Fischer, R. Kamalapurkar, and W. E. Dixon, "LaSalle–Yoshizawa corollaries for nonsmooth systems," *IEEE Transactions on Automatic Control*, vol. 58, no. 9, pp. 2333–2338, 2013.
+5. E. Lavretsky and K. A. Wise, *Robust and Adaptive Control with Aerospace Applications*. London: Springer, 2013.
+6. J.-J. E. Slotine and W. Li, "On the adaptive control of robot manipulators," *International Journal of Robotics Research*, vol. 6, no. 3, pp. 49–59, 1987.
+
+**Diagrams.** Diagrams 1–2 are Excalidraw element lists in `figures/diagrams/src/*.json`;
+`python figures/diagrams/src/render_diagrams.py` regenerates the SVGs and the editable `.excalidraw`
+scenes.
