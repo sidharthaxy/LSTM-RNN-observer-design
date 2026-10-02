@@ -11,7 +11,7 @@
 "id": "title",
 "x": 0,
 "y": -125,
-"text": "Approach D: physics-structured PI-ICL observer, block diagram",
+"text": "Approach E: hybrid B + D observer, block diagram",
 "fontSize": 28,
 "strokeColor": "#1e1e1e"
 },
@@ -554,7 +554,7 @@
 "fillStyle": "solid",
 "strokeColor": "#4a9eed",
 "label": {
-"text": "Linear-in-θ EL model (p = 15)\nΦ̂ = M̂⁻¹(Bu − Y_rest θ̂)\ntrue rig is one parameter point",
+"text": "Linear EL model (p = 13)\nΦ̂ = M̂⁻¹(Bu − Y_rest θ̂ − F_res)\nF_res: optional friction LSTM",
 "fontSize": 18
 },
 "roundness": {
@@ -667,8 +667,8 @@
 "fillStyle": "solid",
 "strokeColor": "#ec4899",
 "label": {
-"text": "Adaptation\nφ̇ = −γ s⊙Yᵀe\n+ γ_CL(φ_H − φ)",
-"fontSize": 18
+"text": "Blended adaptation\nweak: −γ W_w s⊙Yᵀe\nidentified: W_s(φ_LS − φ)",
+"fontSize": 17
 },
 "roundness": {
 "type": 3
@@ -759,7 +759,7 @@
 "fillStyle": "solid",
 "strokeColor": "#06b6d4",
 "label": {
-"text": "ICL history stacks\nφ_H from windows (no q̈)",
+"text": "ICL history stacks\nΩ, c from windows (no q̈)",
 "fontSize": 18
 },
 "roundness": {
@@ -793,7 +793,7 @@
 "id": "legend",
 "x": 40,
 "y": 880,
-"text": "Dashed: integral concurrent learning (Diagram 2). The filter, feedback and robust term are Approach A's.",
+"text": "Dashed: integral concurrent learning. Diagram 2 shows how it is blended with the instantaneous law.",
 "fontSize": 20,
 "strokeColor": "#555555"
 },

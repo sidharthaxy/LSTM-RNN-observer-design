@@ -1,408 +1,387 @@
-# Approach D: Physics-Structured Observer with Integral Concurrent Learning (PI-ICL)
+# Approach E: Hybrid of the Physics-Informed LSTM (B) and Integral Concurrent Learning (D)
 
-[![Branch](https://img.shields.io/badge/Branch-feature%2Fapproach--d--physics--icl-teal.svg)](#)
-[![Paradigm](https://img.shields.io/badge/Paradigm-Euler--Lagrange%20%2B%20Integral%20CL-brightgreen.svg)](#)
-[![Tests](https://img.shields.io/badge/tests-76%2F76%20passing-success.svg)](#11-reproducing-the-results)
+[![Branch](https://img.shields.io/badge/Branch-feature%2Fapproach--e--hybrid-6f42c1.svg)](#)
+[![Paradigm](https://img.shields.io/badge/Paradigm-Information--weighted%20blend%20of%20B%20and%20D-brightgreen.svg)](#)
+[![Tests](https://img.shields.io/badge/tests-83%2F83%20passing-success.svg)](#9-reproducing-the-results)
 
-Approach D combines the two ideas that worked best in Approaches B and C:
+The shared benchmark left two approaches ahead of the rest, each with a gap:
 
-- **From B**, the Euler–Lagrange structure of the model. The inertia is symmetric and positive
-  definite, the Coriolis term comes from the Christoffel symbols, gravity is the gradient of a
-  potential, friction is dissipative, and the cart position is cyclic.
-- **From C**, concurrent learning. A history stack of recorded data identifies the model after
-  the excitation that produced that data is gone.
+- **Approach B** (physics-informed LSTM) was the most reliable velocity estimator, but it never
+  identified the true inertia: 16 % error.
+- **Approach D** (linear Euler–Lagrange model with integral concurrent learning) identified the
+  rig almost exactly when the data were rich. It was the worst on $\dot\theta$ when the pendulum
+  only made small swings, and it had the largest start-up error.
 
-To make the two fit, every sub-model is written **linearly** in its parameters. The rank
-condition then applies to the *whole* parameter vector, and the true rig is representable
-exactly. The stack stores *integration windows*, not points, so no acceleration estimate is ever
-needed (integral CL).
+Approach E combines them. It keeps D's model and D's integral concurrent learning, and it learns
+the way B does wherever the recorded data are too weak to identify a parameter. Three changes to D
+make this work:
+
+1. **Own-coordinate inertia freeze** (§2). A joint's diagonal inertia does not depend on its own
+   angle. Fixing those coefficients at zero removes a degenerate solution that made D's
+   pendulum-row scale run away on small swings.
+2. **Information-weighted blend** (§3). Each direction of parameter space goes to integral
+   concurrent learning in proportion to the information the stacks hold about it, and to B's
+   instantaneous kinetic-metric law for the rest.
+3. **No all-or-nothing rank gate.** The blend replaces D's eigenvalue threshold.
+
+**Results at a glance.** Medians over 5 seeds on the home scenarios of Approaches A, B and C
+(details in §6).
+
+| | Scenario | B: PI-LSTM | D: PI-ICL | **E: hybrid** |
+|:---|:---|---:|---:|---:|
+| Steady $\dot\theta$ RMSE [rad/s] | hanging, small swings | 0.0094 | 0.0295 | **0.0088** |
+| | swing-through, +50 % mass at 25 s | 0.0202 | 0.0187 | **0.0175** |
+| | weak, fading input | 0.0094 | 0.0148 | **0.0088** |
+| $\dot\theta$ RMSE over 0.1–5 s | swing-through | 0.148 | 0.174 | **0.105** |
+| Peak $\dot\theta$ error, 0.1–2 s | swing-through | 0.459 | 0.533 | **0.381** |
+| Inertia error $\lVert\hat M - M\rVert/\lVert M\rVert$, steady | hanging | — | 10.4 % | **0.23 %** |
+| | swing-through | — | 0.59 % | **0.26 %** |
+
+- **Velocity estimation.** E has the lowest steady-state error in all three scenarios. The margin
+  over B is 6–13 %; over D it is 7 % on the swing-through and 40–70 % on the other two.
+- **Identification.** E identifies the inertia matrix to 0.2–0.3 % in every scenario, including
+  the hanging ones where D was off by 4–10 %.
+- **Start-up.** On the swing-through, the peak error falls from 0.53 (D) and 0.46 (B) to 0.38 rad/s.
+- **Where E is not best.** In the first 5 s of the two hanging scenarios, B is still ahead
+  (0.053 vs 0.070 and 0.043 vs 0.058 rad/s). See §7.
 
 ![Observer block diagram](figures/diagrams/observer_block_diagram.svg)
 
-*Diagram 1. Block diagram of the PI-ICL observer. The filter, the feedback $\chi$ and the robust term
-are Approach A's. The model is a linear-in-parameters Euler–Lagrange model (§1). The dashed path is
-integral concurrent learning, detailed in Diagram 2 (§4).*
-
-Approach B's README lists incomplete inertia identification as its main open problem: 16 % error,
-and $\hat M_{22}$ does not follow a change of the pendulum. Approach D identifies all four rigid-body
-parameters and re-identifies them after the plant changes.
-
-**Results at a glance.** Approach B's own extreme-condition scenario and metrics: a 50 s run
-starting 0.5 rad from upright, ±1° encoder noise, and pendulum mass and inertia +50 % at 25 s.
-Medians over 5 seeds.
-
-| | A: Lb-LSTM | B: PI-LSTM | **D: PI-ICL** | D, CL off |
-|:---|---:|---:|---:|---:|
-| θ̇ RMSE, pre-shift 15–25 s [rad/s] | 0.060 | 0.030 | **0.019** | 0.106 |
-| θ̇ RMSE, post-shift 25–30 s | 0.046 | 0.022 | **0.018** | 0.093 |
-| θ̇ RMSE, steady 35–50 s | 0.036 | 0.020 | **0.019** | 0.061 |
-| ẋ RMSE, steady 35–50 s [m/s] | 0.0057 | 0.0025 | **0.0018** | 0.0055 |
-| Peak θ̇ error after the step, 25–27 s | 0.110 | 0.054 | **0.045** | 0.196 |
-| Peak θ̇ error, initial transient 0–2 s | **0.440** | 0.459 | 0.533 | 0.533 |
-| Inertia error $\lVert\hat M - M\rVert/\lVert M\rVert$ @ 50 s | — | 16.3 % | **0.19 %** | 21.9 % |
-| Online θ̈ model NMSE, steady | 0.0062 | 0.0010 | **0.0005** | 0.0216 |
-
-- **Velocity estimation.** D is the best of the four in every steady and post-shift window. The
-  seed ranges do not overlap: D's worst steady θ̇ RMSE (0.0196) is below B's best (0.0199).
-- **Identification.** The inertia matrix is identified to 0.2–0.3 % instead of 16 %.
-  - **Mass and coupling.** M+m and ml are within 1 % before and after the step.
-  - **Pendulum inertia and gravity.** I+ml² and mgl are within 4–8 % (median). These two are
-    identifiable only through the weak cart–pendulum coupling (§5).
-- **Plant change.** The change is detected 0.45–0.50 s after the step in every seed, with no
-  false alarms, and the parameters are re-identified about 4 s later.
-- **The price.** The initial transient is worse (peak 0.53 vs 0.46 rad/s): D's
-  instantaneous gain is small, and the stack needs about 3 s of windows before CL acts.
-- **The history stack does the work.** With CL off, the same observer is worse than A.
+*Diagram 1. Block diagram of the hybrid observer. The filter, the feedback $\chi$ and the robust
+term are Approach A's. The model is D's linear-in-parameters Euler–Lagrange model. The adaptation
+block blends the two laws (Diagram 2, §3).*
 
 ---
 
-## 1. Model: linear-in-parameters Euler–Lagrange structure
+## 1. What comes from each parent
 
-`src/observers/el_linear_model.py`. For $q = [x, \theta]$ and $B = [1, 0]^T$:
+| Ingredient | From | Role in E |
+|:---|:---:|:---|
+| Auxiliary filter, feedback $\chi$, robust term | A | Unchanged (Approach A's README, §3) |
+| Linear-in-parameters Euler–Lagrange model | D | The acceleration model; the true rig is one parameter point |
+| Integral concurrent learning: windows, two stacks, row normalization, change detector | D | Identifies every direction the recorded data excite |
+| Instantaneous law in the kinetic-energy metric | B | Learns the remaining directions from the current error, at B-like gain |
+| Dissipative friction LSTM | B | Optional residual, off by default (§4) |
+| Own-coordinate inertia freeze, information-weighted blend | new | §2, §3 |
 
-$$M(q)\ddot q + C(q,\dot q)\dot q + G(q) + F(\dot q) = Bu$$
+The model is D's (`src/observers/el_linear_model.py`):
 
-$$M(q) = \sum_{e=(i\le j)}\sum_k \theta_{e,k}\,\rho_k(q)\,E_e,\qquad C\dot q = \dot M\dot q - \tfrac12\partial_q(\dot q^TM\dot q),\qquad G = \partial_q P,\ P = \sum_{k\ge1} w_{G,k}\rho_k(q),$$
+$$M(q)\ddot q + C(q,\dot q)\dot q + G(q) + F(\dot q) = Bu,\qquad \hat\Phi = \hat M^{-1}\big(Bu - Y_{rest}(\hat q,\hat{\dot q})\,\hat\theta - F_{res}\big),$$
 
-$$F = \mathrm{diag}(d_v)\,\dot q + \mathrm{diag}(d_c)\tanh(\dot q / v_c),\qquad d_v, d_c \ge 0.$$
+with features $\rho(q) = [1, \cos\theta, \sin\theta]$, 15 parameters of which 13 are free (§2), and
+$F_{res} = 0$ unless the residual is enabled.
 
-The features $\rho(q) = [1, \cos\theta, \sin\theta]$ are Approach B's feature layer, with $x$
-cyclic, so it is not embedded. With first harmonics ($K = 1$) there are $p = 15$ parameters. The
-constant feature is left out of the potential, because it has zero gradient and would be
-unidentifiable.
+## 2. Why D fails on small swings, and the own-coordinate inertia freeze
 
-| Invariant | How it holds |
-|:---|:---|
-| $M = M^T$ | By construction: the parameters are its unique entries |
-| $\dot M - 2C$ skew-symmetric | By construction: Christoffel symbols of $M$ |
-| $G$ conservative | By construction: $G = \nabla P$ |
-| Power balance $\frac{d}{dt}(T + P) = \dot q^T(Bu - F)$ | Follows from the three rows above |
-| $\dot q^TF \ge 0$ (passive friction) | Projection onto $d_v, d_c \ge 0$ (exact, a clip) |
-| $M(q) \succeq \epsilon_M I$ | Projection onto a convex set (§4) |
-| $M$, $P$ independent of $x$ | By construction (cyclic coordinate) |
+D normalizes the unactuated pendulum row by its leading inertia coefficient $J$, the constant
+part of $M_{22}$, to stop noise from shrinking the row (D's README, §3). That normalization
+assumes the other terms of the row cannot imitate $J$. With the feature $\cos\theta$ in $M_{22}$,
+they can. When the pendulum stays near $\theta = \pi$,
 
-Positive-definiteness moves from B's Cholesky parameterization (valid for every $\theta$) to a
-projection. This is the price of linearity. The set
-$\{\theta : M(q_g;\theta) \succeq \epsilon_M I\}$ over a grid of angles $q_g$ is an intersection
-of LMIs, each linear in $\theta$, so it is convex.
+$$M_{22}(\theta) = J + c_1\cos\theta \approx J - c_1,$$
 
-**Exactness.** The true rig is one point of this family:
-$\theta^\ast = \{m_{11} = M+m,\ m_{12} = ml\cos\theta,\ m_{22} = I + ml^2,\ P = mgl\cos\theta,\ d_v = (b, d)\}$.
-It reproduces the plant's accelerations to $10^{-15}$ (`test_true_parameters_reproduce_the_plant`).
-*True parameter convergence* therefore has a concrete meaning here, which it cannot have for the
-LSTM models of Approaches A–C.
+so the choice $c_1 \approx J$ makes the pendulum's inertia vanish along the whole trajectory. The
+homogeneous row is then satisfied trivially, and $J$ is free to take any value. The regression
+finds exactly this solution:
 
-## 2. Integral concurrent learning: no acceleration needed
+| Hanging scenario, 50 s (seed 0) | $J$ (reported as $I + ml^2$; true 0.129) | $mgl$ (true 0.812) |
+|:---|---:|---:|
+| D | 2.97 | 0.62 |
+| E | 0.124 | 0.771 |
 
-Every term of the model has an analytic regressor that is linear in $\theta$:
+This is the scale collapse of D's §3 again, entering through the features instead of the noise.
+The data do not excite the direction that separates $J$ from $c_1$, yet the direction is not
+"weak" in the eigenvalue sense, because it is aligned with the regression target. A rank gate
+cannot catch it.
 
-| Regressor | Equals |
-|:---|:---|
-| Torque $Y(q,\dot q,a)\,\theta$ | $Ma + C\dot q + G + F$ |
-| Momentum $Y_{mom}\,\theta$ | $M\dot q$ |
-| Integrand $Y_{int}\,\theta$ | $-\tfrac12\partial_q(\dot q^TM\dot q) + G + F$ |
+**The fix is a physical fact.** The diagonal inertia $M_{ii}$ of a joint in a serial chain is the
+inertia of everything outboard of that joint about its axis. It depends on the outboard joint
+coordinates, never on $q_i$ itself. For the rig, $M_{22} = I + ml^2$ is a constant. E therefore
+fixes at zero every feature coefficient of $M_{ii}$ that depends on $q_i$:
 
-Because $\frac{d}{dt}(M\dot q) - \frac12\partial_q(\dot q^TM\dot q) = M\ddot q + C\dot q$,
-integrating the equations of motion over a window $[t-\Delta, t]$ gives the **ICL identity**
-(Parikh, Kamalapurkar & Dixon 2019):
+- on the rig these are the $\cos\theta$ and $\sin\theta$ coefficients of $M_{22}$, leaving 13 free
+  parameters;
+- the frozen parameters enter no stack and receive no gradient;
+- the true rig is still inside the model class (`test_own_coordinate_inertia_is_frozen`).
 
-$$\underbrace{[Y_{mom}]_{t-\Delta}^{t} + \int_{t-\Delta}^{t}Y_{int}\,d\tau}_{\mathcal Y_j}\ \theta^\ast = \underbrace{\int_{t-\Delta}^{t}Bu\,d\tau}_{b_j}.$$
+The freeze applies to any serial chain. It would be wrong for a mechanism whose joint inertia
+does depend on its own coordinate, such as a closed kinematic loop.
 
-It needs positions and velocities only. They come from a causal, delayed-centre Savitzky–Golay
-smoother: 0.1 s cubic fit, evaluated 50 ms back. For velocity its noise gain is 8.5, against
-about 260 for the second derivative over the same window, which Approach C needed. The smoother is **model-free**, so windows
-are valid from the first 0.35 s, before the observer itself has converged.
+## 3. Information-weighted blend of the two adaptation laws
 
-The integral uses the trapezoid rule. The input is exact because the plant holds $u$ over each
-sample. On the true trajectory the identity holds to $5\times10^{-5}$
-(`test_icl_identity_holds_on_a_trajectory`).
+![Blend of the two laws](figures/diagrams/blend_flow.svg)
 
-Windows of $\Delta = 0.25$ s are offered every 50 ms to history stacks of 300 windows, using
-Approach C's recording policy: a novelty gate, then a swap only if it increases
-$\lambda_{\min}$ (`src/concurrent_learning/history_stack.py`, generalized to block regressors).
+*Diagram 2. How one adaptation step is formed. The stacks supply the information matrix $\Omega$.
+It splits parameter space into identified directions, which integral concurrent learning moves
+towards the stack solution, and weak directions, which the instantaneous law moves along the
+current error. The two shares always add up to the identity.*
 
-## 3. Why the pendulum row needs a different regression
+**The two laws.** For a stack with information matrix $\Omega = \sum_j \mathcal Y_j^T\mathcal Y_j$
+and cross term $c = \sum_j \mathcal Y_j^T b_j$ (so that $\Omega\phi^\ast = c$ for exact windows):
 
-Plain least squares on all rows recovers the cart row exactly, but the pendulum-row scale
-collapses: $I + ml^2$ comes out as 0.02 instead of 0.129 with the 0.1 s smoother, and 0.003 with a
-0.05 s one. Batch fits separate the causes:
+- D pulls $\phi$ to the least-squares solution at the same rate in every direction:
+  $\dot\phi = \gamma_{CL}(\phi_{LS} - \phi)$. This Newton form divides by the eigenvalues of
+  $\Omega$, so it amplifies noise in weakly excited directions, and it must sit behind a rank gate.
+- B descends the instantaneous error: $\dot\phi = -\gamma\, g$, with $g = s\odot Y^Te$ the gradient
+  of the kinetic metric $\tfrac12 e^T\hat Me$. It needs no identifiability, but it only makes the
+  model right along the current trajectory.
 
-| Windows built from | $I+ml^2$ | $mgl$ | $mgl/(I+ml^2)$ |
-|:---|---:|---:|---:|
-| True states | 0.1288 | 0.812 | 6.31 (exact) |
-| Smoothed, noise-free encoder | 0.1288 | 0.812 | 6.31 |
-| Smoothed, noisy encoder, plain LS | 0.0197 | 0.118 | 6.0 |
-| Smoothed, noisy encoder, **row-normalized** (fix below) | 0.1299 | 0.788 | 6.07 |
+**The blend.** With a damping constant $\lambda > 0$, define
 
-Smoothing is not the problem; noise is. The pendulum row has no input ($B_2 = 0$), so its
-equation is **homogeneous**: $\mathcal Y_{2}\theta^\ast = 0$. Least squares with noisy
-regressors then shrinks the row towards $\theta = 0$ (errors-in-variables attenuation). Only the
-small cart–pendulum coupling term $ml\cos\theta\,\ddot x$ resists, because $ml$ is pinned by the
-cart row. The ratio $mgl/(I+ml^2) = \omega^2$ survives; the absolute scale does not. Approach B's
-README observed the same limit: "the learned $\hat M_{22}$ stays wrong while the ratio is right".
+$$W_s = \Omega(\Omega + \lambda I)^{-1},\qquad W_w = \lambda(\Omega + \lambda I)^{-1} = I - W_s.$$
 
-**Why noise shrinks the row.** Write the noisy regressors as $\hat{\mathcal Y} = \mathcal Y + E$,
-with $E$ zero-mean and covariance $\Sigma_E$. Least squares on the homogeneous row minimizes
+$W_s$ and $W_w$ share the eigenvectors of $\Omega$. In a direction with eigenvalue $\mu$ their
+gains are $\mu/(\mu+\lambda)$ and $\lambda/(\mu+\lambda)$. The adaptation law is
 
-$$\textstyle\sum_j\lVert\hat{\mathcal Y}_{2,j}\theta\rVert^2 \approx \theta^T\big(\mathcal Y_2^T\mathcal Y_2 + N\Sigma_E\big)\theta,$$
+$$\dot\phi = \underbrace{-\gamma\,W_w\,g}_{\text{instantaneous (B), weak directions}} + \underbrace{\gamma_{CL}\,W_s(\phi_{LS} - \phi)}_{\text{integral CL (D), identified directions}},\qquad W_s(\phi_{LS} - \phi) = (\Omega + \lambda I)^{-1}(c - \Omega\phi).$$
 
-so the noise acts as a Tikhonov penalty that pulls the row's parameters towards $\theta = 0$.
-Actuated rows escape this because their target $\int Bu$ is non-zero and noise-free. This failure
-cannot occur on the fully actuated two-link manipulators used by the published observers this
-project builds on (Dinh 2014; Griffis 2024; Hart 2024). It is specific to underactuated systems.
+- **Identified directions** ($\mu \gg \lambda$) follow D. The instantaneous law is switched off
+  there, so it cannot fight the stack estimate.
+- **Weak directions** ($\mu \ll \lambda$) follow B. Integral CL does not move them, so noise in
+  the stack is not amplified.
+- **No gate is needed.** The right-hand form is defined for a singular $\Omega$, and it has no
+  component along its null space (`test_damped_step_leaves_unexcited_directions_to_the_instantaneous_law`).
+- **The instantaneous gain can be large.** D had to keep $\gamma = 2$, because a larger gain fought
+  the stack target. With the two laws acting on complementary directions, E runs $\gamma = 20$.
+  Before the stacks hold enough windows, $W_w = I$ and E is a pure instantaneous learner. That is
+  what shortens the start-up transient.
 
-**Fix: normalize the homogeneous row so the noisy term becomes the target.** Divide the pendulum
-row by its leading coefficient $J = [M_{22}]_{const}$. Take the columns it shares with the cart
-row (the coupling inertia) from the cart-row estimate $\phi_A$. That leaves
+**Unactuated rows.** The pendulum row is solved in D's normalized coordinates
+$(\kappa, \psi) = (1/\phi_J,\ \phi_c/\phi_J)$. E applies the same damped step there, with the
+coupling columns taken from the current $\phi$, and maps the weak-direction projector back to
+$\phi$ through the Jacobian of $(\kappa,\psi)\mapsto\phi$.
 
-$$\kappa\,z + \sum_{c\ \text{own}}\mathcal Y_{2c}\,\psi_c = -\mathcal Y_{2J},\qquad z = \sum_{c\ \text{shared}}\mathcal Y_{2c}\,\phi_{A,c},\quad \kappa = 1/\phi_J,\quad \psi_c = \phi_c/\phi_J.$$
+**Choice of $\lambda$.** On the rig the stack eigenvalues separate into two groups. On small
+swings, three directions per stack sit at $10^{-2}$ or below and the rest at $10^{-1}$ or above.
+On the swing-through, nearly all are above $10^{-1}$. The default $\lambda = 0.01$ sits at the
+boundary. Values from 0.005 to 0.03 give the same steady-state error to within 1 %.
 
-The noisy momentum term $\mathcal Y_{2J} = \Delta\dot\theta$ is now the **target**, and noise in
-the target causes no bias. The regressors are built from positions and from $\dot x$. On this rig the smoothed
-$\dot x$ has about 70× less noise (0.001 m/s) than $\dot\theta$ (0.09 rad/s). On the same noisy data this gives
-$I+ml^2 = 0.1299$ (true 0.1288) and $mgl = 0.788$ (true 0.812).
+![Information weights](figures/approach_e/information_weights.png)
 
-The CL target $\phi_H$ has three parts:
+*Fig. 1 (seed 0). The share $\mu/(\mu+\lambda)$ of each eigen-direction given to integral CL. On
+small swings (left), several directions stay light: they are left to the instantaneous law for the
+whole run. On the swing-through (right), almost everything is identified within seconds. The gap
+after 25 s is the stack purge that follows the detected mass change.*
 
-- **Cart row:** $\phi_A$, from actuated-row least squares on stack A. The target $\int Bu$ carries
-  no noise.
-- **Pendulum inertia:** $\phi_J = 1/\kappa$.
-- **Remaining pendulum-row columns:** $\phi_J\psi$, from the normalized regression on stack U.
+## 4. Optional residual: B's dissipative friction LSTM
 
-This construction generalizes to any system: actuated rows use ordinary least squares, and each
-unactuated row is normalized by its own diagonal inertia and anchored through its coupling with
-the actuated rows. If an unactuated row shares no parameter with the actuated rows, its scale is
-unobservable, and the constructor refuses it.
+`residual=True` adds Approach B's friction block to the model:
 
-## 4. Adaptation law
+$$F_{res} = \mathrm{diag}(d)\,\hat{\dot q},\qquad d_i = d^0_i\,\mathrm{softplus}(\phi_{F,i} - 3) \ge 0,$$
 
-![PI-ICL pipeline](figures/diagrams/pi_icl_pipeline.svg)
+where $\phi_F$ is the readout of an 8-cell continuous-time LSTM on the estimated velocities. It is
+adapted by the instantaneous law in the kinetic metric. It can only dissipate
+(`test_frozen_parameters_stay_zero_and_residual_dissipates`), so the model stays passive.
 
-*Diagram 2. The identification pipeline. Encoder data are smoothed to positions and velocities only
-(no $\ddot q$) and integrated over 0.25 s windows into the ICL identity (§2). Windows enter two
-history stacks through a novelty and minimum-singular-value test. The actuated row is solved by
-ordinary least squares with a noise-free target, and the unactuated row in the normalized form of
-§3. The combined estimate $\phi_H$ drives the CL term once the rank gate opens. Projections keep the
-inertia positive definite and the friction dissipative. A residual-based detector purges the stacks
-after a plant change.*
+It is **off by default**. In every scenario tested, its effect is within the seed-to-seed spread
+(§6.3). The simulated rig has only viscous friction, which the linear model already represents
+exactly, so the residual has nothing to learn. It is kept for hardware, where friction depends on
+history. Two limits should be kept in mind when it is enabled:
 
-In scaled parameters $\phi = \theta / s$, where $s$ holds unit scales derived from the inertia
-prior:
+- the integral-CL windows do not include $F_{res}$, so the stack estimate treats it as unmodelled;
+- it starts as a small extra damping, $0.049\,d^0_i$.
 
-$$\dot\phi = \underbrace{-\gamma\, s\odot Y(\hat q, \hat{\dot q}, \hat\Phi)^T e}_{\text{instantaneous (B's kinetic metric)}} + \underbrace{\gamma_{CL}\,(\phi_H - \phi)}_{\text{integral CL}},\qquad \hat\Phi = \hat M^{-1}(Bu - Y_{rest}\,\theta).$$
+## 5. Stability and convergence (sketch)
 
-- **Instantaneous term.** Since $\partial\hat\Phi/\partial\theta = -\hat M^{-1}Y(\hat q,\hat{\dot q},\hat\Phi)$,
-  this term is the gradient of $\tfrac12 e^T\hat M e$. That is Approach B's kinetic metric, with
-  no Jacobian engine needed.
-- **CL term.** This is the Newton (information-normalized) form of the classical CL term:
-  $\Gamma_{CL}\sum_j\mathcal Y_j^T(b_j - \mathcal Y_j\phi) = \Gamma_{CL}\Omega(\phi_{LS} - \phi)$
-  with $\Omega$ normalized away. It is integrated implicitly.
-- **Projections**, applied after every step:
-  1. $\lVert\phi - \phi_0\rVert \le \bar W$.
-  2. $d_v, d_c \ge 0$.
-  3. $M(q_g) \succeq \epsilon_M I$ on a 72-point angle grid. Each iteration projects onto the
-     supporting half-space $v^TM(q_g)v \ge \epsilon_M$ of the most violated constraint.
+Let $V_0 + P$ be Approach A's filter Lyapunov function with its RISE term (A's README, §3.3), and
+$\tilde\phi = \phi^\ast - \phi$. For exact windows, $c = \Omega\phi^\ast$, and between stack
+updates
 
-  All three are Euclidean in $\phi$. Each is onto a convex set containing $\phi^\ast$, so none of
-  them can increase $\lVert\phi - \phi^\ast\rVert$.
-- **Rank gate.** $\phi_H$ is used only when every stack holds at least 60 windows and satisfies
-  $\lambda_{\min} \ge \bar\lambda = 10^{-4}$: the rank condition with a margin.
+$$\dot{\tilde\phi} = -\gamma_{CL}\,W_s\,\tilde\phi + \gamma\,W_w\,g.$$
 
-**Change detection.** The detector tests how well the cart-row stack model predicts fresh
-windows. It compares an EMA (0.5 s) of the new windows' residuals under $\phi_A$ with the stack's
-in-sample residual. If the ratio stays above 8 for 0.3 s (outside a 3 s refractory period), all
-stacks are purged and refill with post-change data. The cart row is used because its target is
-noise-free, and because a change that scales $m$ and $I$ together leaves the normalized pendulum
-row *invariant* ($\omega^2$ and $ml/J$ unchanged). Observed ratios: at most 4.9 without a change,
-13–22 after the step.
+$W_s$ is symmetric positive semidefinite, with smallest eigenvalue
+$\underline\mu/(\underline\mu + \lambda)$ on the span of the identified directions, and
+$\lVert W_w\rVert \le 1$. With $V = V_0 + P + \tfrac{\beta}{2}\lVert\tilde\phi\rVert^2$,
+$\lVert g\rVert \le c_g\lVert e\rVert$ on the compact set kept invariant by the projections, and
+Young's inequality:
 
-### Stability and convergence (sketch)
+$$\dot V \le -\tfrac{\alpha}{2}\big(\lVert\tilde x_1\rVert^2 + \lVert\nu\rVert^2\big) - \alpha\lVert\eta\rVert^2 - k_r\lVert r\rVert^2 - \beta\gamma_{CL}\,\tilde\phi^TW_s\tilde\phi + \beta\gamma c_g\lVert\tilde\phi\rVert\lVert e\rVert.$$
 
-Let $\tilde\phi = \phi^\ast - \phi$, and let $V_0 + P$ be Approach A's filter Lyapunov function
-with its RISE term (A's README, §3.3; B's §5). Between stack updates $\phi_H$ is constant, and
-
-$$\dot{\tilde\phi} = -\gamma_{CL}\tilde\phi + \gamma_{CL}(\phi^\ast - \phi_H) + \gamma\, s\odot Y^Te.$$
-
-Take $V = V_0 + P + \tfrac{\beta}{2}\lVert\tilde\phi\rVert^2$. The regressors are bounded on
-the compact set kept invariant by the projections, so $\lVert s\odot Y^Te\rVert \le c\lVert e\rVert$
-with $\lVert e\rVert \le \lVert\tilde x_1\rVert + \lVert\nu\rVert$. Young's inequality then gives
-
-$$\dot V \le -\tfrac{\alpha}{2}(\lVert\tilde x_1\rVert^2 + \lVert\nu\rVert^2) - \alpha\lVert\eta\rVert^2 - k_r\lVert r\rVert^2 - \tfrac{\beta\gamma_{CL}}{2}\lVert\tilde\phi\rVert^2 + \beta\gamma_{CL}\lVert\phi^\ast - \phi_H\rVert^2,\qquad \beta \le \frac{\alpha\gamma_{CL}}{2\gamma^2c^2}.$$
-
-1. **Ideal case** ($\phi_H = \phi^\ast$: noise-free windows and a gated, full-rank stack). $\dot V$
-   is negative definite in the state and parameter errors together, so by LaSalle–Yoshizawa both
-   converge to zero, with no persistence of excitation. $V$ is common to all stack contents, so
-   no dwell-time argument is needed. With a noise-free encoder, the test
-   `test_identifies_physical_parameters_without_noise_and_detects_a_change` recovers all four
-   rigid-body parameters to within 5 % before and after a +50 % step.
-2. **Noisy case.** The system is uniformly ultimately bounded, and
-   $\limsup\lVert\tilde\phi\rVert \lesssim \lVert\phi^\ast - \phi_H\rVert$. So the parameter
-   error ends up about as large as the error of the stack estimate itself. That error is small
-   because the normalized regression puts the noise in the target (§3), and the rank gate
-   $\bar\lambda$ bounds how much noise it can amplify.
+- **State errors.** They behave as in Approaches A–D: asymptotic convergence if $k_s$ meets the
+  RISE bound, uniform ultimate boundedness at the tuned $k_s = 0.2$.
+- **Identified directions.** The component of $\tilde\phi$ in the range of $W_s$ converges, to
+  zero for exact windows and to a neighbourhood set by the stack error under noise. This is D's
+  result, restricted to the directions the data support.
+- **Weak directions.** No convergence is claimed. $\tilde\phi$ stays bounded by the projection, as
+  in B.
 
 What the sketch does not cover:
 
-- Projection is applied at discrete steps, and the stack estimate $\phi_H$ changes
-  discontinuously when windows are swapped. Both are handled as in Approach C, by the argument
-  in item 1 applied at each stack configuration.
-- The small errors-in-variables bias that remains on the cart row (ml is attenuated by about 1 %).
+- the blend in the normalized coordinates $(\kappa,\psi)$ of the unactuated rows, where the
+  projector is mapped through a state-dependent Jacobian;
+- the jumps of $\Omega$ when windows are swapped or purged;
+- the discrete-time projection.
 
-## 5. Model order: why $K = 1$
+## 6. Validation
 
-Approach B uses two harmonics. With $K = 2$, D's batch fit is exact before the step, when the
-pendulum falls from upright and sweeps most of the circle. After the step, the pendulum only
-swings over $\theta \in [1.66, 4.57]$. Over that range the second harmonics are almost
-collinear with the first, and noise wrecks the fit:
+`python experiments/run_e_validation.py --seeds 5` (about 20 min on 8 cores).
 
-| Post-step windows (26–50 s), noisy | $I+ml^2$ (true 0.193) | $mgl$ (true 1.218) |
-|:---|---:|---:|
-| $K = 2$ | 0.936 | 3.15 |
-| $K = 1$ | 0.203 | 1.229 |
-| $K = 1$, with Coulomb terms | 0.204 | 1.231 |
+### 6.1 Scenarios
 
-$K = 1$ is exactly what a rigid pendulum needs, so it is the default. The Coulomb terms are kept
-(`coulomb=True`): the simulation has no Coulomb friction, but a lab rig does, and they cost only
-conditioning. **Identifiability, not capacity, limits structured models under partial excitation.**
-Extra harmonics make sense only when the data sweeps the configuration space.
+Each scenario is the home scenario of one earlier approach, so E is tested where each parent is
+strong and where it is weak.
 
-## 6. Validation on Approach B's scenario
+| | Home of | Setting | Encoder noise |
+|:---|:---|:---|:---|
+| hanging | A | Pendulum hanging, $u = 2\sin1.5t + 1.2\cos3t$, $\theta_0 = \pi - 0.4$, 50 s | U(±0.5°) |
+| swing-through | B | Released 0.5 rad from upright, $u = 2\sin3t + 1.2\cos6t$, pendulum mass and inertia +50 % at 25 s, 50 s | U(±1°) |
+| weak | C | Non-PE input $u = 3e^{-t/8}\sin1.6t$, hanging, 60 s | U(±0.5°) |
 
-`experiments/run_d_validation.py`. The scenario, trajectory, normalization, B and A runs, and all
-metric definitions are imported unchanged from `experiments/run_pilstm_validation.py`.
+Each seed changes the noise realization and the initialization. B and D run with their branch
+defaults. No run diverged, and the cart never reached a bumper.
 
-![Parameter tracking](figures/approach_d/parameter_tracking.png)
+### 6.2 Velocity estimation
 
-*Fig. 1 (seed 0). D's physical reading of $\hat\theta$ against the truth. For comparison, B's
-$\hat M_{11}$ and $\hat M_{22}$ at $\hat q$ are shown, which oscillate with the swing and never
-approach the truth. With CL off, D stays near its prior. The dotted line marks the purge 0.4 s
-after the step.*
+Median [min, max] over 5 seeds.
 
-![Rank condition](figures/approach_d/rank_condition.png)
+| Steady $\dot\theta$ RMSE [rad/s] | B | D | **E** |
+|:---|:---|:---|:---|
+| hanging | 0.0094 [0.0093, 0.0105] | 0.0295 [0.0289, 0.0312] | **0.0088** [0.0085, 0.0094] |
+| swing-through | 0.0202 [0.0199, 0.0225] | 0.0187 [0.0174, 0.0196] | **0.0175** [0.0168, 0.0187] |
+| weak | 0.0094 [0.0085, 0.0103] | 0.0148 [0.0142, 0.0232] | **0.0088** [0.0081, 0.0096] |
 
-*Fig. 2 (seed 0). $\lambda_{\min}$ of the actuated stack and of the normalized pendulum-row
-regression. Both cross the gate $\bar\lambda$ (dashed) about 3 s after the start and about 3 s
-after the purge; CL acts from then on.*
+| Median over 5 seeds | Scenario | B | D | **E** |
+|:---|:---|---:|---:|---:|
+| Steady $\dot x$ RMSE [m/s] | hanging | 0.00180 | 0.00187 | **0.00178** |
+| | swing-through | 0.00253 | 0.00179 | **0.00173** |
+| | weak | 0.00183 | 0.00181 | **0.00175** |
+| $\dot\theta$ RMSE, 0.1–5 s | hanging | **0.053** | 0.073 | 0.070 |
+| | swing-through | 0.148 | 0.174 | **0.105** |
+| | weak | **0.043** | 0.068 | 0.058 |
+| Peak $\dot\theta$ error, 0.1–2 s | hanging | **0.170** | 0.180 | 0.175 |
+| | swing-through | 0.459 | 0.533 | **0.381** |
+| | weak | **0.124** | 0.130 | 0.128 |
+| $\dot\theta$ RMSE after the mass step, 25–30 s | swing-through | 0.0218 | 0.0179 | **0.0176** |
+| Online $\ddot\theta$ model NMSE, steady | hanging | 0.0026 | 0.168 | **0.0005** |
+| | swing-through | 0.0010 | 0.0005 | **0.00002** |
+| | weak | **0.0004** | 0.271 | 0.0017 |
 
-**Identification (5 seeds, median [min, max] relative error of D's physical parameters):**
+![Velocity error](figures/approach_e/velocity_error.png)
 
-| | M+m | ml | I+ml² | mgl |
-|:---|:---:|:---:|:---:|:---:|
-| @ 25 s (before the step) | 0.0 % [0.0, 0.2] | 0.3 % [0.1, 0.7] | 6.3 % [2.2, 8.6] | 6.7 % [2.5, 8.5] |
-| @ 50 s (after the step) | 0.2 % [0.0, 0.5] | 0.9 % [0.6, 1.7] | 8.0 % [6.2, 27.3] | 4.3 % [2.5, 23.4] |
-| D with CL off, @ 50 s | 23 % | 63 % | 26 % | 46 % |
+*Fig. 2 (seed 0). 0.5 s RMS of the $\dot\theta$ estimation error. On the hanging scenario D's
+error returns in bursts, whenever the swing leaves the region where its mis-scaled model happens
+to fit. E stays at the noise floor. On the swing-through E reaches the noise floor within about 5 s, B
+after about 15 s.*
 
-![Velocity error](figures/approach_d/velocity_error.png)
+- **Steady state.** E has the lowest median in every scenario. Its seed range overlaps that of the
+  next-best approach each time, so the margin over B, and over D on the swing-through, is small.
+  The margin over D on the two small-swing scenarios is not: the ranges are far apart.
+- **Plant change.** E detects the mass step in every seed (one stack purge each) and recovers as
+  D does.
+- **Start-up.** E improves on D everywhere, and on B where the motion is large. On the two
+  small-swing scenarios B remains better in the first 5 s (§7).
 
-*Fig. 3 (seed 0). 0.5 s RMS velocity error.*
+### 6.3 Identification and ablations
 
-**Frozen models released from rest** (u = 0, true post-shift rigid body, seed 0; B's protocol):
+Relative error of the physical parameters read from the model at the end of the run, median
+[min, max] over 5 seeds.
 
-| | θ RMSE over 10 s | True-energy drift | Learned-energy drift |
-|:---|---:|---:|---:|
-| A | 0.613 rad | 0.546 J | — |
-| B | 0.070 rad | 0.008 J | 0 (structural) |
-| **D** | **0.070 rad** | 0.017 J | 0 (structural) |
+| | Scenario | D | **E** |
+|:---|:---|:---|:---|
+| $I + ml^2$ | hanging | 2200 % | **4.0 %** [0.6, 8.9] |
+| | swing-through | 7.9 % [6.2, 27.3] | **4.4 %** [0.9, 16.4] |
+| | weak | 2260 % | **1.8 %** [0.4, 6.5] |
+| $mgl$ | hanging | 19 % | **3.6 %** [0.4, 8.8] |
+| | swing-through | 4.2 % | 4.3 % [1.0, 16.3] |
+| | weak | 15 % | **3.1 %** [1.0, 6.6] |
+| $M + m$ | hanging | 8.6 % | **2.1 %** |
+| | swing-through | 0.2 % | 0.2 % |
+| | weak | 0.7 % | 0.7 % |
+| Inertia matrix $\lVert\hat M(q) - M(q)\rVert/\lVert M(q)\rVert$, steady | hanging | 10.4 % | **0.23 %** |
+| | swing-through | 0.59 % | **0.26 %** |
+| | weak | 3.8 % | **0.23 %** |
 
-The swing carries about 0.56 J. D's twin is as accurate as B's. Its slightly larger drift in
-true energy reflects its 4–8 % error in $I+ml^2$ and $mgl$.
+![Parameter tracking](figures/approach_e/parameter_tracking.png)
 
-![Free swing](figures/approach_d/free_swing.png)
+*Fig. 3 (seed 0). Physical parameters read from the model. Top: hanging scenario, where D's
+$I + ml^2$ leaves the axes at 5 s and never returns. Bottom: swing-through, where both follow the
+mass step after the stack purge.*
 
-## 7. What D does not do better
+**The coupling inertia $ml$ on small swings.** $M_{12} = c_0 + ml\cos\theta$, and near
+$\theta = \pi$ the data fix only $c_0 - ml$. The reading "$ml$" is then off by 31–36 % for both D
+and E, while $M_{12}$ itself, and with it the whole inertia matrix, is right to 0.2 %. This split
+is not identifiable from small swings. On the swing-through, $ml$ is within 1 %.
 
-- **The initial transient.** The peak θ̇ error in 0–2 s is 0.53 rad/s, against 0.46 for B and
-  0.44 for A. D starts from B's prior with a small instantaneous gain ($\gamma = 2$), and its
-  stacks need about 3 s of windows before the gate opens. Larger instantaneous gains made the
-  instantaneous law fight the CL target (at $\gamma = 20$ the pre-shift θ̇ RMSE rose to 0.5 rad/s),
-  so the transient is the trade-off made.
-- **Re-identification delay.** After a detected change, CL waits about 3 s for new data. During
-  that time the old parameters stay active, and the velocity estimate is still good (post-shift
-  RMSE 0.018).
-- **Structure assumptions.** D assumes more structure than B: a linear-in-parameters
-  Euler–Lagrange model with known joint types and input matrix. It cannot learn effects outside
-  that family. B's friction LSTM, for example, is replaced by viscous plus Coulomb terms.
-- **Non-smooth events.** Bumper impacts are not Euler–Lagrange dynamics. In a test variant where
-  the cart hits the track end, the detector flags the impact as a change, and the estimates made
-  from impact data are wrong until the next purge. Real use should gate windows on track contact.
+**Ablations.** Median over 5 seeds.
 
-## 8. Configuration (`PIICLObserverConfig` defaults)
+| Variant | Steady $\dot\theta$: hanging | swing | weak | $\dot\theta$ RMSE 0.1–5 s, swing | Peak, swing | $I + ml^2$ error, hanging |
+|:---|---:|---:|---:|---:|---:|---:|
+| **E** | 0.0088 | 0.0175 | 0.0088 | 0.105 | 0.381 | 4.0 % |
+| E, no freeze | 0.0452 | 0.0192 | 0.0111 | 0.120 | 0.251 | 2200 % |
+| E, no blend (D's law and gate) | 0.0089 | 0.0174 | 0.0088 | 0.189 | 0.553 | 4.0 % |
+| E + residual | 0.0088 | 0.0166 | 0.0088 | 0.104 | 0.379 | 4.0 % |
+
+- **The freeze is what fixes small swings.** Without it the hanging error is five times larger and
+  the inertia scale runs away, as in D.
+- **The blend is what fixes the start-up.** Without it the steady state is unchanged, and the
+  swing-through transient returns to D's level.
+- **The freeze raises the start-up peak on the swing-through** (0.38 against 0.25 without it).
+  The frozen model has less freedom to follow the first fall of the pendulum. The steady-state
+  and identification gains outweigh this, but it is a real cost.
+- **The residual does not matter here.** Its largest effect, 0.0166 against 0.0175 on the
+  swing-through, is inside the seed ranges ([0.0158, 0.0178] against [0.0168, 0.0187]).
+
+## 7. What E does not do better
+
+- **Start-up on small swings.** B's $\dot\theta$ error over the first 5 s is lower on the hanging
+  and weak scenarios (0.053 vs 0.070, 0.043 vs 0.058 rad/s). E's instantaneous gain is limited by
+  the swing-through, and the peak in the first 2 s is set by the unlearned gravity term for every
+  approach.
+- **Gain margin.** $\gamma = 20$ is the default. On the swing-through, $\gamma = 30$ is slightly
+  better, $\gamma = 60$ doubles the start-up peak, and $\gamma = 120$ diverges at 2 s. The margin
+  to instability is about a factor of 3.
+- **Tuning data.** $\gamma$ and $\lambda$ were chosen on seed 0 of these three scenarios, which is
+  also one of the five evaluation seeds. The numbers above are a validation result. The held-out
+  inputs of the shared benchmark (`feature/shared-benchmark`) are the independent test.
+- **Unmodelled friction.** The residual could not be shown to help. A clean test of cart-side
+  friction outside the viscous family could not be built in open loop either: any such friction
+  cancels the drift-compensating start velocity, and the cart reaches a bumper.
+- **Structure assumptions.** As in D, the model is a linear-in-parameters Euler–Lagrange system
+  with known joint types and input matrix. The freeze adds the serial-chain assumption of §2.
+- **Simulation only**, with the actuator dead-zone and stiction off, as in every branch.
+
+## 8. Configuration (`HybridObserverConfig` defaults)
+
+Fields not listed are Approach D's (`PIICLObserverConfig`), unchanged.
 
 | Parameter | Default | Role |
 |:---|:---:|:---|
-| `harmonics`, `coulomb` | 1, True | Model order (§5) |
-| `inertia_init`, `eps_M` | (2, 0.2), 0.05 | Prior $M = \mathrm{diag}$ (as B); positive-definiteness margin |
-| `alpha, k_r, k_s` | 4, 8, 0.2 | Approach A/B filter gains, unchanged |
-| `gamma_inst` | 2 | Instantaneous gain (scaled parameters) |
-| `gamma_cl` | 2 1/s | Rate of the pull towards $\phi_H$ (implicit step) |
-| `icl_window`, `record_interval` | 0.25 s, 50 ms | ICL window $\Delta$; candidate spacing |
-| `stack_capacity`, `cl_min_windows`, `lambda_bar` | 300, 60, 1e-4 | Stack size; rank gate |
-| `sg_window`, `sg_order` | 0.1 s, 3 | Model-free smoother |
-| `detect_ratio`, `detect_tau`, `detect_hold`, `detect_refractory` | 8, 0.5 s, 0.3 s, 3 s | Change detector |
+| `gamma_inst` | 20 | Instantaneous gain $\gamma$; acts on weak directions only (D: 2) |
+| `lambda_damp` | 0.01 | $\lambda$: eigenvalue separating identified from weak directions |
+| `blend` | True | False restores D's Newton CL behind its rank gate |
+| `freeze_own_inertia` | True | $M_{ii}$ independent of $q_i$ (§2) |
+| `gamma_cl` | 2 1/s | Rate of the integral-CL pull (as D) |
+| `cl_min_windows` | 60 | Windows a stack needs before it is used (as D) |
+| `residual` | False | B's friction LSTM as a dissipative residual (§4) |
+| `residual_hidden`, `residual_offset` | 8, −3 | Residual LSTM width; softplus offset (as B) |
+| `gamma_res_gates`, `gamma_res_out`, `w_bar_res` | 5, 20, 20 | Residual adaptation gains and bound (as B) |
 
-**How these were chosen.** The defaults came from a handful of design runs on seed 0 of this
-scenario: stack size 60/150/300, instantaneous gain 0/2/5/20, detector ratio 3/8/10, harmonics
-1/2. The 5-seed results above use noise seeds 42–46, so seed 0 (noise seed 42) was also used for
-design.
+With `blend=False` and `freeze_own_inertia=False` the observer reproduces Approach D exactly
+(`test_no_blend_no_freeze_reduces_to_approach_d`).
 
-## 9. Relation to Approaches A–C
+## 9. Reproducing the results
 
-| | A | B | C | **D** |
-|:---|:---|:---|:---|:---|
-| Model | Black-box LSTM | EL-structured sub-networks | Black-box LSTM | EL-structured, linear in θ |
-| Adaptation | Instantaneous | Instantaneous | Instantaneous + CL (point stack) | Instantaneous + **integral** CL |
-| Rank condition on | — | — | Readout (32 of 1440 parameters) | **All** parameters (15) |
-| Needs acceleration | no | no | yes (SG proxy) | **no** |
-| True parameters exist | no | no | no | **yes** |
-| Handles plant change | slowly | partially | no | **detects and re-identifies** |
-
-**What D resolves.** D removes the two limitations that stopped B and C from identifying the rig:
-
-1. **B's scale collapse**, which D removes by normalizing the homogeneous pendulum row (§3).
-2. **C's rank deficit and acceleration proxy.**
-   - C's rank condition could only be imposed on 32 of 1440 parameters. D's linear
-     parameterization makes it attainable on all 15.
-   - C's second-derivative proxy had noise gain ≈ 26.9σ and about 10 % RMS error on θ̈. The ICL
-     identity (§2) needs no acceleration at all.
-
-The costs are listed in §7:
-
-- a larger initial transient;
-- loose pendulum parameters when the excitation stays near the hanging equilibrium;
-- a model class that cannot represent effects outside the linear Euler–Lagrange family.
-
-## 10. Files
+```bash
+python -m pytest -q                                 # 83 tests (Approach D's 76 + 7 for the hybrid)
+python experiments/run_e_validation.py --seeds 5    # about 20 min on 8 cores; figures + CSVs
+RUN_E_QUICK=1 python experiments/run_e_validation.py --seeds 1   # 1 min smoke test of the pipeline
+```
 
 | File | Contents |
 |:---|:---|
-| `src/observers/el_linear_model.py` | Linear EL model, all regressors, physical mapping, positive-definiteness projection |
-| `src/observers/pi_icl_observer.py` | Observer, two-part stack estimate, rank gate, Newton-form CL, change detection |
-| `src/concurrent_learning/history_stack.py` | Block-regressor stack with singular-value-maximizing recording |
-| `src/concurrent_learning/savitzky_golay.py` | Causal Savitzky–Golay smoother / differentiator |
-| `experiments/run_d_validation.py` | 5-seed benchmark vs A and B, identification, free swing, figures |
-| `tests/test_pi_icl.py`, `tests/test_history_stack.py` | Approach D tests (23) |
-| `src/observers/pilstm_*.py`, `src/adaptation/*`, `experiments/run_pilstm_validation.py` | Approach B and A code, unchanged from `feature/approach-b-physics-informed` |
-
-## 11. Reproducing the results
-
-```bash
-python -m pytest -q                                # 76 tests (Approach B's 53 + D's 23)
-python experiments/run_d_validation.py --seeds 5   # about 1 min on 8 cores; figures + CSVs
-```
-
-The script sets `OMP_NUM_THREADS=1` for its worker processes.
+| `src/observers/hybrid_observer.py` | `HybridObserver`, `HybridObserverConfig`, the damped blend step, the frozen twin |
+| `experiments/run_e_validation.py` | Three scenarios, B / D / E and the ablations, figures, CSVs in `results/approach_e/` |
+| `tests/test_hybrid.py` | Blend algebra, frozen structure, dissipative residual, reduction to D, identification on small swings |
+| `figures/diagrams/` | Diagrams 1–2 as SVG and editable `.excalidraw`; sources in `src/*.json`, regenerate with `python figures/diagrams/src/render_diagrams.py` |
+| `src/observers/pi_icl_observer.py`, `el_linear_model.py`, `src/concurrent_learning/*` | Approach D, unchanged |
+| `src/observers/pilstm_*.py`, `src/adaptation/*` | Approach B and A, unchanged |
 
 ## References
 
 - R. G. Hart, E. J. Griffis, O. S. Patil, and W. E. Dixon, "Lyapunov-based physics-informed long short-term memory (LSTM) neural network-based adaptive control," *IEEE Control Systems Letters*, vol. 8, pp. 13–18, 2024, doi:10.1109/LCSYS.2023.3347485 (the basis of Approach B).
 - E. J. Griffis, O. S. Patil, R. G. Hart, and W. E. Dixon, "Lyapunov-based long short-term memory (Lb-LSTM) neural network-based adaptive observer," *IEEE Control Systems Letters*, vol. 8, pp. 97–102, 2024, doi:10.1109/LCSYS.2023.3348706.
 - A. Parikh, R. Kamalapurkar, and W. E. Dixon, "Integral concurrent learning: Adaptive control with parameter convergence using finite excitation," *International Journal of Adaptive Control and Signal Processing*, vol. 33, no. 12, pp. 1775–1787, 2019, doi:10.1002/acs.2945.
+- G. Chowdhary and E. Johnson, "Concurrent learning for convergence in adaptive control without persistency of excitation," in *Proc. 49th IEEE Conference on Decision and Control*, pp. 3674–3679, 2010.
 - G. Chowdhary and E. Johnson, "A singular value maximizing data recording algorithm for concurrent learning," in *Proc. American Control Conference*, pp. 3547–3552, 2011.
-- J.-J. E. Slotine and W. Li, "On the adaptive control of robot manipulators," *International Journal of Robotics Research*, vol. 6, no. 3, pp. 49–59, 1987.
-- N. Fischer, R. Kamalapurkar, and W. E. Dixon, "LaSalle–Yoshizawa corollaries for nonsmooth systems," *IEEE Transactions on Automatic Control*, vol. 58, no. 9, pp. 2333–2338, 2013.
-- S. Van Huffel and J. Vandewalle, *The Total Least Squares Problem: Computational Aspects and Analysis*. Philadelphia, PA: SIAM, 1991 (errors-in-variables background for §3).
-- A. Savitzky and M. J. E. Golay, "Smoothing and differentiation of data by simplified least squares procedures," *Analytical Chemistry*, vol. 36, no. 8, pp. 1627–1639, 1964.
-
-**Diagrams.** Diagrams 1–2 are Excalidraw element lists in `figures/diagrams/src/*.json`;
-`python figures/diagrams/src/render_diagrams.py` regenerates the SVGs and the editable `.excalidraw`
-scenes.
+- B. Xian, D. M. Dawson, M. S. de Queiroz, and J. Chen, "A continuous asymptotic tracking control strategy for uncertain nonlinear systems," *IEEE Transactions on Automatic Control*, vol. 49, no. 7, pp. 1206–1211, 2004, doi:10.1109/TAC.2004.831148.
+- S. Van Huffel and J. Vandewalle, *The Total Least Squares Problem: Computational Aspects and Analysis*. Philadelphia, PA: SIAM, 1991.
