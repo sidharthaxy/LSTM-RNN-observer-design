@@ -80,7 +80,7 @@
 "fillStyle": "solid",
 "strokeColor": "#4a9eed",
 "label": {
-"text": "Six models\nA, A-x, B, C, C-x, D\nbranch defaults, code verbatim\n-x: cart position removed\nfrom the network input",
+"text": "Seven models\nA, A-x, B, C, C-x, D, E\nbranch defaults, code verbatim\n-x: cart position removed\nfrom the network input",
 "fontSize": 17
 },
 "roundness": {

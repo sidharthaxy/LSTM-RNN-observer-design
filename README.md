@@ -1,10 +1,10 @@
-# Shared Benchmark: Approaches A, B, C and D Side by Side
+# Shared Benchmark: Approaches A, B, C, D and E Side by Side
 
 [![Branch](https://img.shields.io/badge/Branch-feature%2Fshared--benchmark-blue.svg)](#)
-[![Tests](https://img.shields.io/badge/tests-113%2F113%20passing-success.svg)](#6-reproducing-the-results)
+[![Tests](https://img.shields.io/badge/tests-120%2F120%20passing-success.svg)](#6-reproducing-the-results)
 
 Each approach branch validates its method on its own scenario, so their numbers cannot be
-compared directly. This branch runs all four approaches on every branch's home scenario, with
+compared directly. This branch runs all five approaches on every branch's home scenario, with
 the same seeds and the same metrics, plus a held-out test set that no branch was tuned on. It
 also evaluates two improvements that apply across approaches.
 
@@ -12,7 +12,7 @@ also evaluates two improvements that apply across approaches.
 - **Improvement 2**, removing the cart position from the black-box inputs.
 - **Improvement 3**, a model-free warm start.
 
-The four approaches run unchanged, with their branch defaults. Their code is copied verbatim
+The five approaches run unchanged, with their branch defaults. Their code is copied verbatim
 from the approach branches:
 
 | | Approach | Code | Branch |
@@ -21,6 +21,12 @@ from the approach branches:
 | B | Physics-informed PI-LSTM | `src/observers/pilstm_*.py` | `feature/approach-b-physics-informed` |
 | C | Concurrent-learning Lb-LSTM | `src/observers/cl_lstm_observer.py` | `feature/approach-c-concurrent-learning` |
 | D | Physics-structured integral CL (PI-ICL) | `src/observers/pi_icl_observer.py`, `el_linear_model.py` | `feature/approach-d-physics-icl` |
+| E | Hybrid of B and D | `src/observers/hybrid_observer.py` | `feature/approach-e-hybrid` |
+
+**Headline result.** Approach E, the hybrid built after the first round of this benchmark, has
+the lowest steady-state θ̇ error in every scenario and the best held-out prediction in every
+scenario (§2, §3). It was built from two findings of that first round: B was the most reliable
+estimator, and D had the best model when the data were rich. §2.2 explains what it changes.
 
 C's point-regressor history stack is kept as `src/concurrent_learning/point_history_stack.py`,
 because D's block-regressor stack has a different interface. Only that import line changed in C's
@@ -30,13 +36,13 @@ files.
 
 ![Common observer structure](figures/diagrams/observer_block_diagram.svg)
 
-*Diagram 1. The observer structure shared by all four approaches. They differ only in the learned
-model block and in the adaptation law. The dashed history stack exists in C and D. Each approach
+*Diagram 1. The observer structure shared by all five approaches. They differ only in the learned
+model block and in the adaptation law. The dashed history stack exists in C, D and E. Each approach
 branch's README has its own block diagram and model flow chart.*
 
 ![Benchmark harness](figures/diagrams/benchmark_harness.svg)
 
-*Diagram 2. How every approach is evaluated. The six models run online on the three training
+*Diagram 2. How every approach is evaluated. The seven models run online on the three training
 scenarios, which gives the velocity metrics. Each is then frozen, decoupled from its observer and
 driven by held-out inputs, which gives the prediction metrics. The gated warm start (§5) is an
 optional wrapper around the online run.*
@@ -74,7 +80,7 @@ initialization.
   - Peak $\dot\theta$ error over 0.1–2 s.
   - Post-step RMSE (S2 only).
 - **Held-out prediction.** Each model is frozen at the end of training and decoupled from its
-  observer (`src/benchmark/models.py`, one twin interface for all four).
+  observer (`src/benchmark/models.py`, one twin interface for all five).
   - One-step NMSE of $\ddot x$ and $\ddot\theta$ on the true states.
   - 0.5 s short-horizon NMSE of $x$ and $\theta$, restarting from the true state every 0.5 s.
   - Long free runs are not scored: the plant is marginally stable near the hanging
@@ -87,19 +93,25 @@ Median over 5 seeds of the steady-window RMSE (last 15 s). No run diverged.
 | | S1 θ̇ [rad/s] | S2 θ̇ | S3 θ̇ | S1 ẋ [m/s] | S2 ẋ | S3 ẋ | S2 post-step θ̇ |
 |:---|---:|---:|---:|---:|---:|---:|---:|
 | A | 0.0149 | 0.0359 | 0.0100 | 0.0021 | 0.0057 | 0.0019 | 0.0462 |
-| B | **0.0094** | 0.0202 | **0.0094** | **0.0018** | 0.0025 | 0.0018 | 0.0218 |
-| C | 0.0135 | 0.0662 | **0.0094** | **0.0018** | 0.0043 | **0.0017** | 0.0787 |
-| D | 0.0295 | **0.0187** | 0.0148 | 0.0019 | **0.0018** | 0.0018 | **0.0179** |
+| B | 0.0094 | 0.0202 | 0.0094 | 0.0018 | 0.0025 | 0.0018 | 0.0218 |
+| C | 0.0135 | 0.0662 | 0.0094 | 0.0018 | 0.0043 | **0.0017** | 0.0787 |
+| D | 0.0295 | 0.0187 | 0.0148 | 0.0019 | 0.0018 | 0.0018 | 0.0179 |
+| **E** | **0.0088** | **0.0175** | **0.0088** | **0.0018** | **0.0017** | 0.0017 | **0.0176** |
+
+Bold marks the best in each column, judged on the unrounded values. On ẋ in S3 every model is at
+the encoder limit: C (0.001745) and E (0.001747) are tied.
 
 ![Velocity](figures/shared_benchmark/velocity.png)
 
-- **B is the most reliable velocity estimator.** It is best or tied on the two hanging scenarios
-  and a close second on S2.
-- **D is best on S2 but worst on θ̇ in S1.** S2 is its design scenario, where the whole
-  configuration space is swept. The hanging scenarios carry little information about the
-  pendulum scale (Approach D's README, §3): with swings of ±0.4 rad the coupling signal is weak,
-  so D's pendulum-row parameters stay loose. The effect is visible on S1, where D's θ̇ RMSE is
-  3× B's.
+- **E has the lowest θ̇ error in every scenario.** Its margin over the previous best is 6 % on S1
+  and S3 (over B) and 7 % on S2 (over D). The seed ranges of E and the runner-up overlap
+  each time, so the gain in steady state is consistent but small.
+- **Among A–D, B is the most reliable.** It is best or tied on the two hanging scenarios and a
+  close second on S2.
+- **D is strong on S2 but worst on θ̇ in S1.** S2 is its design scenario, where the whole
+  configuration space is swept. On the hanging scenarios, with swings of ±0.4 rad, D's normalized
+  pendulum regression has a degenerate solution and its inertia scale runs away (Approach E's
+  README, §2). The effect is visible on S1, where D's θ̇ RMSE is 3× B's.
 - **C's history stack hurts on S2.** Its stored windows predate the mass step and C has no change
   detector, so it clings to the old plant (post-step θ̇ RMSE 0.079 vs A's 0.046).
 
@@ -110,22 +122,26 @@ step.
 
 | | θ̇ RMSE 0.1–5 s, S1 | S2 | S3 | Peak θ̇ error 0.1–2 s, S1 | S2 | S3 | Post-step θ̇ RMSE, S2 |
 |:---|---:|---:|---:|---:|---:|---:|---:|
-| A | 0.059 | 0.166 | 0.052 | 0.176 | **0.439** | 0.129 | 0.0462 |
+| A | 0.059 | 0.166 | 0.052 | 0.176 | 0.439 | 0.129 | 0.0462 |
 | A-x | 0.058 | 0.174 | 0.052 | 0.176 | 0.469 | 0.129 | 0.0516 |
 | B | **0.053** | **0.148** | **0.043** | **0.170** | 0.459 | **0.124** | 0.0218 |
 | C | 0.058 | 0.157 | 0.044 | 0.176 | 0.456 | 0.129 | 0.0787 |
 | C-x | 0.057 | 0.160 | 0.044 | 0.176 | 0.483 | 0.129 | 0.0890 |
-| D | 0.073 | 0.174 | 0.068 | 0.180 | 0.533 | 0.130 | **0.0179** |
+| D | 0.073 | 0.174 | 0.068 | 0.180 | 0.533 | 0.130 | 0.0179 |
+| E | 0.070 | **0.105** | 0.058 | 0.175 | **0.381** | 0.128 | **0.0176** |
 
 - **Every learned observer has a start-up transient.** The peak error is 0.12–0.53 rad/s, against
   steady RMSE of 0.009–0.07 rad/s.
+  - E shortens it where the motion is large: on S2 its transient RMSE is 0.105 (B 0.148, D 0.174)
+    and its peak 0.381 (B 0.459, D 0.533).
+  - On the small-swing scenarios S1 and S3, B still has the lowest transient error.
   - It is not high-gain peaking: no gain is scaled up.
   - It is a *model-learning* transient, lasting until $\hat\Phi$ has adapted.
   - Weight projection bounds the weights, not this transient.
   - The warm start of §5 removes the cart part of it, but not the pendulum part.
 - **Recovery after the step ranks by structure.**
-  - D is best: it detects the change and re-identifies.
-  - B is second.
+  - D and E are best: they detect the change and re-identify.
+  - B is next.
   - C is worst, because its stack still holds pre-step windows.
 
   In Approach D's own run of S2, the peak θ̇ error in 25–27 s is 0.110 (A), 0.054 (B) and
@@ -134,6 +150,21 @@ step.
   from a weak prior with a small instantaneous gain, and concurrent learning switches on only once
   the rank gate opens, about 3 s in.
 
+### 2.2 Approach E: what the hybrid changes
+
+E keeps D's linear Euler–Lagrange model and its integral concurrent learning, and adds two things
+(`feature/approach-e-hybrid`, README §2–§3):
+
+1. **Own-coordinate inertia freeze.** A joint's diagonal inertia does not depend on its own angle,
+   so those feature coefficients are fixed at zero. This removes the degenerate solution behind
+   D's failure on S1 and S3. It accounts for the steady-state and identification gains there.
+2. **Information-weighted blend.** Directions of parameter space that the recorded data identify
+   follow integral concurrent learning, as in D. The rest follow B's instantaneous kinetic-metric
+   law, at ten times D's gain. This accounts for the shorter start-up on S2.
+
+B's friction LSTM is available in E as an optional residual. It is off by default, because it made
+no measurable difference in any scenario.
+
 ## 3. Results: held-out prediction
 
 Median over the 4 held-out inputs × 5 seeds.
@@ -141,25 +172,34 @@ Median over the 4 held-out inputs × 5 seeds.
 | | One-step θ̈ NMSE S1 | S2 | S3 | 0.5 s θ NMSE S1 | S2 | S3 |
 |:---|---:|---:|---:|---:|---:|---:|
 | A | 2.33 | 80.7 | 1.84 | 0.161 | 6.49 | 0.170 |
-| B | **0.046** | 0.061 | **0.179** | **0.0055** | 0.0058 | **0.012** |
+| B | 0.046 | 0.061 | 0.179 | 0.0055 | 0.0058 | 0.012 |
 | C | 2.41 | 108.7 | 1.80 | 0.159 | 9.44 | 0.096 |
-| D | 0.268 | **0.0039** | 0.301 | 0.026 | **0.0002** | 0.031 |
+| D | 0.268 | 0.0039 | 0.301 | 0.026 | 0.0002 | 0.031 |
 | A-x | 1.67 | 20.4 | 0.917 | 0.129 | 1.11 | 0.057 |
 | C-x | 0.884 | 14.4 | 0.326 | 0.085 | 0.887 | 0.029 |
+| **E** | **0.0016** | **0.0020** | **0.0032** | **0.00014** | **0.00015** | **0.00025** |
+
+Bold marks the best of all seven models. Among A–D alone, B is best after S1 and S3 and D after S2.
 
 ![Held-out](figures/shared_benchmark/held_out.png)
 
+- **E is the best model in every scenario, by a wide margin after hanging-only data.** After S1
+  and S3 its one-step θ̈ NMSE is 29× and 56× lower than B's, and 170× and 93× lower than D's.
+  After S2 it is 2× lower than D's. Its 0.5 s θ NMSE is about 0.0002 whatever the training
+  scenario: the model it identifies from small swings is as good as the one from the swing-through.
+  - These inputs were fixed before E existed and E was not tuned on them, so this is the
+    independent test of the hybrid.
+  - The spread over seeds and tests is wide (θ̈ NMSE from 0.00004 to 0.13), as for every model.
+
 - **Structure generalizes; black boxes do not.**
-  - The two physics-structured models (B, D) are 1–4 orders of magnitude better than A and C on
+  - The physics-structured models (B, D, E) are 1–4 orders of magnitude better than A and C on
     inputs they never saw.
   - After S2, A's and C's θ̈ NMSE runs to 80–110, worse than predicting the mean. They learned
     whatever the swing-through visited, including the cart position (§4), and extrapolate badly
     near the hanging equilibrium.
-- **D after S2 is the best model in the whole benchmark.** θ̈ NMSE is 0.004 and 0.5 s θ NMSE is
-  0.0002: it is effectively the true rigid-body model, identified from rich data.
-- **B wins after hanging-only data.** On S1 and S3, B's model generalizes better than D's. D's
-  extra structure (linear parameters, no friction network) buys exact identification only when
-  the data are informative enough.
+- **D needs rich data; E does not.** After S2, D's θ̈ NMSE is 0.004 and its 0.5 s θ NMSE 0.0002:
+  effectively the true rigid-body model. After hanging-only data (S1, S3), B's model generalizes
+  better than D's. E removes that dependence (§2.2).
 - **Among the black boxes, C-x generalizes best.** It combines concurrent learning with
   improvement 2 and beats both A variants on every scenario.
 
@@ -236,7 +276,7 @@ better):
 
 | | ẋ RMSE 0.1–5 s | Peak ẋ error 0.1–2 s | θ̇ RMSE 0.1–5 s | Peak θ̇ error 0.1–2 s | Steady θ̇ RMSE |
 |:---|:---:|:---:|:---:|:---:|:---:|
-| S1 (all 6 models) | 0.07–0.37 | 0.04–0.21 | 1.03–1.08 | 1.12–1.14 | 0.90–1.07 |
+| S1 (all 7 models) | 0.06–0.37 | 0.04–0.21 | 1.03–1.08 | 1.12–1.14 | 0.90–1.07 |
 | S2 | 0.56–0.83 | 0.27–0.65 | 1.00–1.02 | 0.98–1.00 | 0.95–1.00 |
 | S3 | 0.07–0.18 | 0.05–0.11 | 1.00–1.05 | 1.00 | 0.99–1.01 |
 
@@ -259,8 +299,9 @@ better):
 ## 6. Reproducing the results
 
 ```bash
-python -m pytest -q                                     # 113 tests
-python experiments/run_shared_benchmark.py --seeds 5    # 180 runs, about 15 min on 8 cores
+python -m pytest -q                                     # 120 tests
+python experiments/run_shared_benchmark.py --seeds 5    # 210 runs, about 20 min on 8 cores
+python experiments/run_shared_benchmark.py --only E     # run only the listed models and merge them into the saved CSVs
 python experiments/run_shared_benchmark.py --plots-only # redraw figures from results/shared_benchmark/*.csv
 python experiments/run_shared_benchmark.py --warm-only --workers 2  # rerun only the warm-start runs (about 9 min)
 ```
@@ -268,7 +309,8 @@ python experiments/run_shared_benchmark.py --warm-only --workers 2  # rerun only
 | File | Contents |
 |:---|:---|
 | `src/benchmark/scenarios.py` | S1–S3 (each branch's home scenario) and the held-out inputs H1–H4 |
-| `src/benchmark/models.py` | Model registry (A, A-x, B, C, C-x, D), shared normalization, twin adapters, prediction metrics |
+| `src/benchmark/models.py` | Model registry (A, A-x, B, C, C-x, D, E), shared normalization, twin adapters, prediction metrics |
+| `src/observers/hybrid_observer.py`, `tests/test_hybrid.py` | Approach E, verbatim from `feature/approach-e-hybrid` |
 | `src/benchmark/warm_start.py` | Significance-gated state injection (improvement 3) |
 | `experiments/run_shared_benchmark.py` | The benchmark; CSVs in `results/shared_benchmark/`, figures in `figures/shared_benchmark/` |
 | `figures/diagrams/` | Diagrams 1–2 as SVG and editable `.excalidraw`; sources in `src/*.json`, regenerate with `python figures/diagrams/src/render_diagrams.py` |
@@ -278,9 +320,10 @@ python experiments/run_shared_benchmark.py --warm-only --workers 2  # rerun only
 
 - **Simulation only.** The actuator dead-zone and stiction are off, as in every branch. The
   held-out inputs are near the hanging equilibrium.
-- **Each approach runs its own branch defaults.** Those were tuned on its home scenario, so each
-  approach has a home advantage on one of S1–S3. The held-out inputs are the unbiased part of
-  the comparison.
+- **Each approach runs its own branch defaults.** A–D were each tuned on one of S1–S3, so each has
+  a home advantage there. E was tuned on seed 0 of all three, after this benchmark's first round,
+  so its S1–S3 velocity numbers are a validation result. The held-out inputs are the unbiased part
+  of the comparison for every approach, E included.
 - **C has no change detector.** Its S2 numbers reflect that. D's detector could be added to C.
 - **Seed spread is wide for the black boxes.** The figure whiskers span up to two orders of
   magnitude on S2. Report medians together with their ranges.

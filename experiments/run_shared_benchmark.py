@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Shared benchmark of Approaches A, B, C and D (improvements 1-3).
+Shared benchmark of Approaches A, B, C, D and E (improvements 1-3).
 
 1. One harness: every approach (branch defaults) is trained on every branch's home scenario
    (S1 hanging two-sine = A's, S2 swing-through + mass step = B's, S3 weak excitation = C's),
@@ -13,6 +13,7 @@ Shared benchmark of Approaches A, B, C and D (improvements 1-3).
 3. Model-free warm start (WarmStartObserver) for every model: cold vs warm transient metrics.
 
 Usage:  python experiments/run_shared_benchmark.py [--seeds 5] [--workers 8] [--no-plots]
+        python experiments/run_shared_benchmark.py --only E     # run only the listed models and merge them into the saved CSVs
 Outputs: results/shared_benchmark/*.csv, figures/shared_benchmark/*.png
 """
 
@@ -94,8 +95,8 @@ def job(args: Tuple[str, str, int, bool]) -> List[Dict[str, Any]]:
 # ---------------------------------------------------------------------- plotting
 INK, INK_2, GRID = "#0b0b0b", "#52514e", "#e4e3df"
 # Reference categorical palette, validated order (scripts/validate_palette.js): slots 1-6.
-COLORS = {"A": "#2a78d6", "B": "#eb6834", "C": "#1baf7a", "D": "#eda100", "A-x": "#e87ba4", "C-x": "#008300"}
-ORDER = ("A", "B", "C", "D", "A-x", "C-x")
+COLORS = {"A": "#2a78d6", "B": "#eb6834", "C": "#1baf7a", "D": "#eda100", "A-x": "#e87ba4", "C-x": "#008300", "E": "#4a3aa7"}
+ORDER = ("A", "B", "C", "D", "A-x", "C-x", "E")
 
 
 def _style() -> None:
@@ -130,11 +131,12 @@ def bar_panels(table: pd.DataFrame, metrics: List[Tuple[str, str]], out: Path, t
         ax.set_xticks(x, list(SCENARIOS))
         ax.set_title(label)
         ax.grid(axis="x", visible=False)
-    axes[0][0].legend(loc="upper left", ncol=3)
+    handles, labels = axes[0][0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc="upper center", ncol=len(ORDER), bbox_to_anchor=(0.5, 0.94))
     fig.suptitle(title, fontsize=10, fontweight="bold", color=INK)
     fig.text(0.01, 0.005, "Bars: median over seeds (and over held-out tests where applicable); whiskers: min-max. "
              "S1 = A's scenario, S2 = B's, S3 = C's.", fontsize=7.5, color=INK_2)
-    fig.tight_layout(rect=(0, 0.03, 1, 0.95))
+    fig.tight_layout(rect=(0, 0.03, 1, 0.88))
     fig.savefig(out)
     plt.close(fig)
 
@@ -180,6 +182,8 @@ def main() -> None:
     parser.add_argument("--workers", type=int, default=min(8, os.cpu_count() or 1))
     parser.add_argument("--no-plots", action="store_true")
     parser.add_argument("--plots-only", action="store_true", help="redraw the figures from the saved CSVs")
+    parser.add_argument("--only", nargs="+", metavar="MODEL", choices=MODELS,
+                        help="run only these models (cold and warm) and merge them into the saved CSVs")
     parser.add_argument("--warm-only", action="store_true",
                         help="rerun only the warm-start runs and merge them into the saved CSVs (after a warm-start change)")
     args = parser.parse_args()
@@ -193,9 +197,12 @@ def main() -> None:
     if args.warm_only:
         rerun_warm(args.seeds, args.workers, res_dir, fig_dir, plots=not args.no_plots)
         return
+    if args.only:
+        rerun_models(tuple(args.only), args.seeds, args.workers, res_dir, fig_dir, plots=not args.no_plots)
+        return
 
     jobs = [(s, m, seed, w) for s in SCENARIOS for m in MODELS for seed in range(args.seeds) for w in (False, True)]
-    jobs.sort(key=lambda j: (j[1] not in ("B", "D"), j))       # slow models first
+    jobs.sort(key=lambda j: (j[1] not in ("B", "D", "E"), j))  # slow models first
     t0 = time.time()
     with ProcessPoolExecutor(args.workers) as ex:
         results = [r for rows in ex.map(job, jobs) for r in rows]
@@ -275,6 +282,36 @@ def rerun_warm(seeds: int, workers: int, res_dir: Path, fig_dir: Path, plots: bo
         print(wt[[(c, "ratio") for c in WARM_COLS]].to_string())
     if plots:
         make_figures(runs, pd.read_csv(res_dir / "held_out_twins.csv"), fig_dir)
+
+
+VEL_COLS = ["RMSE x_dot steady", "RMSE th_dot steady", "RMSE th_dot transient", "peak th_dot err 0.1-2 s", "RMSE th_dot post-shift", "diverged"]
+
+
+def rerun_models(models: Tuple[str, ...], seeds: int, workers: int, res_dir: Path, fig_dir: Path, plots: bool) -> None:
+    """Run only `models` (cold and warm start) and replace their rows in the saved CSVs."""
+    jobs = [(s, m, seed, w) for s in SCENARIOS for m in models for seed in range(seeds) for w in (False, True)]
+    t0 = time.time()
+    with ProcessPoolExecutor(workers) as ex:
+        results = [r for rows in ex.map(job, jobs) for r in rows]
+    print(f"{len(jobs)} runs in {time.time() - t0:.0f} s")
+    runs = pd.read_csv(res_dir / "velocity_runs.csv")
+    twins = pd.read_csv(res_dir / "held_out_twins.csv")
+    runs["warm start"] = runs["warm start"].astype(bool)
+    runs = pd.concat([runs[~runs.model.isin(models)], pd.DataFrame([r for r in results if "test" not in r])], ignore_index=True)
+    twins = pd.concat([twins[~twins.model.isin(models)], pd.DataFrame([r for r in results if "test" in r])], ignore_index=True)
+    runs.to_csv(res_dir / "velocity_runs.csv", index=False)
+    twins.to_csv(res_dir / "held_out_twins.csv", index=False)
+    cold = runs[~runs["warm start"]]
+    _med_lo_hi(cold, ["scenario", "model"], VEL_COLS).to_csv(res_dir / "velocity_summary.csv")
+    _med_lo_hi(twins, ["scenario", "model"], list(TWIN_METRICS)).to_csv(res_dir / "held_out_summary.csv")
+    wt = warm_summary(runs)
+    wt.to_csv(res_dir / "warm_start_summary.csv")
+    with pd.option_context("display.width", 250, "display.float_format", "{:.4g}".format, "display.max_rows", 100):
+        print(cold.groupby(["scenario", "model"])[VEL_COLS].median().to_string())
+        print(twins.groupby(["scenario", "model"])[list(TWIN_METRICS)].median().to_string())
+        print(wt[[(c, "ratio") for c in WARM_COLS]].to_string())
+    if plots:
+        make_figures(runs, twins, fig_dir)
 
 
 def make_figures(runs: pd.DataFrame, twins: pd.DataFrame, fig_dir: Path) -> None:

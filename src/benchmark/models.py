@@ -11,6 +11,8 @@ the first 5 s of encoder data, velocity scale from a dirty derivative, input sca
     C      concurrent-learning Lb-LSTM (Approach C)
     C-x    C with the cart position removed from its input                  <- improvement 2
     D      physics-structured integral-CL observer (Approach D)
+    E      hybrid of B and D (Approach E): D's model and integral CL, blended by information
+           with B's instantaneous law
 
 Improvement 2 rationale: the rig's dynamics do not depend on the cart position x (x is a cyclic
 coordinate). B and D build that in; A and C see x as an input and must extrapolate whenever a
@@ -33,10 +35,11 @@ from src.benchmark.scenarios import DT, Dataset
 from src.identification.extract_model import FrozenLbLSTM, LbLSTMDigitalTwin
 from src.observers.blackbox_lstm import LbLSTMObserver, LbLSTMObserverConfig
 from src.observers.cl_lstm_observer import CLLbLSTMObserver, CLLbLSTMObserverConfig
+from src.observers.hybrid_observer import HybridObserver, HybridObserverConfig
 from src.observers.pi_icl_observer import PIICLObserver, PIICLObserverConfig
 from src.observers.pilstm_observer import PILSTMObserver, PILSTMObserverConfig
 
-MODELS = ("A", "A-x", "B", "C", "C-x", "D")
+MODELS = ("A", "A-x", "B", "C", "C-x", "D", "E")
 NORM_WINDOW = 5.0
 
 
@@ -88,6 +91,8 @@ def make_observer(name: str, data: Dataset, seed: int) -> Observer:
         return PILSTMObserver(PILSTMObserverConfig(velocity_scale=norm.vel_scale, seed=seed))
     if name == "D":
         return PIICLObserver(PIICLObserverConfig(seed=seed))
+    if name == "E":
+        return HybridObserver(HybridObserverConfig(seed=seed))
     raise KeyError(name)
 
 
@@ -142,6 +147,8 @@ class ELTwin:
 
 
 def make_twin(obs: Observer) -> Twin:
+    if isinstance(obs, HybridObserver):          # before PIICLObserver: the hybrid subclasses it
+        return obs.frozen_model()
     if isinstance(obs, PIICLObserver):
         return ELTwin(obs)
     if isinstance(obs, PILSTMObserver):

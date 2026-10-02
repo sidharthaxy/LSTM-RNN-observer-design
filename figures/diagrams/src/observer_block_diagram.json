@@ -11,7 +11,7 @@
 "id": "title",
 "x": 0,
 "y": -125,
-"text": "Common observer structure of Approaches A–D",
+"text": "Common observer structure of Approaches A–E",
 "fontSize": 28,
 "strokeColor": "#1e1e1e"
 },
@@ -554,7 +554,7 @@
 "fillStyle": "solid",
 "strokeColor": "#4a9eed",
 "label": {
-"text": "Learned model Φ̂(ζ; θ̂)\nA, C: CT-LSTM\nB: PI-LSTM   D: linear EL",
+"text": "Learned model Φ̂(ζ; θ̂)\nA, C: CT-LSTM   B: PI-LSTM\nD, E: linear EL (E: + residual)",
 "fontSize": 18
 },
 "roundness": {
@@ -759,7 +759,7 @@
 "fillStyle": "solid",
 "strokeColor": "#06b6d4",
 "label": {
-"text": "History stack (C, D)\nΓ_CL (φ_H − φ)",
+"text": "History stack (C, D, E)\nΓ_CL (φ_H − φ)",
 "fontSize": 18
 },
 "roundness": {
@@ -793,7 +793,7 @@
 "id": "legend",
 "x": 40,
 "y": 880,
-"text": "Solid: common to A–D.   Dashed: concurrent learning, present only in C and D.",
+"text": "Solid: common to A–E.   Dashed: concurrent learning, present only in C, D and E.",
 "fontSize": 20,
 "strokeColor": "#555555"
 },
