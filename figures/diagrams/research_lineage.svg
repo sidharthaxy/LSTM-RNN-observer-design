@@ -1,7 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="-30 -170 1530 760" width="1530" height="760" role="img">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-30 -170 1530 850" width="1530" height="850" role="img">
 <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="context-stroke"/></marker></defs>
-<rect x="-30" y="-170" width="1530" height="760" fill="#ffffff"/>
-<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="28" dominant-baseline="hanging" fill="#1e1e1e"><tspan x="0" y="-140.0">Research lineage: from the published observers to Approaches A–D</tspan></text>
+<rect x="-30" y="-170" width="1530" height="850" fill="#ffffff"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="28" dominant-baseline="hanging" fill="#1e1e1e"><tspan x="0" y="-140.0">Research lineage: from the published observers to Approaches A–E</tspan></text>
 <rect x="0" y="0" width="270" height="120" rx="12" fill="#e9ecef" stroke="#868e96" stroke-width="2"/>
 <text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="17" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="135.0" y="28.1">Dinh et al. 2014</tspan><tspan x="135.0" y="49.4">shallow RNN observer</tspan><tspan x="135.0" y="70.6">filter + sgn term</tspan><tspan x="135.0" y="91.9">Neural Networks 60</tspan></text>
 <rect x="300" y="0" width="270" height="120" rx="12" fill="#e9ecef" stroke="#868e96" stroke-width="2"/>
@@ -39,10 +39,15 @@
 <polyline points="500.0,350.0 500.0,390.0 960.0,390.0 960.0,350.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
 <rect x="675.0" y="379.2" width="109.9" height="21.5" fill="#ffffff" opacity="0.9"/>
 <text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="14" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="730.0" y="390.0">history stack</tspan></text>
-<rect x="0" y="470" width="1470" height="90" rx="12" fill="#ffd8a8" stroke="#f59e0b" stroke-width="2"/>
-<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="18" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="735.0" y="515.0">Shared benchmark (feature/shared-benchmark): A–D on scenarios S1–S3 and held-out inputs H1–H4</tspan></text>
-<polyline points="735.0,350.0 735.0,470.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
-<polyline points="380.0,350.0 380.0,470.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
-<polyline points="1100.0,350.0 1100.0,470.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
-<polyline points="1335.0,350.0 1335.0,470.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="0" y="560" width="1470" height="90" rx="12" fill="#ffd8a8" stroke="#f59e0b" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="18" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="735.0" y="605.0">Shared benchmark (feature/shared-benchmark): A–E on scenarios S1–S3 and held-out inputs H1–H4</tspan></text>
+<polyline points="735.0,350.0 735.0,560.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<polyline points="380.0,350.0 380.0,560.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<polyline points="930.0,350.0 930.0,560.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<polyline points="1400.0,350.0 1400.0,560.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<rect x="1050" y="410" width="270" height="100" rx="12" fill="#ffd8a8" stroke="#f59e0b" stroke-width="2"/>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="17" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="1185.0" y="438.8">Approach E</tspan><tspan x="1185.0" y="460.0">hybrid of B and D</tspan><tspan x="1185.0" y="481.2">information-weighted blend</tspan></text>
+<polyline points="1110.0,350.0 1110.0,410.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<polyline points="1260.0,350.0 1260.0,410.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
+<polyline points="1185.0,510.0 1185.0,560.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
 </svg>

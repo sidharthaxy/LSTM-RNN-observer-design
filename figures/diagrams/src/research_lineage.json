@@ -11,7 +11,7 @@
 "id": "title",
 "x": 0,
 "y": -140,
-"text": "Research lineage: from the published observers to Approaches A–D",
+"text": "Research lineage: from the published observers to Approaches A–E",
 "fontSize": 28,
 "strokeColor": "#1e1e1e"
 },
@@ -401,14 +401,14 @@
 "type": "rectangle",
 "id": "sb",
 "x": 0,
-"y": 470,
+"y": 560,
 "width": 1470,
 "height": 90,
 "backgroundColor": "#ffd8a8",
 "fillStyle": "solid",
 "strokeColor": "#f59e0b",
 "label": {
-"text": "Shared benchmark (feature/shared-benchmark): A–D on scenarios S1–S3 and held-out inputs H1–H4",
+"text": "Shared benchmark (feature/shared-benchmark): A–E on scenarios S1–S3 and held-out inputs H1–H4",
 "fontSize": 18
 },
 "roundness": {
@@ -421,7 +421,7 @@
 "x": 735,
 "y": 350,
 "width": 0,
-"height": 120,
+"height": 210,
 "points": [
 [
 0,
@@ -429,7 +429,7 @@
 ],
 [
 0,
-120
+210
 ]
 ],
 "endArrowhead": "arrow"
@@ -440,7 +440,7 @@
 "x": 380,
 "y": 350,
 "width": 0,
-"height": 120,
+"height": 210,
 "points": [
 [
 0,
@@ -448,7 +448,7 @@
 ],
 [
 0,
-120
+210
 ]
 ],
 "endArrowhead": "arrow"
@@ -456,10 +456,10 @@
 {
 "type": "arrow",
 "id": "sD",
-"x": 1100,
+"x": 930,
 "y": 350,
 "width": 0,
-"height": 120,
+"height": 210,
 "points": [
 [
 0,
@@ -467,7 +467,7 @@
 ],
 [
 0,
-120
+210
 ]
 ],
 "endArrowhead": "arrow"
@@ -475,10 +475,10 @@
 {
 "type": "arrow",
 "id": "sB",
-"x": 1335,
+"x": 1400,
 "y": 350,
 "width": 0,
-"height": 120,
+"height": 210,
 "points": [
 [
 0,
@@ -486,7 +486,82 @@
 ],
 [
 0,
-120
+210
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "rectangle",
+"id": "E",
+"x": 1050,
+"y": 410,
+"width": 270,
+"height": 100,
+"backgroundColor": "#ffd8a8",
+"fillStyle": "solid",
+"strokeColor": "#f59e0b",
+"roundness": {
+"type": 3
+},
+"label": {
+"text": "Approach E\nhybrid of B and D\ninformation-weighted blend",
+"fontSize": 17
+}
+},
+{
+"type": "arrow",
+"id": "DE",
+"x": 1110,
+"y": 350,
+"width": 0,
+"height": 60,
+"points": [
+[
+0,
+0
+],
+[
+0,
+60
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "arrow",
+"id": "BE",
+"x": 1260,
+"y": 350,
+"width": 0,
+"height": 60,
+"points": [
+[
+0,
+0
+],
+[
+0,
+60
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "arrow",
+"id": "sE",
+"x": 1185,
+"y": 510,
+"width": 0,
+"height": 50,
+"points": [
+[
+0,
+0
+],
+[
+0,
+50
 ]
 ],
 "endArrowhead": "arrow"

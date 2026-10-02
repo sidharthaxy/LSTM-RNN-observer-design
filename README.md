@@ -106,7 +106,7 @@ All partial derivatives are unit-tested against central finite differences to $1
 
 ![Research lineage](figures/diagrams/research_lineage.svg)
 
-*Diagram 1. The published observers and controllers this project builds on (grey), and the four
+*Diagram 1. The published observers and controllers this project builds on (grey), and the five
 approaches developed on the feature branches. Each approach README carries its own block
 diagrams.*
 
@@ -159,7 +159,7 @@ Each step changes the model class and, with it, the adaptation law.
 is a new setting for this family, and it exposes an identifiability failure that cannot occur when
 every coordinate is actuated (Approach D's README, §3).
 
-**Table 2. How the four approaches extend the lineage.** All four share the filter, feedback and
+**Table 2. How the five approaches extend the lineage.** All five share the filter, feedback and
 robust term of Approach A. They differ in the learned model and in how it adapts.
 
 | | Model $\hat\Phi$ | Parameters | Adaptation | Rank condition imposed on | Needs $\ddot q$ | True parameters exist |
@@ -168,6 +168,11 @@ robust term of Approach A. They differ in the learned model and in how it adapts
 | **B** Physics-informed PI-LSTM | Cholesky $\hat M \succeq \epsilon_M I$, Christoffel $\hat V_m$, $\hat G = \nabla\hat P$, dissipative $\hat F$ | 398 | Blockwise, kinetic metric | — | no | no |
 | **C** Concurrent-learning Lb-LSTM | As A | 1440 | A's law + history stack [9], [10] | Readout only (32 of 1440) | yes (Savitzky–Golay proxy) | no |
 | **D** Physics-structured integral CL | Linear-in-parameters EL model | 15 | Instantaneous + integral CL [11] | **All** 15 | **no** | **yes** |
+| **E** Hybrid of B and D | D's model, with each joint's own-coordinate inertia terms frozen | 13 free | Integral CL on identified directions, B's instantaneous law on the rest | Not needed: weighted by information, direction by direction | **no** | **yes** |
+
+Approach E was built after the shared benchmark showed that B was the most reliable estimator and
+D had the best model when the data were rich. It has the lowest steady-state $\dot\theta$ error
+and the best held-out prediction in every benchmark scenario (shared-benchmark README, §2–§3).
 
 ---
 
@@ -187,6 +192,7 @@ robust term of Approach A. They differ in the learned model and in how it adapts
 | **Approach B: Physics-Informed PI-LSTM** (`feature/approach-b...`) | Euler–Lagrange-structured model: Cholesky inertia, Christoffel Coriolis, potential gravity, dissipative friction | As A (asymptotic above the RISE bound, UUB as tuned); the learned model is passive by construction | Structural Euler-Lagrange properties | No | **High** (chattering ratio ≈ 1.06×; smallest seed-to-seed spread) | No improvement of the initial transient; inertia scale only partly identified (16 % error) |
 | **Approach C: Concurrent Learning Lb-LSTM** (`feature/approach-c...`) | Lb-LSTM + Rank-conditioned History Stack | As A for the state; with fixed gates, the readout converges to a neighbourhood of its stack least-squares fixed point | History stack of rich state-action pairs | **Relaxed** (No persistent excitation of trajectory required) | **High** (same observer structure as A) | History stack management overhead and rank verification |
 | **Approach D: Physics-Structured Integral CL** (`feature/approach-d...`) | Linear-in-parameters Euler–Lagrange model + integral concurrent learning | State and parameters converge with exact windows; UUB with noise | Euler–Lagrange structure, joint types, input matrix | **Relaxed** (rank condition on all 15 parameters) | **High** (best steady velocity error when the data sweep the configuration space) | Larger initial transient; pendulum parameters loose with hanging-only data |
+| **Approach E: Hybrid of B and D** (`feature/approach-e...`) | D's model and integral concurrent learning, blended by information with B's instantaneous law | As D on the directions the data identify; bounded parameters elsewhere; UUB as tuned | Euler–Lagrange structure, joint types, input matrix, serial-chain inertia structure | **Not needed** (information-weighted blend) | **High** (lowest steady $\dot\theta$ error in every benchmark scenario) | B is still faster in the first seconds of small-swing runs; instantaneous-gain margin about 3× |
 
 The guarantee column states what the Lyapunov analysis actually delivers. Asymptotic convergence needs the robust gain $k_s$ above the RISE bound. Every tuned configuration runs below it, because a larger $k_s$ injects encoder noise, so the practical result is uniform ultimate boundedness. The derivation is in Approach A's README, §3.
 
@@ -211,8 +217,11 @@ The project maintains a clean **isolated branch architecture**: one branch per a
 ├── feature/approach-d-physics-icl
 │   └── Linear-in-parameters Euler-Lagrange model with integral concurrent learning (no acceleration).
 │
+├── feature/approach-e-hybrid
+│   └── Hybrid of B and D: D's model and integral CL, blended by information with B's learning law.
+│
 └── feature/shared-benchmark
-    └── All four approaches on every branch's scenario, plus held-out inputs.
+    └── All five approaches on every branch's scenario, plus held-out inputs.
 ```
 
 ### Main Branch Directory Structure
@@ -336,7 +345,10 @@ git checkout feature/approach-c-concurrent-learning
 # Approach D: Physics-Structured Observer with Integral Concurrent Learning (PI-ICL)
 git checkout feature/approach-d-physics-icl
 
-# Shared benchmark: all four approaches side by side
+# Approach E: Hybrid of B and D (information-weighted blend)
+git checkout feature/approach-e-hybrid
+
+# Shared benchmark: all five approaches side by side
 git checkout feature/shared-benchmark
 ```
 

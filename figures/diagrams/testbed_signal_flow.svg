@@ -41,7 +41,7 @@
 <polyline points="970.0,340.0 970.0,420.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
 <polyline points="1240.0,190.0 1240.0,240.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
 <rect x="1120" y="240" width="240" height="100" rx="12" fill="#d0bfff" stroke="#8b5cf6" stroke-width="2" stroke-dasharray="8 6"/>
-<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="18" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="1240.0" y="267.5">Adaptive observers</tspan><tspan x="1240.0" y="290.0">Approaches A–D</tspan><tspan x="1240.0" y="312.5">(feature branches)</tspan></text>
+<text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="18" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="1240.0" y="267.5">Adaptive observers</tspan><tspan x="1240.0" y="290.0">Approaches A–E</tspan><tspan x="1240.0" y="312.5">(feature branches)</tspan></text>
 <polyline points="1240.0,340.0 1240.0,420.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linejoin="round" marker-end="url(#ah)"/>
 <rect x="40" y="420" width="1320" height="90" rx="12" fill="#b2f2bb" stroke="#22c55e" stroke-width="2"/>
 <text font-family="'Helvetica Neue', Helvetica, Arial, 'DejaVu Sans', sans-serif" font-size="20" text-anchor="middle" dominant-baseline="central" fill="#1e1e1e"><tspan x="700.0" y="465.0">Metrics (src/utils/metrics.py): velocity RMSE, steady-state error, peak error, chattering ratio</tspan></text>
