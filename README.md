@@ -1,7 +1,7 @@
 # Shared Benchmark: Approaches A, B, C, D and E Side by Side
 
 [![Branch](https://img.shields.io/badge/Branch-feature%2Fshared--benchmark-blue.svg)](#)
-[![Tests](https://img.shields.io/badge/tests-120%2F120%20passing-success.svg)](#6-reproducing-the-results)
+[![Tests](https://img.shields.io/badge/tests-126%2F126%20passing-success.svg)](#6-reproducing-the-results)
 
 Each approach branch validates its method on its own scenario, so their numbers cannot be
 compared directly. This branch runs all five approaches on every branch's home scenario, with
@@ -299,7 +299,7 @@ better):
 ## 6. Reproducing the results
 
 ```bash
-python -m pytest -q                                     # 120 tests
+python -m pytest -q                                     # 126 tests
 python experiments/run_shared_benchmark.py --seeds 5    # 210 runs, about 20 min on 8 cores
 python experiments/run_shared_benchmark.py --only E     # run only the listed models and merge them into the saved CSVs
 python experiments/run_shared_benchmark.py --plots-only # redraw figures from results/shared_benchmark/*.csv
@@ -327,3 +327,77 @@ python experiments/run_shared_benchmark.py --warm-only --workers 2  # rerun only
 - **C has no change detector.** Its S2 numbers reflect that. D's detector could be added to C.
 - **Seed spread is wide for the black boxes.** The figure whiskers span up to two orders of
   magnitude on S2. Report medians together with their ranges.
+
+## 8. Evaluating on recorded rig data
+
+Everything above is simulation. `experiments/run_rig_evaluation.py` replays recordings from the
+real Feedback 33-936S rig through the same models. The observers use only the encoder readings and
+the commanded input, and they are causal, so a replayed recording gives the estimates they would
+have produced live. No closed-loop controller is needed.
+
+### 8.1 Recording folder
+
+```
+data/rig/
+├── metadata.txt
+├── run1_rest_trial1.csv
+├── run2_freeswing_trial1.csv ... trial3.csv
+├── run3_deadzone_trial1.csv
+├── run4_twotone_trial1.csv ... trial3.csv
+├── run5_fading_trial1.csv ... trial3.csv
+├── run6_heldout_square.csv, run6_heldout_multisine.csv, run6_heldout_chirp.csv, run6_heldout_pulse.csv
+└── run7_mass_step_twotone.csv
+```
+
+The run type is read from a keyword in the file name; the run number and trial suffix are free.
+
+| Keyword | Run | Used for |
+|:---|:---|:---|
+| `rest` | Zero input, pendulum at rest, 20 s | Noise, encoder resolution, noise floor of the velocity reference |
+| `freeswing` | Pendulum lifted 20–30° and released, zero input | Identification run |
+| `deadzone` | Command ramped slowly through both directions | Command at which the cart starts to move |
+| `twotone` | $u = 2\sin1.5t + 1.2\cos3t$ N, 50 s (scaled down if the cart drifts) | Identification run |
+| `fading` | $u = 3e^{-t/8}\sin1.6t$ N, 60 s | Identification run |
+| `heldout` | Square wave, multisine, slow chirp, pulse train, about 12 s each | Test runs: predicted, never learned from |
+| `mass_step` | The two-tone run with a different rod or added mass | Identification run on a changed plant |
+
+**CSV format.** One file per run, sampled at 1 kHz, with a header row and four columns:
+`time_s, cart_pos, pend_angle, command_v`. Raw encoder counts and amplifier volts can be logged as
+they are.
+
+**`metadata.txt`.** One `key = value` line per field; `data/rig/metadata.txt` is a template to fill
+in. It declares the units (counts, metres, radians, degrees, volts or newtons), the encoder
+resolutions, the amplifier gain, which angle reads zero (hanging or upright), and the two sign
+conventions. The evaluation checks the signs against the physics and says which one to flip.
+
+### 8.2 Running it
+
+```bash
+python experiments/run_rig_evaluation.py --data data/rig                    # models B, D and E
+python experiments/run_rig_evaluation.py --data data/rig --models A B C D E # every approach
+python experiments/run_rig_evaluation.py --make-demo data/rig_demo          # simulated runs in the rig format, to rehearse
+```
+
+Outputs go to `results/rig/<folder>/` (`run_report.csv`, `velocity.csv`, `prediction.csv`,
+`parameters.csv`) and `figures/rig/<folder>/summary.png`.
+
+### 8.3 What is reported, and what it can show
+
+The rig has no velocity sensor, so there is no true velocity to score against.
+
+1. **Run report.** Duration, cart travel, sample-time jitter, and whether the cart came near an end
+   stop. Runs with an impact should be shortened or repeated: impacts are not modelled.
+2. **Velocity estimate against a zero-phase reference.** The reference is a centred 0.3 s
+   Savitzky–Golay fit of the recorded positions. It uses future samples, so it is far more accurate
+   than any causal estimate, but it is itself an estimate. Its own noise, measured on the rest run,
+   is printed as the floor: differences between models below that floor mean nothing.
+3. **Held-out prediction.** Each model is frozen after each identification run and predicts the
+   measured positions of the `heldout` runs 0.5 s ahead. This needs no velocity truth and is the
+   most trustworthy comparison.
+4. **Identified parameters.** $M+m$, $ml$, $I+ml^2$ and $mgl$ from Approaches D and E, next to the
+   datasheet values.
+
+On the simulated rehearsal recording (one trial per run, rest-run floor 0.008 rad/s), the pipeline
+reproduces the benchmark ranking: θ̇ error against the reference 0.0139 (E), 0.0145 (B),
+0.0364 (D), and E identifies $I+ml^2$ as 0.131 against 0.129. These numbers validate the pipeline
+only; they are not rig results.

@@ -1,0 +1,23 @@
+# Recording conditions of the rig runs in this folder. Lines starting with # are ignored.
+# counts or m
+cart_units = counts
+cart_counts_per_m = 4096.0
+# +1 or -1: direction of the logged cart position
+cart_sign = 1
+# counts, rad or deg
+angle_units = counts
+angle_counts_per_rev = 4096.0
+# where the logged angle reads zero: hanging or upright
+angle_zero = hanging
+# +1 or -1: rotation direction of the logged angle
+angle_sign = 1
+# V or N
+command_units = V
+# amplifier gain (used when command_units = V)
+newtons_per_volt = 2.0
+track_half_length_m = 0.5
+# which rod / mass was fitted
+pendulum = standard
+# what differs in the mass_step runs
+mass_step_pendulum = 
+notes = 

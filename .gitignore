@@ -58,3 +58,7 @@ results/
 logs/
 figures/*.png
 !figures/.gitkeep
+
+# Simulated rehearsal recordings (regenerate with run_rig_evaluation.py --make-demo)
+data/rig_demo/
+figures/rig/rig_demo/
