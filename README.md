@@ -431,7 +431,7 @@ truth, so 1 means no chattering.
   0.048 for $\ddot\theta$.
 
 ![Tracking](figures/approach_a/tracking_trajectories.png)
-![Error norm](figures/approach_a/estimation_error_norm.png)
+![Error norm across all three scenarios](figures/approach_a/estimation_error_norm.png)
 ![Phase plane](figures/approach_a/phase_plane.png)
 ![Weight norm](figures/approach_a/weight_norm.png)
 

@@ -276,21 +276,9 @@ def make_figures(
     fig.savefig(saved[-1])
     plt.close(fig)
 
-    # 2. Estimation error norm ||x2 - x2_hat|| (100 ms moving RMS, log scale).
-    fig, ax = plt.subplots(figsize=(10, 3.4))
-    for name in ("Dirty derivative", "Shallow RNN", "Lb-LSTM"):
-        err = np.linalg.norm(v_true - estimates[name], axis=1)
-        ax.semilogy(t, _moving_rms(err, 100), color=COLORS[name], label=name, lw=1.2)
-    ax.axvline(SETTLE_TIME, color=INK_2, lw=0.8, ls=":")
-    ax.text(SETTLE_TIME + 0.3, ax.get_ylim()[0] * 1.15, "settling time 20 s", color=INK_2, fontsize=8, va="bottom")
-    ax.set_xlabel("Time [s]")
-    ax.set_ylabel(r"$\|x_2 - \hat{x}_2\|$ (100 ms RMS)")
-    ax.set_title("Velocity estimation error norm", loc="left")
-    ax.legend(loc="upper right", ncol=3)
-    fig.tight_layout()
-    saved.append(out_dir / "estimation_error_norm.png")
-    fig.savefig(saved[-1])
-    plt.close(fig)
+    # 2. Estimation error norm ||x2 - x2_hat|| across all three scenarios (side by side, log scale).
+    from scripts.generate_three_scenario_comparison import generate_comparison_plot
+    saved.append(generate_comparison_plot(out_dir / "estimation_error_norm.png"))
 
     # 3. Phase planes after settling.
     ss = t >= SETTLE_TIME
