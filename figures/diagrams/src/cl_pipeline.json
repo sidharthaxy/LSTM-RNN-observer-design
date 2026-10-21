@@ -1,0 +1,530 @@
+[
+{
+"type": "cameraUpdate",
+"width": 800,
+"height": 600,
+"x": -40,
+"y": -150
+},
+{
+"type": "text",
+"id": "title",
+"x": 0,
+"y": -110,
+"text": "Approach C: history stack and concurrent-learning loops",
+"fontSize": 28,
+"strokeColor": "#1e1e1e"
+},
+{
+"type": "rectangle",
+"id": "buf",
+"x": 0,
+"y": 0,
+"width": 210,
+"height": 100,
+"backgroundColor": "#a5d8ff",
+"fillStyle": "solid",
+"strokeColor": "#4a9eed",
+"label": {
+"text": "Encoder y, input u\nring buffer\n(251 samples)",
+"fontSize": 18
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "rectangle",
+"id": "sg",
+"x": 270,
+"y": -10,
+"width": 300,
+"height": 120,
+"backgroundColor": "#d0bfff",
+"fillStyle": "solid",
+"strokeColor": "#8b5cf6",
+"label": {
+"text": "SG acceleration proxy\n0.25 s cubic, d²/dt² at centre\nnoise gain ≈ 26.9σ",
+"fontSize": 18
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "a1",
+"x": 210,
+"y": 50,
+"width": 60,
+"height": 0,
+"points": [
+[
+0,
+0
+],
+[
+60,
+0
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "rectangle",
+"id": "cand",
+"x": 630,
+"y": 0,
+"width": 280,
+"height": 100,
+"backgroundColor": "#fff3bf",
+"fillStyle": "solid",
+"strokeColor": "#f59e0b",
+"label": {
+"text": "Candidate point\n(ζ_j, ĉ_j, ẍ_j),  r_j = h_j\nevery 20 ms after 2 s",
+"fontSize": 17
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "a2",
+"x": 570,
+"y": 50,
+"width": 60,
+"height": 0,
+"points": [
+[
+0,
+0
+],
+[
+60,
+0
+]
+],
+"endArrowhead": "arrow",
+"label": {
+"text": "ẍ_j",
+"fontSize": 16
+}
+},
+{
+"type": "diamond",
+"id": "nov",
+"x": 970,
+"y": -20,
+"width": 220,
+"height": 140,
+"backgroundColor": "#fff3bf",
+"fillStyle": "solid",
+"strokeColor": "#f59e0b",
+"label": {
+"text": "novel\nenough?",
+"fontSize": 16
+}
+},
+{
+"type": "arrow",
+"id": "a3",
+"x": 910,
+"y": 50,
+"width": 60,
+"height": 0,
+"points": [
+[
+0,
+0
+],
+[
+60,
+0
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "rectangle",
+"id": "rej",
+"x": 1260,
+"y": 10,
+"width": 180,
+"height": 80,
+"backgroundColor": "#e9ecef",
+"fillStyle": "solid",
+"strokeColor": "#868e96",
+"label": {
+"text": "reject",
+"fontSize": 18
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "a4",
+"x": 1190,
+"y": 50,
+"width": 70,
+"height": 0,
+"points": [
+[
+0,
+0
+],
+[
+70,
+0
+]
+],
+"endArrowhead": "arrow",
+"label": {
+"text": "no",
+"fontSize": 16
+}
+},
+{
+"type": "cameraUpdate",
+"width": 1600,
+"height": 1200,
+"x": -40,
+"y": -150
+},
+{
+"type": "diamond",
+"id": "full",
+"x": 970,
+"y": 200,
+"width": 220,
+"height": 140,
+"backgroundColor": "#fff3bf",
+"fillStyle": "solid",
+"strokeColor": "#f59e0b",
+"label": {
+"text": "stack\nfull?",
+"fontSize": 16
+}
+},
+{
+"type": "arrow",
+"id": "a5",
+"x": 1080,
+"y": 120,
+"width": 0,
+"height": 80,
+"points": [
+[
+0,
+0
+],
+[
+0,
+80
+]
+],
+"endArrowhead": "arrow",
+"label": {
+"text": "yes",
+"fontSize": 16
+}
+},
+{
+"type": "rectangle",
+"id": "app",
+"x": 1260,
+"y": 225,
+"width": 180,
+"height": 90,
+"backgroundColor": "#e9ecef",
+"fillStyle": "solid",
+"strokeColor": "#868e96",
+"label": {
+"text": "append",
+"fontSize": 18
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "a6",
+"x": 1190,
+"y": 270,
+"width": 70,
+"height": 0,
+"points": [
+[
+0,
+0
+],
+[
+70,
+0
+]
+],
+"endArrowhead": "arrow",
+"label": {
+"text": "no",
+"fontSize": 16
+}
+},
+{
+"type": "rectangle",
+"id": "swap",
+"x": 560,
+"y": 210,
+"width": 340,
+"height": 120,
+"backgroundColor": "#fff3bf",
+"fillStyle": "solid",
+"strokeColor": "#f59e0b",
+"label": {
+"text": "Best single swap j*\nmax λ_min(Ω − r_j r_jᵀ + r rᵀ)\naccept if gain > 0.1 %",
+"fontSize": 17
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "a7",
+"x": 970,
+"y": 270,
+"width": 70,
+"height": 0,
+"points": [
+[
+0,
+0
+],
+[
+-70,
+0
+]
+],
+"endArrowhead": "arrow",
+"label": {
+"text": "yes",
+"fontSize": 16
+}
+},
+{
+"type": "rectangle",
+"id": "stack",
+"x": 560,
+"y": 420,
+"width": 340,
+"height": 110,
+"backgroundColor": "#c3fae8",
+"fillStyle": "solid",
+"strokeColor": "#06b6d4",
+"label": {
+"text": "History stack, N = 48\nΩ_r = HᵀH, λ_min non-decreasing\nrank met at 2.5 s (no PE)",
+"fontSize": 17
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "a8",
+"x": 730,
+"y": 330,
+"width": 0,
+"height": 90,
+"points": [
+[
+0,
+0
+],
+[
+0,
+90
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "arrow",
+"id": "a9",
+"x": 1350,
+"y": 315,
+"width": 450,
+"height": 160,
+"points": [
+[
+0,
+0
+],
+[
+0,
+160
+],
+[
+-450,
+160
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "rectangle",
+"id": "rd",
+"x": 180,
+"y": 610,
+"width": 460,
+"height": 120,
+"backgroundColor": "#eebefa",
+"fillStyle": "solid",
+"strokeColor": "#ec4899",
+"label": {
+"text": "Readout CL (32 params), implicit step\nW_h⁺ = (I + T_s γ_CL Ω_r)⁻¹ ×\n(W_h + T_s γ_h h eᵀ + T_s γ_CL B)",
+"fontSize": 17
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "rectangle",
+"id": "gt",
+"x": 700,
+"y": 610,
+"width": 480,
+"height": 120,
+"backgroundColor": "#eebefa",
+"fillStyle": "solid",
+"strokeColor": "#ec4899",
+"label": {
+"text": "Gate CL (1408 params), explicit step\nθ̇_g = γ_CL,g Σ_j Φ′_g(t_j)ᵀ(ẍ_j − Φ̂_j)\nno excitation guarantee (rank ≤ 96)",
+"fontSize": 17
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "a10",
+"x": 700,
+"y": 530,
+"width": 290,
+"height": 80,
+"points": [
+[
+0,
+0
+],
+[
+-290,
+80
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "arrow",
+"id": "a11",
+"x": 760,
+"y": 530,
+"width": 180,
+"height": 80,
+"points": [
+[
+0,
+0
+],
+[
+180,
+80
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "rectangle",
+"id": "out",
+"x": 1250,
+"y": 625,
+"width": 200,
+"height": 90,
+"backgroundColor": "#b2f2bb",
+"fillStyle": "solid",
+"strokeColor": "#22c55e",
+"label": {
+"text": "LSTM weights\n→ observer",
+"fontSize": 18
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "a12",
+"x": 1180,
+"y": 670,
+"width": 70,
+"height": 0,
+"points": [
+[
+0,
+0
+],
+[
+70,
+0
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "arrow",
+"id": "a13",
+"x": 410,
+"y": 730,
+"width": 940,
+"height": 55,
+"points": [
+[
+0,
+0
+],
+[
+0,
+40
+],
+[
+940,
+40
+],
+[
+940,
+-15
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "text",
+"id": "legend",
+"x": 0,
+"y": 810,
+"text": "The instantaneous law of Approach A still runs on the readout; the stack adds the recorded-data terms.",
+"fontSize": 18,
+"strokeColor": "#555555"
+},
+{
+"type": "cameraUpdate",
+"width": 1600,
+"height": 1200,
+"x": -40,
+"y": -150
+}
+]
