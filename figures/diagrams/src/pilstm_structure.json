@@ -1,0 +1,591 @@
+[
+{
+"type": "cameraUpdate",
+"width": 800,
+"height": 600,
+"x": -40,
+"y": -170
+},
+{
+"type": "text",
+"id": "title",
+"x": 0,
+"y": -140,
+"text": "Approach B: structure of the physics-informed model (PI-LSTM)",
+"fontSize": 28,
+"strokeColor": "#1e1e1e"
+},
+{
+"type": "rectangle",
+"id": "q",
+"x": 0,
+"y": 60,
+"width": 180,
+"height": 60,
+"backgroundColor": "#a5d8ff",
+"fillStyle": "solid",
+"strokeColor": "#4a9eed",
+"label": {
+"text": "q̂ = x̂₁",
+"fontSize": 20
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "rectangle",
+"id": "qd",
+"x": 0,
+"y": 330,
+"width": 180,
+"height": 60,
+"backgroundColor": "#a5d8ff",
+"fillStyle": "solid",
+"strokeColor": "#4a9eed",
+"label": {
+"text": "q̂̇ = x̂₂",
+"fontSize": 20
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "rectangle",
+"id": "feat",
+"x": 240,
+"y": 30,
+"width": 280,
+"height": 120,
+"backgroundColor": "#fff3bf",
+"fillStyle": "solid",
+"strokeColor": "#f59e0b",
+"label": {
+"text": "Feature layer (fixed)\nρ(q) = [1, cos kθ, sin kθ]\ncart x cyclic: not used",
+"fontSize": 18
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "a_qf",
+"x": 180,
+"y": 90,
+"width": 60,
+"height": 0,
+"points": [
+[
+0,
+0
+],
+[
+60,
+0
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "rectangle",
+"id": "inert",
+"x": 600,
+"y": -70,
+"width": 330,
+"height": 110,
+"backgroundColor": "#d0bfff",
+"fillStyle": "solid",
+"strokeColor": "#8b5cf6",
+"label": {
+"text": "Inertia block (15 params)\nM̂ = D L Lᵀ D + ε_M I\nsoftplus diagonal ⇒ SPD",
+"fontSize": 18
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "rectangle",
+"id": "pot",
+"x": 600,
+"y": 70,
+"width": 330,
+"height": 100,
+"backgroundColor": "#d0bfff",
+"fillStyle": "solid",
+"strokeColor": "#8b5cf6",
+"label": {
+"text": "Potential block (5)\nP̂ = w_Gᵀρ,   Ĝ = ∇_q P̂",
+"fontSize": 18
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "rectangle",
+"id": "chr",
+"x": 600,
+"y": 210,
+"width": 330,
+"height": 110,
+"backgroundColor": "#d0bfff",
+"fillStyle": "solid",
+"strokeColor": "#8b5cf6",
+"label": {
+"text": "Coriolis block (20)\nĈq̇ = Ṁq̇ − ½∇(q̇ᵀM̂q̇)\n+ skew gyroscopic S",
+"fontSize": 18
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "rectangle",
+"id": "fr",
+"x": 600,
+"y": 360,
+"width": 330,
+"height": 120,
+"backgroundColor": "#c3fae8",
+"fillStyle": "solid",
+"strokeColor": "#06b6d4",
+"label": {
+"text": "Friction LSTM (358)\nd = d⁰ softplus(φ_F − 3) > 0\nF̂ = diag(d) q̇",
+"fontSize": 18
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "a_fi",
+"x": 520,
+"y": 90,
+"width": 80,
+"height": 105,
+"points": [
+[
+0,
+0
+],
+[
+80,
+-105
+]
+],
+"endArrowhead": "arrow",
+"label": {
+"text": "ρ",
+"fontSize": 16
+}
+},
+{
+"type": "arrow",
+"id": "a_fp",
+"x": 520,
+"y": 90,
+"width": 80,
+"height": 30,
+"points": [
+[
+0,
+0
+],
+[
+80,
+30
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "arrow",
+"id": "a_qc",
+"x": 180,
+"y": 360,
+"width": 420,
+"height": 95,
+"points": [
+[
+0,
+0
+],
+[
+380,
+0
+],
+[
+380,
+-95
+],
+[
+420,
+-95
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "arrow",
+"id": "a_qfr",
+"x": 180,
+"y": 380,
+"width": 420,
+"height": 30,
+"points": [
+[
+0,
+0
+],
+[
+420,
+30
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "cameraUpdate",
+"width": 1600,
+"height": 1200,
+"x": -40,
+"y": -170
+},
+{
+"type": "arrow",
+"id": "a_dm",
+"x": 930,
+"y": 20,
+"width": 55,
+"height": 190,
+"points": [
+[
+0,
+0
+],
+[
+25,
+0
+],
+[
+25,
+170
+],
+[
+-30,
+170
+],
+[
+-30,
+190
+]
+],
+"endArrowhead": "arrow",
+"label": {
+"text": "∂M̂/∂q",
+"fontSize": 14
+}
+},
+{
+"type": "rectangle",
+"id": "comb",
+"x": 1010,
+"y": 150,
+"width": 300,
+"height": 120,
+"backgroundColor": "#a5d8ff",
+"fillStyle": "solid",
+"strokeColor": "#4a9eed",
+"label": {
+"text": "Assemble\nτ̂ = Bu − V̂_m q̇ − Ĝ − F̂\nΦ̂ = M̂⁻¹ τ̂",
+"fontSize": 18
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "a_ic",
+"x": 930,
+"y": -40,
+"width": 230,
+"height": 190,
+"points": [
+[
+0,
+0
+],
+[
+230,
+0
+],
+[
+230,
+190
+]
+],
+"endArrowhead": "arrow",
+"label": {
+"text": "M̂",
+"fontSize": 16
+}
+},
+{
+"type": "arrow",
+"id": "a_pc",
+"x": 930,
+"y": 120,
+"width": 80,
+"height": 70,
+"points": [
+[
+0,
+0
+],
+[
+80,
+70
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "arrow",
+"id": "a_cc",
+"x": 930,
+"y": 265,
+"width": 80,
+"height": 35,
+"points": [
+[
+0,
+0
+],
+[
+80,
+-35
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "arrow",
+"id": "a_frc",
+"x": 930,
+"y": 410,
+"width": 80,
+"height": 160,
+"points": [
+[
+0,
+0
+],
+[
+80,
+-160
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "rectangle",
+"id": "out",
+"x": 1370,
+"y": 165,
+"width": 180,
+"height": 90,
+"backgroundColor": "#b2f2bb",
+"fillStyle": "solid",
+"strokeColor": "#22c55e",
+"label": {
+"text": "Φ̂ ≈ q̈\nto observer",
+"fontSize": 18
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "a_out",
+"x": 1310,
+"y": 210,
+"width": 60,
+"height": 0,
+"points": [
+[
+0,
+0
+],
+[
+60,
+0
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "rectangle",
+"id": "inv",
+"x": 1010,
+"y": 320,
+"width": 540,
+"height": 110,
+"backgroundColor": "#b2f2bb",
+"fillStyle": "solid",
+"strokeColor": "#22c55e",
+"label": {
+"text": "Holds for every θ̂:  M̂ ⪰ ε_M I;  Ṁ − 2V̂_m skew;\nĜ conservative;  q̇ᵀF̂ ≥ 0\n⇒ the learned model is passive",
+"fontSize": 18
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "rectangle",
+"id": "ebox",
+"x": 0,
+"y": 560,
+"width": 220,
+"height": 90,
+"backgroundColor": "#ffd8a8",
+"fillStyle": "solid",
+"strokeColor": "#f59e0b",
+"label": {
+"text": "Measurable error\ne = x̃₁ + ν",
+"fontSize": 18
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "rectangle",
+"id": "adj",
+"x": 280,
+"y": 550,
+"width": 420,
+"height": 110,
+"backgroundColor": "#eebefa",
+"fillStyle": "solid",
+"strokeColor": "#ec4899",
+"label": {
+"text": "Adjoint Jacobian engine, O(p)\nkinetic metric W = M̂ ⇒ λ = e\nΦ′_βᵀ M̂ e for each block",
+"fontSize": 18
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "a_ea",
+"x": 220,
+"y": 605,
+"width": 60,
+"height": 0,
+"points": [
+[
+0,
+0
+],
+[
+60,
+0
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "rectangle",
+"id": "ad",
+"x": 760,
+"y": 550,
+"width": 440,
+"height": 110,
+"backgroundColor": "#eebefa",
+"fillStyle": "solid",
+"strokeColor": "#ec4899",
+"label": {
+"text": "Blockwise adaptation\nθ̂̇_β = proj_β(Γ_β Φ′_βᵀ M̂ e)\nβ ∈ {M, V, G, F}",
+"fontSize": 18
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "a_aa",
+"x": 700,
+"y": 605,
+"width": 60,
+"height": 0,
+"points": [
+[
+0,
+0
+],
+[
+60,
+0
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "arrow",
+"id": "a_up",
+"x": 980,
+"y": 550,
+"width": 215,
+"height": 70,
+"points": [
+[
+0,
+0
+],
+[
+0,
+-40
+],
+[
+-215,
+-40
+],
+[
+-215,
+-70
+]
+],
+"endArrowhead": "arrow",
+"label": {
+"text": "θ_M, θ_V, θ_G, θ_F",
+"fontSize": 16
+},
+"strokeStyle": "dashed",
+"strokeColor": "#be185d"
+},
+{
+"type": "text",
+"id": "legend",
+"x": 0,
+"y": 700,
+"text": "Purple: static sub-networks (only output layers adapt).  Teal: recurrent friction.  Dashed: weight updates.",
+"fontSize": 18,
+"strokeColor": "#555555"
+},
+{
+"type": "cameraUpdate",
+"width": 1600,
+"height": 1200,
+"x": -40,
+"y": -170
+}
+]
