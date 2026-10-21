@@ -588,7 +588,7 @@ robust term of §5. They differ in the learned model and in how it adapts.
 
 | | Model $\hat\Phi$ | Parameters | Adaptation | Rank condition imposed on | Needs $\ddot q$ | True parameters exist | Handles a plant change |
 |:---|:---|---:|:---|:---|:---:|:---:|:---|
-| **A** Black-box Lb-LSTM | Continuous-time LSTM | 1440 | $\mathrm{proj}(\Gamma\Phi'^Te)$ | — | no | no | slowly |
+| **A** Black-box Lb-LSTM | Continuous-time LSTM | 1440 | $\mathrm{proj}(\Gamma\Phi^{\prime T}e)$ | — | no | no | slowly |
 | **B** Physics-informed PI-LSTM | Cholesky $\hat M \succeq \epsilon_M I$, Christoffel $\hat V_m$, $\hat G = \nabla\hat P$, dissipative $\hat F$ | 398 | Blockwise, kinetic metric | — | no | no | partially |
 | **C** Concurrent-learning Lb-LSTM | As A | 1440 | A's law + point history stack [9], [10] | Readout only (32 of 1440) | yes (Savitzky–Golay proxy) | no | no (clings to old data) |
 | **D** Physics-structured integral CL | Linear-in-parameters EL model | 15 | Instantaneous + integral CL [11] | **All** 15 | **no** | **yes** | **detects and re-identifies** |
@@ -774,7 +774,7 @@ with $\tilde x_2 = x_2 - \hat x_2$.
 
 ### 5.4 An implementable adaptation law
 
-The weights adapt on the measurable error: $\dot{\hat\theta} = \mathrm{proj}(\Gamma\thinspace \Phi'^Te)$
+The weights adapt on the measurable error: $\dot{\hat\theta} = \mathrm{proj}(\Gamma\thinspace \Phi^{\prime T}e)$
 (§6.3). A law driven by $r$, as in the tracking controllers [3], [5], cannot be implemented here,
 because $r$ contains the unmeasured velocity error $\tilde x_2$. It is not needed either. The
 argument is as follows.
@@ -782,7 +782,7 @@ argument is as follows.
 Write $g = \Phi(\zeta,c;\theta^\ast) + \varepsilon$ on a compact set, with bounded ideal weights
 $\theta^\ast$, and split the mismatch as
 
-$$g - \hat\Phi = N_2 + N_3,\qquad N_3 \triangleq \Phi'\tilde\theta,\qquad N_2 \triangleq \big[\Phi(\zeta,c;\theta^\ast) - \Phi(\hat\zeta,\hat c;\theta^\ast)\big] + \mathcal O^2(\tilde\theta) + \varepsilon,$$
+$$g - \hat\Phi = N_2 + N_3,\qquad N_3 \triangleq \Phi^{\prime}\tilde\theta,\qquad N_2 \triangleq \big[\Phi(\zeta,c;\theta^\ast) - \Phi(\hat\zeta,\hat c;\theta^\ast)\big] + \mathcal O^2(\tilde\theta) + \varepsilon,$$
 
 where $\tilde\theta = \theta^\ast - \hat\theta$. Add $\tfrac{\alpha}{2}\tilde\theta^T\Gamma^{-1}\tilde\theta$
 to the Lyapunov function. The projection property
@@ -798,8 +798,8 @@ handled by boundedness and domination, not by an exact cancellation. Griffis et 
 same law without projection.
 
 > **Remark.** By integration by parts,
-> $\int_0^t\Gamma\Phi'^Tr = \Gamma\Phi'^Te\big|_0^t - \int_0^t\Gamma\dot\Phi'^Te + \alpha\int_0^t\Gamma\Phi'^Te$.
-> An $r$-driven law could therefore be realized if $\dot\Phi'$ were computable, which needs $\dot u$
+> $\int_0^t\Gamma\Phi^{\prime T}r = \Gamma\Phi^{\prime T}e\big|_0^t - \int_0^t\Gamma\dot\Phi^{\prime T}e + \alpha\int_0^t\Gamma\Phi^{\prime T}e$.
+> An $r$-driven law could therefore be realized if $\dot\Phi^{\prime}$ were computable, which needs $\dot u$
 > and the second derivatives of the network. It would restore the exact cancellation but could not be
 > combined directly with projection, so it is not used.
 
@@ -910,7 +910,7 @@ and $W_h\in\mathbb{R}^{L\times n}$ [17].
 hidden memory and a bias into $\zeta$ (written $z$ in the figure). The four gates produce the
 instantaneous cell $c$ and hidden output $h$ (drawn $\bar c$, $\bar h$), and the readout gives
 $\hat\Phi$. The memories $\hat c$, $\hat h$ follow first-order ODEs. The dashed path is learning:
-the measurable error $e$ and the forward-pass quantities give $\Phi'^Te$ in $O(p)$ (§6.2), and the
+the measurable error $e$ and the forward-pass quantities give $\Phi^{\prime T}e$ in $O(p)$ (§6.2), and the
 adaptation law (§6.3) updates every weight block. The green note marks the cart-position input scale,
 which the shared benchmark sets to zero (x-free variant, §11.5).
 
@@ -944,30 +944,30 @@ $$\delta_c = s \odot i \odot (1 - c^{\ast 2}),\qquad \delta_i = s \odot c^\ast \
 $$\delta_f = s \odot \hat c \odot f \odot (1 - f),\qquad \delta_o = \tanh(c) \odot o \odot (1 - o).$$
 
 Because $\partial a_\bullet / \partial\thinspace \mathrm{vec}(W_\bullet) = I_L \otimes \zeta^T$, the blocks
-of $\Phi' = \partial\hat\Phi/\partial\theta \in \mathbb{R}^{n\times p}$ are
+of $\Phi^{\prime} = \partial\hat\Phi/\partial\theta \in \mathbb{R}^{n\times p}$ are
 
 $$\frac{\partial\hat\Phi}{\partial\thinspace \mathrm{vec}(W_\bullet)} = \big(W_h^T\thinspace \mathrm{diag}(\delta_\bullet)\big) \otimes \zeta^T \quad (\bullet \in \lbrace c,i,f,o\rbrace ), \qquad \frac{\partial\hat\Phi}{\partial\thinspace \mathrm{vec}(W_h)} = I_n \otimes h^T.$$
 
-The observer only ever needs $\Phi'^Te$. The mixed-product rule
+The observer only ever needs $\Phi^{\prime T}e$. The mixed-product rule
 $(A\otimes\zeta)(e\otimes 1) = (Ae)\otimes\zeta$ turns that product into outer products,
-so it costs $O(p)$ without forming $\Phi'$:
+so it costs $O(p)$ without forming $\Phi^{\prime}$:
 
-$$\big[\Phi'^T e\big]_{W_\bullet} = \mathrm{vec}\big(\zeta\thinspace (\delta_\bullet \odot W_h e)^T\big), \qquad \big[\Phi'^T e\big]_{W_h} = \mathrm{vec}(h\thinspace e^T).$$
+$$\big[\Phi^{\prime T} e\big]_{W_\bullet} = \mathrm{vec}\big(\zeta\thinspace (\delta_\bullet \odot W_h e)^T\big), \qquad \big[\Phi^{\prime T} e\big]_{W_h} = \mathrm{vec}(h\thinspace e^T).$$
 
-`tests/test_jacobian_engine.py` checks the explicit $\Phi'$ against central finite
+`tests/test_jacobian_engine.py` checks the explicit $\Phi^{\prime}$ against central finite
 differences (agreement to about $10^{-11}$, all five blocks non-degenerate) and checks the
-fast product against $\Phi'^Te$ to machine precision.
+fast product against $\Phi^{\prime T}e$ to machine precision.
 
 > **Layout convention.** With gates written as $W z$,
 > $W \in \mathbb R^{l_2\times l_1}$, and column-stacking $\mathrm{vec}$, the factor above appears as
 > $(z^T\otimes I_{l_2})$. For the output gate:
-> $\partial h/\partial\thinspace \mathrm{vec}(W_o) = D(\sigma_c(c))\thinspace D(\sigma_g'(W_oz))\thinspace (z^T\otimes I_{l_2})$.
+> $\partial h/\partial\thinspace \mathrm{vec}(W_o) = D(\sigma_c(c))\thinspace D(\sigma_g^{\prime}(W_oz))\thinspace (z^T\otimes I_{l_2})$.
 > Without that factor the result would be $l_2\times l_2$, where an $l_2 \times l_1l_2$ matrix is
 > needed. $(z^T\otimes I_{l_2})$ and the $I_L\otimes\zeta^T$
 > used here are the same derivative in different memory layouts. A finite-difference check of the
 > full set, in the $Wz$ layout, agrees to $7.6\times10^{-11}$.
 
-> **Caveat: static-map Jacobian.** $\Phi'$ differentiates the instantaneous map
+> **Caveat: static-map Jacobian.** $\Phi^{\prime}$ differentiates the instantaneous map
 > $(\zeta, \hat c) \mapsto \hat\Phi$ with the memories held fixed. It drops the dependence of
 > $\hat c$ and $\hat h$ on $\theta$ through their ODEs, which backpropagation-through-time or
 > real-time recurrent learning would keep. This is the standard choice in [4] and in the Lyapunov
@@ -975,7 +975,7 @@ fast product against $\Phi'^Te$ to machine precision.
 
 ### 6.3 Adaptation law and smooth projection
 
-$$\dot{\hat\theta} = \mathrm{proj}\left(\Gamma\thinspace \Phi'^T e\right), \qquad \Gamma = \mathrm{diag}(\gamma_g I_{4dL},\ \gamma_h I_{Ln}).$$
+$$\dot{\hat\theta} = \mathrm{proj}\left(\Gamma\thinspace \Phi^{\prime T} e\right), \qquad \Gamma = \mathrm{diag}(\gamma_g I_{4dL},\ \gamma_h I_{Ln}).$$
 
 The projection uses the convex boundary function
 $f(\theta) = \dfrac{(1+\epsilon_p)\Vert \theta\Vert ^2 - \bar W^2}{\epsilon_p\bar W^2}$, which is
@@ -991,7 +991,7 @@ $\tilde\theta^T\Gamma^{-1}(\mathrm{proj}(\tau) - \tau) \ge 0$ for $\Vert \theta^
 
 Initialization: gate weights are $\mathcal N(0, 0.5^2)$ and $W_h(0) = 0$, so that
 $\hat\Phi(0) = 0$ (no prior model). Random gates are necessary. With all weights at zero,
-$h \equiv 0$ and $\Phi'^Te \equiv 0$, and nothing would ever adapt.
+$h \equiv 0$ and $\Phi^{\prime T}e \equiv 0$, and nothing would ever adapt.
 
 ### 6.4 Euler discretization
 
@@ -1214,7 +1214,7 @@ saw: a step doublet (top) and a chirp (bottom). Blue: weights frozen at 20 s. Or
    unseen inputs, the median one-step NMSE is about 1: no better than predicting zero. The
    seed-to-seed spread is large, which is the signature of non-identifiable weights.
 3. **Why.**
-   - The law $\dot{\hat\theta} = \Gamma\Phi'^Te$ drives $e \to 0$, and it only needs
+   - The law $\dot{\hat\theta} = \Gamma\Phi^{\prime T}e$ drives $e \to 0$, and it only needs
      $\hat\Phi = g$ *along the visited trajectory*.
    - The two-tone excitation confines the state to a thin manifold, which does not
      persistently excite the 1440-dimensional $\hat\theta$.
@@ -1354,7 +1354,7 @@ $\epsilon_MI \preceq \hat M \preceq \bar MI$.
 
 The Christoffel symbols and the adaptation law both need $\partial\hat M/\partial q_k$:
 
-$$\frac{\partial L_r}{\partial q_k} = g_r'(a_r)\thinspace W_{M,r}^T\frac{\partial\rho}{\partial q_k},\qquad
+$$\frac{\partial L_r}{\partial q_k} = g_r^{\prime}(a_r)\thinspace W_{M,r}^T\frac{\partial\rho}{\partial q_k},\qquad
 \frac{\partial\hat M}{\partial q_k} = \frac{\partial L}{\partial q_k}L^T + L\frac{\partial L}{\partial q_k}^T,$$
 
 with $g_r = d_i\thinspace \mathrm{softplus}$ on the diagonal and $g_r = d_i\cdot\mathrm{id}$ below
@@ -1385,7 +1385,7 @@ and too fast for the pendulum row.
 
 Setting $D = \mathrm{diag}(\sqrt{m^0_i})$, where $m^0$ is the inertia prior, makes $W_M$
 dimensionless. $DL$ is still lower-triangular with a positive diagonal, so Propositions
-2–4 are unchanged. The row scale folds into $g'$ and $g''$, so the Jacobian engine is
+2–4 are unchanged. The row scale folds into $g^{\prime}$ and $g^{\prime\prime}$, so the Jacobian engine is
 unchanged too.
 
 The initial parameters give $\hat M(q;\theta(0)) = \mathrm{diag}(m^0)$ for all $q$. The
@@ -1512,8 +1512,8 @@ $$\dot V_0 = -\alpha(\lVert\tilde q\rVert^2 + \lVert\eta\rVert^2 + \lVert\nu\rVe
 set (guaranteed by projection, §7.5) and $N, \dot N$ are bounded along the trajectory, the RISE
 integral lemma gives asymptotic convergence when $k_s$ exceeds its bound,
 $\max\lbrace \zeta_1+\zeta_2,\ \zeta_1+\zeta_3/\alpha\rbrace$. With the kinetic metric of §7.5 the adaptation
-cancels $\alpha e^T\hat M\Phi'\tilde\theta$ rather than $\alpha e^T\Phi'\tilde\theta$. The difference,
-$\alpha e^T(I - \hat M)\Phi'\tilde\theta$, is bounded and adds its bound to the second entry of that
+cancels $\alpha e^T\hat M\Phi^{\prime}\tilde\theta$ rather than $\alpha e^T\Phi^{\prime}\tilde\theta$. The difference,
+$\alpha e^T(I - \hat M)\Phi^{\prime}\tilde\theta$, is bounded and adds its bound to the second entry of that
 maximum. Otherwise it gives uniform ultimate boundedness. The default $k_s = 0.2$ is below the
 bound, so the experiments run in the UUB regime, as in A.
 
@@ -1537,24 +1537,24 @@ The structure changes the bound on $\hat\Phi$ in two opposite ways:
 $\theta = [\theta_M, \theta_V, \theta_G, \theta_F]$ has 398 parameters on the rig: 15, 20,
 5 and 358. Every block adapts simultaneously:
 
-$$\dot{\hat\theta}_\beta = \mathrm{proj}_\beta\big(\Gamma_\beta\thinspace \Phi_\beta'^T W e\big),\qquad \lVert\hat\theta_\beta\rVert \le \bar W_\beta,\qquad \beta \in \lbrace M, V, G, F\rbrace ,$$
+$$\dot{\hat\theta}_\beta = \mathrm{proj}_\beta\big(\Gamma_\beta\thinspace \Phi_\beta^{\prime T} W e\big),\qquad \lVert\hat\theta_\beta\rVert \le \bar W_\beta,\qquad \beta \in \lbrace M, V, G, F\rbrace ,$$
 
 with the smooth projection of §6.3 applied per block.
 
 **Adjoint form.** $\hat\Phi = \hat M^{-1}\hat\tau$, so
-$`\Phi'_\beta = \hat M^{-1}(\partial\hat\tau/\partial\theta_\beta - (\partial\hat M/\partial\theta_\beta)\hat\Phi)`$.
+$`\Phi^{\prime}_\beta = \hat M^{-1}(\partial\hat\tau/\partial\theta_\beta - (\partial\hat M/\partial\theta_\beta)\hat\Phi)`$.
 With the adjoint vector $\lambda = \hat M^{-1}We$:
 
-$$\Phi_\beta'^TWe = \frac{\partial}{\partial\theta_\beta}\Big[\lambda^T\hat\tau - \lambda^T\hat M\hat\Phi\Big]_{\lambda,\hat\Phi\ \text{held}}.$$
+$$\Phi_\beta^{\prime T}We = \frac{\partial}{\partial\theta_\beta}\Big[\lambda^T\hat\tau - \lambda^T\hat M\hat\Phi\Big]_{\lambda,\hat\Phi\ \text{held}}.$$
 
-This is evaluated in $O(p)$ without forming $\Phi'$:
+This is evaluated in $O(p)$ without forming $\Phi^{\prime}$:
 
-| Block | $\Phi_\beta'^TWe$ |
+| Block | $\Phi_\beta^{\prime T}We$ |
 |:---|:---|
 | $G$ | $-D\rho\thinspace \lambda$ |
 | $V$ (pair $ij$) | $-(\lambda_i\dot q_j - \lambda_j\dot q_i)\thinspace (\rho\otimes\dot q)$ |
-| $F$ | $\Phi_F'^T(-\lambda\odot\partial\hat F/\partial\phi_F)$, via the Kronecker product form of §6.2 |
-| $`M`$ (entry $`r`$) | $`-(Z + K)_r\thinspace g_r'\rho - \sum_k Y_{k,r}\big(g_r''\thinspace \beta_{rk}\thinspace \rho + g_r'\thinspace \partial_k\rho\big)`$ |
+| $F$ | $\Phi_F^{\prime T}(-\lambda\odot\partial\hat F/\partial\phi_F)$, via the Kronecker product form of §6.2 |
+| $`M`$ (entry $`r`$) | $`-(Z + K)_r\thinspace g_r^{\prime}\rho - \sum_k Y_{k,r}\big(g_r^{\prime\prime}\thinspace \beta_{rk}\thinspace \rho + g_r^{\prime}\thinspace \partial_k\rho\big)`$ |
 
 The inertia block is the only nontrivial one. $\hat M$ enters both through $\hat M^{-1}$
 and through the Christoffel vector
@@ -1566,11 +1566,11 @@ Z = \sum_k(\dot q\thinspace a_k^T + a_k\dot q^T)\thinspace \partial_kL,\qquad
 Y_k = a_k\dot q^TL + \dot q\thinspace a_k^TL,$$
 
 with $\beta_{rk} = W_{M,r}^T\partial_k\rho$. The second-order term
-$\partial(\partial_kL_r)/\partial W_r = g_r''\beta_{rk}\rho + g_r'\partial_k\rho$ is why the
+$\partial(\partial_kL_r)/\partial W_r = g_r^{\prime\prime}\beta_{rk}\rho + g_r^{\prime}\partial_k\rho$ is why the
 feature layer is kept fixed.
 
 `tests/test_pilstm.py` checks all four blocks against central finite differences (for both
-friction forms), and checks the fast product against the explicit $\Phi'^TWe$.
+friction forms), and checks the fast product against the explicit $\Phi^{\prime T}We$.
 
 **Error metric $W$** (`metric=`):
 
@@ -1579,7 +1579,7 @@ friction forms), and checks the fast product against the explicit $\Phi'^TWe$.
 | `"euclidean"` | $I$ | $\hat M^{-1}e$ | $\tfrac12\lVert e\rVert^2$ |
 | `"kinetic"` (default) | $\hat M$ | $e$ | $\tfrac12 e^T\hat Me$, the kinetic-energy metric |
 
-Both are descent directions, since $\Phi'^TW\Phi' \succeq 0$, and both keep $\hat\theta$
+Both are descent directions, since $\Phi^{\prime T}W\Phi^{\prime} \succeq 0$, and both keep $\hat\theta$
 in the projection balls. They differ in loop gain. The Euclidean law's effective gain
 scales as $\hat M^{-2}$: that is $\hat M_{22}^{-2} \approx 60$ for the light pendulum
 coordinate, against $\hat M_{11}^{-2} \approx 0.14$ for the cart, a ratio of about 400. It also
@@ -1940,15 +1940,15 @@ tested open loop on four unseen inputs:
 ### 8.1 The persistence-of-excitation bottleneck
 
 An adaptive observer adapts its weights with a gradient of the output error,
-$\dot{\hat\theta} = \Gamma\thinspace \Phi'(t)^T e(t)$. The Lyapunov analysis of §5 makes the
+$\dot{\hat\theta} = \Gamma\thinspace \Phi^{\prime}(t)^T e(t)$. The Lyapunov analysis of §5 makes the
 state-estimation errors converge, $\Vert \tilde x_2\Vert  \to 0$. It does not make the parameter error
 $\tilde\theta = \theta^\ast - \hat\theta$ converge. Once $e \to 0$, adaptation stops wherever
 $\hat\theta$ happens to be. The parameter error then converges to zero only if the regressor is
 **persistently exciting**:
 
-$$\int_t^{t+T}\Phi'(\tau)^T\Phi'(\tau)\thinspace d\tau \thickspace \ge\thickspace  \beta I \gt 0 \qquad \forall t \ge 0.$$
+$$\int_t^{t+T}\Phi^{\prime}(\tau)^T\Phi^{\prime}(\tau)\thinspace d\tau \ \ge\ \beta I \gt 0 \qquad \forall t \ge 0.$$
 
-For the output layer of the LSTM, $\Phi'_h = I_n \otimes h^T$, so PE requires the hidden-state
+For the output layer of the LSTM, $\Phi^{\prime}_h = I_n \otimes h^T$, so PE requires the hidden-state
 trajectory $h(t) \in \mathbb{R}^{16}$ to keep visiting all 16 directions in every window of
 length $T$. Normal operating trajectories do not do this:
 
@@ -1965,11 +1965,11 @@ practice is zero.
 
 Concurrent learning (Chowdhary & Johnson [9]; Chowdhary et al. [23]) replaces the
 persistence requirement with a condition on **recorded** data. Let
-$\lbrace t_j\rbrace _{j=1}^N$ be a stored set of past instants with regressors $\Phi'_j = \Phi'(t_j)$, and
+$\lbrace t_j\rbrace _{j=1}^N$ be a stored set of past instants with regressors $\Phi^{\prime}_j = \Phi^{\prime}(t_j)$, and
 let $\epsilon_j = \ddot x(t_j) - \hat\Phi(t_j)$ be the current model residual at each of them.
 The adaptation law becomes
 
-$$\dot{\hat\theta} = \Gamma\thinspace \Phi'(t)^T e(t) \thickspace +\thickspace  \Gamma_{CL}\sum_{j=1}^N \Phi'^T_j\big(\ddot x(t_j) - \hat\Phi(t_j)\big).$$
+$$\dot{\hat\theta} = \Gamma\thinspace \Phi^{\prime}(t)^T e(t) \ +\ \Gamma_{CL}\sum_{j=1}^N \Phi^{\prime T}_j\big(\ddot x(t_j) - \hat\Phi(t_j)\big).$$
 
 The second term is the negative gradient of the stack loss
 $J = \tfrac12\sum_j\Vert \ddot x(t_j) - \hat\Phi(t_j)\Vert ^2$. It keeps acting after the trajectory has
@@ -1977,7 +1977,7 @@ stopped exciting the plant.
 
 The requirement moves from the trajectory to the stack. The information matrix
 
-$$\Omega = \sum_{j=1}^N \Phi'^T_j\Phi'_j \thickspace \ge\thickspace  \underline\lambda\thinspace  I \gt 0 \qquad\text{(rank condition)}$$
+$$\Omega = \sum_{j=1}^N \Phi^{\prime T}_j\Phi^{\prime}_j \ \ge\ \underline\lambda\thinspace  I \gt 0 \qquad\text{(rank condition)}$$
 
 must be positive definite at *some* finite time $t_r$. This is an interval-excitation
 requirement: it is met once during a transient, not on every window forever.
@@ -1987,7 +1987,7 @@ so $\operatorname{rank}\Omega \le 2N$. For the full LSTM parameter vector ($p = 
 the condition would need $N \ge 720$ stored points, each of which must be informative. That is
 not achievable.
 
-For the **readout** $\theta_h = \mathrm{vec}(W_h)$, the regressor is $\Phi'_{h,j} = I_n \otimes h_j^T$
+For the **readout** $\theta_h = \mathrm{vec}(W_h)$, the regressor is $\Phi^{\prime}_{h,j} = I_n \otimes h_j^T$
 and
 
 $$\Omega_h = I_n \otimes \sum_j h_j h_j^T = I_n \otimes (H^TH),\qquad H = [h_1,\dots,h_N]^T \in \mathbb{R}^{N\times L},$$
@@ -2006,7 +2006,7 @@ choice of parameter set decisive:
 
 Approach D was built to close this gap. Its model is linear in its parameters, so the rank condition
 covers every parameter and the true plant lies inside the model class. In C, the gate weights also
-receive the CL gradient, computed with the full Jacobian $\Phi'_g(t_j)$, but without an
+receive the CL gradient, computed with the full Jacobian $\Phi^{\prime}_g(t_j)$, but without an
 excitation guarantee (§8.6.3).
 
 ### 8.3 Architecture
@@ -2054,9 +2054,9 @@ every 20 ms after a 2 s warm-up:
 2. **Stack not full:** append.
 3. **Stack full:** evaluate every single swap $j \to r$ in one batched eigen-decomposition,
    ```math
-   \lambda_j' = \lambda_{\min}\negthinspace \left(\Omega - r_jr_j^T + rr^T\right),\qquad j = 1..N,
+   \lambda_j^{\prime} = \lambda_{\min}\negthinspace \left(\Omega - r_jr_j^T + rr^T\right),\qquad j = 1..N,
    ```
-   and replace $`j^\ast = \arg\max_j\lambda'_j`$ only if $`\lambda'_{j^\ast} \gt (1 + 10^{-3})\thinspace \lambda_{\min}(\Omega)`$.
+   and replace $`j^\ast = \arg\max_j\lambda^{\prime}_j`$ only if $`\lambda^{\prime}_{j^\ast} \gt (1 + 10^{-3})\thinspace \lambda_{\min}(\Omega)`$.
 4. **Rank-deficient phase.** While every swap leaves $\lambda_{\min} = 0$, rank the swaps that
    do not decrease $\lambda_{\min}$ by the D-optimal score $\log\det(\Omega + \delta I)$. This
    drives the stack to full rank.
@@ -2107,7 +2107,7 @@ $E = A - HW_h$ (the $N\times n$ residual matrix):
 
 #### 8.6.1 Readout (dual loop)
 
-$$\dot W_h = \underbrace{\gamma_h\thinspace  h(t)\thinspace e(t)^T}_{\text{instantaneous (Approach A)}} \thickspace +\thickspace  \underbrace{\gamma_{CL}\thinspace (B - \Omega_r W_h)}_{\gamma_{CL}\sum_j h_j(\ddot x_j - W_h^Th_j)^T},\qquad \Omega_r = H^TH,\ B = H^TA.$$
+$$\dot W_h = \underbrace{\gamma_h\thinspace  h(t)\thinspace e(t)^T}_{\text{instantaneous (Approach A)}} \ +\ \underbrace{\gamma_{CL}\thinspace (B - \Omega_r W_h)}_{\gamma_{CL}\sum_j h_j(\ddot x_j - W_h^Th_j)^T},\qquad \Omega_r = H^TH,\ B = H^TA.$$
 
 The CL term is affine in $W_h$ and stiff: $T_s\gamma_{CL}\lambda_{\max}(\Omega_r)$ can exceed 2.
 It is therefore integrated **implicitly** (IMEX Euler):
@@ -2120,7 +2120,7 @@ verifies the step at $T_s\gamma\lambda_{\max} \gg 2$.
 
 #### 8.6.2 Gates (CL loop only)
 
-$$\dot\theta_g = \gamma_{CL,g}\sum_j \Phi'_g(t_j)^T(\ddot x_j - \hat\Phi_j),\qquad \big[\Phi'^T_g w\big]_j = \mathrm{vec}\negthinspace \big(\zeta_j\thinspace (\delta_j \odot \mathrm{tile}(W_h w, 4))^T\big),$$
+$$\dot\theta_g = \gamma_{CL,g}\sum_j \Phi^{\prime}_g(t_j)^T(\ddot x_j - \hat\Phi_j),\qquad \big[\Phi^{\prime T}_g w\big]_j = \mathrm{vec}\negthinspace \big(\zeta_j\thinspace (\delta_j \odot \mathrm{tile}(W_h w, 4))^T\big),$$
 
 where $\delta_j$ are the gate sensitivities at $(\zeta_j, \hat c_j)$ (§6.2). The stack
 sum reduces to a single product, $\mathrm{vec}(Z^T\thinspace \mathrm{BACK})$, computed in one batched LSTM
@@ -2638,7 +2638,7 @@ after a plant change.
 In scaled parameters $\phi = \theta / s$, where $s$ holds unit scales derived from the inertia
 prior:
 
-$$\dot\phi = \underbrace{-\gamma\thinspace  s\odot Y(\hat q, \hat{\dot q}, \hat\Phi)^T e}_{\text{instantaneous (B's kinetic metric)}} + \underbrace{\gamma_{CL}\thinspace (\phi_H - \phi)}_{\text{integral CL}},\qquad \hat\Phi = \hat M^{-1}(Bu - Y_{rest}\thinspace \theta).$$
+$$\dot\phi = \underbrace{-\gamma\thinspace  s\odot Y(\hat q, \hat{\dot q}, \hat\Phi)^T e}_{\text{instantaneous (kinetic metric of B)}} + \underbrace{\gamma_{CL}\thinspace (\phi_H - \phi)}_{\text{integral CL}},\qquad \hat\Phi = \hat M^{-1}(Bu - Y_{rest}\thinspace \theta).$$
 
 - **Instantaneous term.** Since $\partial\hat\Phi/\partial\theta = -\hat M^{-1}Y(\hat q,\hat{\dot q},\hat\Phi)$,
   this term is the gradient of $\tfrac12 e^T\hat M e$. That is B's kinetic metric (§7.5), with
@@ -3819,18 +3819,18 @@ each point is worked out in full.
 | File | Contents |
 |:---|:---|
 | `src/observers/blackbox_lstm.py` | `LbLSTMObserver`, `LbLSTMObserverConfig`: LSTM memory, auxiliary filter, feedback $\chi$, Euler integration |
-| `src/adaptation/jacobian_engine.py` | Weight layout, LSTM forward pass, explicit $\Phi'$, fast $\Phi'^Te$, smooth projection, `LyapunovAdaptationLaw` |
+| `src/adaptation/jacobian_engine.py` | Weight layout, LSTM forward pass, explicit $\Phi^{\prime}$, fast $\Phi^{\prime T}e$, smooth projection, `LyapunovAdaptationLaw` |
 | `src/identification/extract_model.py` | `freeze_observer`, `FrozenLbLSTM` (save/load), `LbLSTMDigitalTwin`, unseen test signals, MSE/NMSE scoring, CLI |
 | `experiments/run_blackbox_validation.py` | Velocity validation, digital twin, seed robustness, Figures 2 and 4–6 |
 | `scripts/generate_three_scenario_comparison.py` | Dirty derivative vs shallow RNN vs Lb-LSTM on S1–S3, Figure 3 |
-| `tests/test_blackbox_lstm.py`, `test_jacobian_engine.py`, `test_extract_model.py` | 18 tests: filter identities and exact Lyapunov cancellation on the implemented vector field; $\Phi'$ against finite differences; projection invariance; freezing, save/load, twin consistency |
+| `tests/test_blackbox_lstm.py`, `test_jacobian_engine.py`, `test_extract_model.py` | 18 tests: filter identities and exact Lyapunov cancellation on the implemented vector field; $\Phi^{\prime}$ against finite differences; projection invariance; freezing, save/load, twin consistency |
 
 **Approach B (§7)**
 
 | File | Contents |
 |:---|:---|
 | `src/observers/pilstm_network.py` | Harmonic/random feature layer with analytic $\partial\rho/\partial q$; Cholesky inertia; Christoffel $\hat C$ and gyroscopic $S$; potential gravity; dissipative recurrent friction; `PILSTMNetwork`; `PILSTMLayout` |
-| `src/adaptation/pilstm_jacobian_engine.py` | Adjoint Jacobian-transpose products per block, including the second-order Christoffel term; explicit $\Phi'$ for tests; Euclidean and kinetic metrics; `PILSTMAdaptationLaw` |
+| `src/adaptation/pilstm_jacobian_engine.py` | Adjoint Jacobian-transpose products per block, including the second-order Christoffel term; explicit $\Phi^{\prime}$ for tests; Euclidean and kinetic metrics; `PILSTMAdaptationLaw` |
 | `src/observers/pilstm_observer.py` | `PILSTMObserver`, `PILSTMObserverConfig`: same interface as `LbLSTMObserver`, plus physics diagnostics |
 | `src/observers/physics_informed_lstm_observer.py` | Superseded residual-learning variant using the known nominal model; kept for reference only (§7.10) |
 | `experiments/run_pilstm_validation.py` | Extreme-condition benchmark, plausibility audit, free swing, seeds, ablations, Figures 7–12 |
