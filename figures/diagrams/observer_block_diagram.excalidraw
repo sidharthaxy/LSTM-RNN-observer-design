@@ -1837,9 +1837,9 @@
   {
    "id": "model_label",
    "type": "text",
-   "x": 743.76,
+   "x": 748.8,
    "y": 741.25,
-   "width": 312.48,
+   "width": 302.40000000000003,
    "height": 67.5,
    "angle": 0,
    "strokeColor": "#1e1e1e",
@@ -2443,9 +2443,9 @@
   {
    "id": "cl_label",
    "type": "text",
-   "x": 1134.08,
+   "x": 1129.04,
    "y": 597.5,
-   "width": 231.84000000000003,
+   "width": 241.92000000000002,
    "height": 45.0,
    "angle": 0,
    "strokeColor": "#1e1e1e",

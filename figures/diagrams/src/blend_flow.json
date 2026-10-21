@@ -1,0 +1,509 @@
+[
+{
+"type": "cameraUpdate",
+"width": 800,
+"height": 600,
+"x": -40,
+"y": -170
+},
+{
+"type": "text",
+"id": "title",
+"x": 0,
+"y": -135,
+"text": "Approach E: how the two learning laws are blended",
+"fontSize": 28,
+"strokeColor": "#1e1e1e"
+},
+{
+"type": "rectangle",
+"id": "err",
+"x": 0,
+"y": 20,
+"width": 240,
+"height": 90,
+"backgroundColor": "#ffd8a8",
+"fillStyle": "solid",
+"strokeColor": "#f59e0b",
+"label": {
+"text": "Measurable error e\nregressor Y(q̂, q̂̇, Φ̂)",
+"fontSize": 17
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "rectangle",
+"id": "grad",
+"x": 310,
+"y": 10,
+"width": 340,
+"height": 110,
+"backgroundColor": "#d0bfff",
+"fillStyle": "solid",
+"strokeColor": "#8b5cf6",
+"label": {
+"text": "Instantaneous gradient (from B)\ng = s ⊙ Yᵀ e\nkinetic-energy metric",
+"fontSize": 17
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "a1",
+"x": 240,
+"y": 65,
+"width": 70,
+"height": 0,
+"points": [
+[
+0,
+0
+],
+[
+70,
+0
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "rectangle",
+"id": "weak",
+"x": 730,
+"y": 10,
+"width": 360,
+"height": 110,
+"backgroundColor": "#d0bfff",
+"fillStyle": "solid",
+"strokeColor": "#8b5cf6",
+"label": {
+"text": "Weak directions only\n−γ W_w g\nW_w = λ (Ω + λI)⁻¹",
+"fontSize": 17
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "a2",
+"x": 650,
+"y": 65,
+"width": 80,
+"height": 0,
+"points": [
+[
+0,
+0
+],
+[
+80,
+0
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "rectangle",
+"id": "data",
+"x": 0,
+"y": 235,
+"width": 240,
+"height": 100,
+"backgroundColor": "#a5d8ff",
+"fillStyle": "solid",
+"strokeColor": "#4a9eed",
+"label": {
+"text": "Encoder y, input u\nsmoothed q, q̇\n0.25 s ICL windows",
+"fontSize": 17
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "rectangle",
+"id": "stk",
+"x": 310,
+"y": 230,
+"width": 340,
+"height": 110,
+"backgroundColor": "#c3fae8",
+"fillStyle": "solid",
+"strokeColor": "#06b6d4",
+"label": {
+"text": "History stacks (from D)\nΩ = Σ YᵀY,   c = Σ Yᵀb\nno acceleration needed",
+"fontSize": 17
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "a3",
+"x": 240,
+"y": 285,
+"width": 70,
+"height": 0,
+"points": [
+[
+0,
+0
+],
+[
+70,
+0
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "rectangle",
+"id": "strong",
+"x": 730,
+"y": 230,
+"width": 360,
+"height": 110,
+"backgroundColor": "#c3fae8",
+"fillStyle": "solid",
+"strokeColor": "#06b6d4",
+"label": {
+"text": "Identified directions only\nW_s (φ_LS − φ) = (Ω + λI)⁻¹(c − Ωφ)\nW_s = I − W_w",
+"fontSize": 16
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "a4",
+"x": 650,
+"y": 285,
+"width": 80,
+"height": 0,
+"points": [
+[
+0,
+0
+],
+[
+80,
+0
+]
+],
+"endArrowhead": "arrow",
+"label": {
+"text": "Ω, c",
+"fontSize": 15
+}
+},
+{
+"type": "arrow",
+"id": "a5",
+"x": 600,
+"y": 230,
+"width": 150,
+"height": 110,
+"points": [
+[
+0,
+0
+],
+[
+150,
+-110
+]
+],
+"endArrowhead": "arrow",
+"label": {
+"text": "Ω",
+"fontSize": 15
+}
+},
+{
+"type": "cameraUpdate",
+"width": 1600,
+"height": 1200,
+"x": -40,
+"y": -170
+},
+{
+"type": "ellipse",
+"id": "sum",
+"x": 1150,
+"y": 140,
+"width": 70,
+"height": 70,
+"backgroundColor": "#ffffff",
+"fillStyle": "solid",
+"label": {
+"text": "+",
+"fontSize": 26
+}
+},
+{
+"type": "arrow",
+"id": "a6",
+"x": 1090,
+"y": 65,
+"width": 95,
+"height": 75,
+"points": [
+[
+0,
+0
+],
+[
+95,
+0
+],
+[
+95,
+75
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "arrow",
+"id": "a7",
+"x": 1090,
+"y": 285,
+"width": 95,
+"height": 75,
+"points": [
+[
+0,
+0
+],
+[
+95,
+0
+],
+[
+95,
+-75
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "rectangle",
+"id": "upd",
+"x": 1290,
+"y": 105,
+"width": 260,
+"height": 140,
+"backgroundColor": "#ffc9c9",
+"fillStyle": "solid",
+"strokeColor": "#ef4444",
+"label": {
+"text": "Parameter update\nown-coordinate inertia\nfrozen at zero\nM̂ ⪰ ε_M I,  d ≥ 0",
+"fontSize": 16
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "a8",
+"x": 1220,
+"y": 175,
+"width": 70,
+"height": 0,
+"points": [
+[
+0,
+0
+],
+[
+70,
+0
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "rectangle",
+"id": "qd",
+"x": 0,
+"y": 455,
+"width": 240,
+"height": 90,
+"backgroundColor": "#a5d8ff",
+"fillStyle": "solid",
+"strokeColor": "#4a9eed",
+"label": {
+"text": "Velocity estimate q̂̇",
+"fontSize": 17
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "rectangle",
+"id": "res",
+"x": 310,
+"y": 440,
+"width": 340,
+"height": 120,
+"backgroundColor": "#d0bfff",
+"fillStyle": "solid",
+"strokeColor": "#8b5cf6",
+"label": {
+"text": "Optional friction-LSTM residual\n(from B)  F_res = diag(d) q̂̇,  d ≥ 0\noff by default",
+"fontSize": 17
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "a9",
+"x": 240,
+"y": 500,
+"width": 70,
+"height": 0,
+"points": [
+[
+0,
+0
+],
+[
+70,
+0
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "rectangle",
+"id": "model",
+"x": 730,
+"y": 440,
+"width": 360,
+"height": 120,
+"backgroundColor": "#a5d8ff",
+"fillStyle": "solid",
+"strokeColor": "#4a9eed",
+"label": {
+"text": "Model\nΦ̂ = M̂⁻¹(Bu − Y_rest θ̂ − F_res)\nrigid body + viscous + Coulomb",
+"fontSize": 16
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "a10",
+"x": 650,
+"y": 500,
+"width": 80,
+"height": 0,
+"points": [
+[
+0,
+0
+],
+[
+80,
+0
+]
+],
+"endArrowhead": "arrow",
+"label": {
+"text": "F_res",
+"fontSize": 15
+}
+},
+{
+"type": "arrow",
+"id": "a11",
+"x": 1420,
+"y": 245,
+"width": 330,
+"height": 255,
+"points": [
+[
+0,
+0
+],
+[
+0,
+255
+],
+[
+-330,
+255
+]
+],
+"endArrowhead": "arrow",
+"label": {
+"text": "θ̂",
+"fontSize": 18
+}
+},
+{
+"type": "rectangle",
+"id": "out",
+"x": 800,
+"y": 630,
+"width": 220,
+"height": 70,
+"backgroundColor": "#b2f2bb",
+"fillStyle": "solid",
+"strokeColor": "#22c55e",
+"label": {
+"text": "Φ̂ → observer",
+"fontSize": 18
+},
+"roundness": {
+"type": 3
+}
+},
+{
+"type": "arrow",
+"id": "a12",
+"x": 910,
+"y": 560,
+"width": 0,
+"height": 70,
+"points": [
+[
+0,
+0
+],
+[
+0,
+70
+]
+],
+"endArrowhead": "arrow"
+},
+{
+"type": "text",
+"id": "legend",
+"x": 0,
+"y": 740,
+"text": "λ is the eigenvalue that separates identified directions (integral CL) from weak ones (instantaneous law).",
+"fontSize": 18,
+"strokeColor": "#555555"
+},
+{
+"type": "cameraUpdate",
+"width": 1600,
+"height": 1200,
+"x": -40,
+"y": -170
+}
+]
