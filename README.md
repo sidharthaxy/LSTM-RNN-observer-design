@@ -86,9 +86,8 @@ history (§14.3).
   - [8.7 Stability and convergence under concurrent learning](#87-stability-and-convergence-under-concurrent-learning)
   - [8.8 Validation under non-PE excitation](#88-validation-under-non-pe-excitation)
   - [8.9 Open-loop predictor benchmark](#89-open-loop-predictor-benchmark)
-  - [8.10 Approach A vs Approach C on the shared benchmark](#810-approach-a-vs-approach-c-on-the-shared-benchmark)
-  - [8.11 Configuration](#811-configuration)
-  - [8.12 Limitations](#812-limitations)
+  - [8.10 Configuration](#810-configuration)
+  - [8.11 Limitations](#811-limitations)
 - [9. Approach D: physics-structured observer with integral concurrent learning](#9-approach-d-physics-structured-observer-with-integral-concurrent-learning)
   - [9.1 Results at a glance](#91-results-at-a-glance)
   - [9.2 Model: linear-in-parameters Euler–Lagrange structure](#92-model-linear-in-parameters-eulerlagrange-structure)
@@ -118,8 +117,9 @@ history (§14.3).
   - [11.3 Transient behaviour and recovery from the plant change](#113-transient-behaviour-and-recovery-from-the-plant-change)
   - [11.4 Held-out prediction](#114-held-out-prediction)
   - [11.5 Improvement 2: remove the cart position from the black-box inputs](#115-improvement-2-remove-the-cart-position-from-the-black-box-inputs)
-  - [11.6 Improvement 3: model-free warm start](#116-improvement-3-model-free-warm-start)
-  - [11.7 Caveats](#117-caveats)
+  - [11.6 Approach A vs Approach C](#116-approach-a-vs-approach-c)
+  - [11.7 Improvement 3: model-free warm start](#117-improvement-3-model-free-warm-start)
+  - [11.8 Caveats](#118-caveats)
 - [12. Evaluating on recorded rig data](#12-evaluating-on-recorded-rig-data)
   - [12.1 Recording folder](#121-recording-folder)
   - [12.2 Running it](#122-running-it)
@@ -269,7 +269,7 @@ Other options: `run_cl_validation.py --workers N --no-plots`;
 
 ### A vs C comparison command
 
-Approach A against Approach C on the shared benchmark (§8.10). It runs no simulation: it reads
+Approach A against Approach C on the shared benchmark (§11.6). It runs no simulation: it reads
 the shared benchmark's CSVs in `results/shared_benchmark/`. The `results/` folder is not stored in
 the repository, so on a fresh clone run the shared benchmark once first.
 
@@ -277,7 +277,9 @@ the repository, so on a fresh clone run the shared benchmark once first.
 # Only needed once, if results/shared_benchmark/*.csv do not exist yet (about 20 min)
 python experiments/run_shared_benchmark.py --seeds 5
 
-# Prints the median table of §8.10 and writes figures/comparisons/a_vs_c.png (Figure 16)
+# Prints the median table of §11.6 and writes figures/comparisons/a_vs_c.png (Figure 25).
+# Also reruns A and C on S1-S3 with seed 0 (about 30 s) and writes
+# figures/comparisons/a_vs_c_velocity_error.png (Figure 26); --bars-only skips that part.
 python scripts/compare_a_c.py
 ```
 
@@ -423,7 +425,7 @@ the same seeds and metrics.
   unseen inputs (§6.7.4).
 - **Approach C fixes part of A's problem.** It beats A on 0.5 s held-out prediction after
   weak, non-persistent excitation, and gains most when combined with removing the cart position from
-  the inputs (§8.10). Without a change detector it is the worst after a plant change.
+  the inputs (§11.6). Without a change detector it is the worst after a plant change.
 - **Approach D identifies the rig almost exactly when the data are rich**, but fails on small
   swings, where its pendulum-row scale runs away (§10.2). E repairs exactly this.
 - **Everything here is simulation.** §12 describes how to replay real rig recordings through the
@@ -1933,7 +1935,7 @@ tested open loop on four unseen inputs:
 - **The benefit comes from the history stack, not from any other change.** The same observer
   with the CL loop switched off ("Std law") is worse than both A and C on θ̈ in every test.
 
-§8.10 then compares A and C on the shared benchmark, where neither was tuned.
+§11.6 then compares A and C on the shared benchmark, where neither was tuned.
 
 ### 8.1 The persistence-of-excitation bottleneck
 
@@ -2269,7 +2271,7 @@ In detail:
 ### 8.9 Open-loop predictor benchmark
 
 `src/identification/benchmark_predictor.py`, driven by `experiments/run_cl_validation.py` stage 2.
-This is C's own benchmark; §8.10 repeats the comparison on the shared benchmark.
+This is C's own benchmark; §11.6 repeats the comparison on the shared benchmark.
 
 #### 8.9.1 Protocol
 
@@ -2278,7 +2280,7 @@ This is C's own benchmark; §8.10 repeats the comparison on the shared benchmark
    difference between them is the adaptation law.
 2. **Models.**
    - **A**: Approach A, the instantaneous law on all 1440 weights, using its validated gains.
-   - **C**: C's defaults (§8.11).
+   - **C**: C's defaults (§8.10).
    - **Std law**: C with the CL loop disabled (ablation).
 3. **Freezing.** Each model is frozen at 60 s. The LSTM is decoupled from the observer feedback
    using A's `LbLSTMDigitalTwin` (§6.5), unchanged.
@@ -2406,105 +2408,7 @@ stored points well, but it does not constrain the twin's own closed-loop dynamic
 The only free-run win for C is θ on the chirp. The frozen C model is therefore not suitable as
 a long-horizon simulator.
 
-### 8.10 Approach A vs Approach C on the shared benchmark
-
-§8.9 compares A and C on C's own protocol, which C's defaults were chosen on (§8.11). This section
-repeats the comparison on the shared benchmark (§11), where neither approach was tuned:
-
-- **Scenarios.** S1 (A's home: hanging, two-tone input), S2 (B's home: swing-through with a +50 %
-  mass step) and S3 (C's home: weak, fading, non-PE input). See §11.1.
-- **Seeds and normalization.** 5 seeds per scenario, the same data-driven input normalization
-  for both, cold start.
-- **Prediction tests.** The four held-out inputs H1–H4, fixed before any result existed.
-- **Variants.** A-x and C-x are the same observers with the cart position removed from the
-  network input (§11.5).
-
-`python scripts/compare_a_c.py` reads the shared-benchmark CSVs and produces the table and
-figure below.
-
-**Medians over 5 seeds** (prediction: also over the 4 held-out inputs); lower is better; the
-better of A and C is in bold, and the best of all four is marked †.
-
-| Metric | Scenario | A | C | A-x | C-x |
-|:---|:---|---:|---:|---:|---:|
-| Steady $\dot\theta$ RMSE [rad/s] | S1 | 0.0149 | **0.0135** † | 0.0143 | 0.0162 |
-| | S2 | **0.0359** † | 0.0662 | 0.0389 | 0.0691 |
-| | S3 | 0.0100 | **0.0094** † | 0.0100 | 0.0094 |
-| $\dot\theta$ RMSE, 0.1–5 s [rad/s] | S1 | 0.0594 | **0.0578** | 0.0584 | 0.0573 † |
-| | S2 | 0.166 | **0.157** † | 0.174 | 0.160 |
-| | S3 | 0.0516 | **0.0437** † | 0.0523 | 0.0442 |
-| Held-out one-step $\ddot\theta$ NMSE | S1 | **2.33** | 2.41 | 1.67 | 0.884 † |
-| | S2 | **80.7** | 108.7 | 20.4 | 14.4 † |
-| | S3 | 1.84 | **1.80** | 0.917 | 0.326 † |
-| Held-out 0.5 s $\theta$ NMSE | S1 | 0.161 | **0.159** | 0.129 | 0.0854 † |
-| | S2 | **6.49** | 9.44 | 1.11 | 0.887 † |
-| | S3 | 0.170 | **0.0964** | 0.0566 | 0.0294 † |
-
-On S3 the steady $\dot\theta$ RMSE of C and C-x is equal to the shown precision.
-
-**Seeds where C beats A** (out of 5; for prediction, comparing each seed's median over the four
-held-out inputs):
-
-| Metric | S1 | S2 | S3 |
-|:---|:---:|:---:|:---:|
-| Steady $\dot\theta$ RMSE | 3 | **0** | **5** |
-| Held-out one-step $\ddot\theta$ NMSE | 4 | 2 | 3 |
-| Held-out 0.5 s $\theta$ NMSE | 3 | 3 | 2 |
-
-**Seed ranges of the steady $\dot\theta$ RMSE** [min, max]: S1: A [0.0137, 0.0156],
-C [0.0126, 0.0188]. S2: A [0.0317, 0.0430], C [0.0458, 0.0850]. S3: A [0.0083, 0.0103],
-C [0.0081, 0.0100].
-
-![Approach A vs Approach C](figures/comparisons/a_vs_c.png)
-
-**Figure 16.** Approach A against Approach C on the shared benchmark, with their x-free variants.
-Panels from left: steady-state pendulum-velocity error, pendulum-velocity error during start-up
-(0.1–5 s), held-out one-step acceleration error, held-out 0.5 s angle-prediction error. Bars are
-medians; whiskers span min to max over seeds (and held-out inputs). All axes are logarithmic.
-
-> **What it shows.** In the two velocity panels, A (blue) and C (light green) are close on S1
-> and S3, with C slightly lower, but C is almost twice as high as A on S2 in steady state. In the
-> two prediction panels, A and C are similar on S1 and S2, and C is lower on S3 for the 0.5 s
-> prediction. The x-free variants (pink A-x, dark green C-x) are lower than their originals in
-> every prediction bar, and C-x is the lowest of the four everywhere. The prediction whiskers
-> span two to three orders of magnitude.
->
-> **What it means.** C's memory helps where it was designed to: weak excitation and a plant that
-> does not change. It hurts after a sudden plant change, because the memory still holds data from
-> the old plant. Removing the cart position from the inputs helps both black boxes, and helps C
-> most. Even so, the best black box (C-x) predicts held-out inputs 100–7000× worse than the
-> physics-structured hybrid E (§11.4).
-
-**Findings.**
-
-1. **On C's home scenario S3 (weak, non-PE input), C is the better observer and the better
-   predictor.** Its steady $\dot\theta$ error is lower in all 5 seeds, its start-up error is
-   15 % lower (0.0437 vs 0.0516), and its 0.5 s angle prediction is 1.8× better (0.096 vs 0.170).
-   One-step $\ddot\theta$ is a tie (1.80 vs 1.84). This confirms the finding of §8.9 on held-out
-   inputs that were not used to choose C's settings.
-2. **On A's home scenario S1, the two are tied.** C's median steady error is 9 % lower, but its
-   seed range is wider ([0.0126, 0.0188] against [0.0137, 0.0156]) and it wins only 3 of 5 seeds.
-   Held-out prediction is the same within the spread.
-3. **On S2 (swing-through with a +50 % mass step), C is clearly worse.** Its steady $\dot\theta$
-   error is 1.8× A's, in every seed, and the seed ranges do not overlap. Its held-out prediction is
-   also worse (one-step 108.7 against 80.7). The cause is the stack: it fills with pre-step data
-   and C has no change detector, so concurrent learning keeps pulling the model back to the old
-   plant (post-step $\dot\theta$ RMSE 0.079 against A's 0.046, §11.3). D's detector (§9.5) could
-   be added to C.
-4. **C benefits most from removing the cart position.** C-x is the best black box on held-out
-   prediction in every scenario: its one-step $\ddot\theta$ NMSE is 2.6× (S1), 5.6× (S2) and
-   5.6× (S3) lower than A's, and its 0.5 s $\theta$ NMSE 1.9×, 7.3× and 5.8× lower. The stack
-   stores informative points, and without $x$ those points are not tied to cart positions the
-   tests never revisit. The x-free change leaves online velocity estimation unchanged.
-5. **Neither replaces a structured model as a predictor.** C-x's held-out one-step
-   $\ddot\theta$ NMSE (0.33–14) is still two to four orders of magnitude above E's (0.002–0.003).
-
-**Verdict.** Among the black boxes, C (preferably C-x) is the right choice when the excitation is
-weak and the plant does not change. A is the safer choice when the plant can change abruptly.
-For a model that has to predict, the physics-structured approaches (B, D, E) are far ahead of
-both.
-
-### 8.11 Configuration
+### 8.10 Configuration
 
 Defaults of `CLLbLSTMObserverConfig`:
 
@@ -2525,20 +2429,20 @@ These defaults were chosen with the 3-seed benchmark of §8.9 itself, among a sm
 (frozen or CL-driven gates, gate gain 1–20, output weighting on or off, capacity 48–160). The
 test inputs were fixed before that choice and were not changed afterwards. That benchmark is
 therefore a validation set, not an untouched hold-out, and its margins should be read that way.
-The shared benchmark's held-out inputs (§8.10) are the independent test.
+The shared benchmark's held-out inputs (§11.6) are the independent test.
 
 The validation script sets `OMP_NUM_THREADS=1` itself. Parallel runs without it oversubscribe
 BLAS threads and run many times slower.
 
-### 8.12 Limitations
+### 8.11 Limitations
 
 - **Scope of the proof.** The convergence proof (§8.7) covers the readout with fixed features. The
   deployed configuration adapts the gates through the CL loop, which improves generalization but
   has no parameter-convergence guarantee and keeps the readout moving.
 - **Evidence base.** C's own benchmark uses three seeds and a single training trajectory, in
   simulation only (the dead-zone/stiction model is off, as in Approach A's identification study).
-  §8.10 adds five seeds on three scenarios.
-- **No change detection.** After a plant change the stack keeps old data (§8.10, finding 3).
+  §11.6 adds five seeds on three scenarios.
+- **No change detection.** After a plant change the stack keeps old data (§11.6, finding 3).
 - **Free-run robustness.** C's frozen twin is less robust than A's in long free runs (§8.9.4).
 - **Stack conditioning.** $\lambda_{\max}/\lambda_{\min}$ of the stack is about 10³. Weak
   feature directions stay poorly identified, which caps how closely $W_{\mathcal H}$ can match
@@ -2817,7 +2721,7 @@ metric definitions are imported unchanged from `experiments/run_pilstm_validatio
 
 ![Parameter tracking](figures/approach_d/parameter_tracking.png)
 
-**Figure 17.** Seed 0. D's physical reading of its parameters (green) against the truth (black), for
+**Figure 16.** Seed 0. D's physical reading of its parameters (green) against the truth (black), for
 the four rigid-body quantities $M+m$, $ml$, $I+ml^2$ and $mgl$. For comparison: B's $\hat M_{11}$
 and $\hat M_{22}$ at $\hat q$ (red), and D with concurrent learning off (yellow). The dotted line
 marks the purge 0.4 s after the step.
@@ -2836,7 +2740,7 @@ marks the purge 0.4 s after the step.
 
 ![Rank condition](figures/approach_d/rank_condition.png)
 
-**Figure 18.** Seed 0. Top: the information ($\lambda_{\min}$) in the actuated stack and in the
+**Figure 17.** Seed 0. Top: the information ($\lambda_{\min}$) in the actuated stack and in the
 normalized pendulum-row regression, against the CL gate $\bar\lambda$ (dashed). Bottom: number of
 windows stored.
 
@@ -2859,7 +2763,7 @@ windows stored.
 
 ![Velocity error](figures/approach_d/velocity_error.png)
 
-**Figure 19.** Seed 0. 0.5 s RMS velocity error of A, B and D over the whole run. Top: cart. Bottom:
+**Figure 18.** Seed 0. 0.5 s RMS velocity error of A, B and D over the whole run. Top: cart. Bottom:
 pendulum. Log scale; the mass step is at 25 s.
 
 > **What it shows.** From about 5 s on, D (green) has the lowest error in both channels: about
@@ -2884,7 +2788,7 @@ true energy reflects its 4–8 % error in $I+ml^2$ and $mgl$.
 
 ![Free swing](figures/approach_d/free_swing.png)
 
-**Figure 20.** Seed 0. The models frozen at 50 s, released from rest at $\theta = \pi - 1$ with no
+**Figure 19.** Seed 0. The models frozen at 50 s, released from rest at $\theta = \pi - 1$ with no
 input, against the true post-shift pendulum.
 
 > **What it shows.** B (red) and D (green) both swing with the right amplitude and nearly the
@@ -3096,7 +3000,7 @@ boundary. Values from 0.005 to 0.03 give the same steady-state error to within 1
 
 ![Information weights](figures/approach_e/information_weights.png)
 
-**Figure 21.** Seed 0. Each horizontal band is one eigen-direction of a stack (pendulum row above,
+**Figure 20.** Seed 0. Each horizontal band is one eigen-direction of a stack (pendulum row above,
 cart row below, weakest at the bottom of each). The colour is the share $\mu/(\mu+\lambda)$ of
 that direction given to integral concurrent learning: dark blue = identified from stored data,
 light grey = left to the instantaneous law. Left: hanging (small swings). Right: swing-through
@@ -3196,7 +3100,7 @@ are in §11.3, next to the other approaches.
 
 ![Velocity error](figures/approach_e/velocity_error.png)
 
-**Figure 22.** Seed 0. 0.5 s RMS pendulum-velocity error of B, D and E on the three scenarios (log
+**Figure 21.** Seed 0. 0.5 s RMS pendulum-velocity error of B, D and E on the three scenarios (log
 scale).
 
 > **What it shows.** On the hanging scenario (left), D's error (yellow) returns in bursts of
@@ -3239,7 +3143,7 @@ Relative error of the physical parameters read from the model at the end of the 
 
 ![Parameter tracking](figures/approach_e/parameter_tracking.png)
 
-**Figure 23.** Seed 0. The four physical parameters read from D (yellow) and E (purple) against the
+**Figure 22.** Seed 0. The four physical parameters read from D (yellow) and E (purple) against the
 truth (dashed). Top row: hanging scenario. Bottom row: swing-through with the mass step at 25 s.
 
 > **What it shows.** On the hanging scenario, D's $I+ml^2$ shoots off the top of the axes at
@@ -3326,7 +3230,9 @@ no approach was tuned on. It also evaluates two improvements that apply across a
 
 - **Improvement 1**, the harness itself.
 - **Improvement 2**, removing the cart position from the black-box inputs (§11.5).
-- **Improvement 3**, a model-free warm start (§11.6).
+- **Improvement 3**, a model-free warm start (§11.7).
+
+It also compares the two black-box approaches, A and C, in detail (§11.6).
 
 The five approaches run unchanged, with their own defaults:
 
@@ -3351,7 +3257,7 @@ The common observer structure is Diagram 3 (§5).
 
 **Diagram 14.** How every approach is evaluated. The seven models run online on the three training
 scenarios, which gives the velocity metrics. Each is then frozen, decoupled from its observer and
-driven by held-out inputs, which gives the prediction metrics. The gated warm start (§11.6) is an
+driven by held-out inputs, which gives the prediction metrics. The gated warm start (§11.7) is an
 optional wrapper around the online run.
 
 **Training scenarios.** Each is the validation scenario of one approach, reproduced exactly
@@ -3406,11 +3312,11 @@ Median over 5 seeds of the steady-window RMSE (last 15 s). No run diverged.
 
 Bold marks the best in each column, judged on the unrounded values. On ẋ in S3 every model is at
 the encoder limit: C (0.001745) and E (0.001747) are tied. The x-free variants A-x and C-x are
-compared with A and C in §8.10.
+compared with A and C in §11.6.
 
 ![Velocity](figures/shared_benchmark/velocity.png)
 
-**Figure 24.** All seven models on the three scenarios. Left: steady-state pendulum-velocity error.
+**Figure 23.** All seven models on the three scenarios. Left: steady-state pendulum-velocity error.
 Middle: steady-state cart-velocity error. Right: peak pendulum-velocity error during start-up
 (0.1–2 s). Bars are medians over 5 seeds; whiskers span min to max; log scale.
 
@@ -3459,7 +3365,7 @@ step.
   - It is not high-gain peaking: no gain is scaled up.
   - It is a *model-learning* transient, lasting until $\hat\Phi$ has adapted.
   - Weight projection bounds the weights, not this transient.
-  - The warm start of §11.6 removes the cart part of it, but not the pendulum part.
+  - The warm start of §11.7 removes the cart part of it, but not the pendulum part.
 - **Recovery after the step ranks by structure.**
   - D and E are best: they detect the change and re-identify.
   - B is next.
@@ -3489,7 +3395,7 @@ Bold marks the best of all seven models. Among A–D alone, B is best after S1 a
 
 ![Held-out](figures/shared_benchmark/held_out.png)
 
-**Figure 25.** All seven models, frozen after training on each scenario, predicting the four held-out
+**Figure 24.** All seven models, frozen after training on each scenario, predicting the four held-out
 inputs. Left: one-step pendulum-acceleration error. Middle: one-step cart-acceleration error.
 Right: 0.5 s pendulum-angle prediction error. Bars are medians; whiskers span min to max; log
 scale over nine decades.
@@ -3520,7 +3426,7 @@ scale over nine decades.
   effectively the true rigid-body model. After hanging-only data (S1, S3), B's model generalizes
   better than D's. E removes that dependence (§10.2).
 - **Among the black boxes, C-x generalizes best.** It combines concurrent learning with
-  improvement 2 and beats both A variants on every scenario (§8.10).
+  improvement 2 and beats both A variants on every scenario (§11.6).
 
 ### 11.5 Improvement 2: remove the cart position from the black-box inputs
 
@@ -3562,7 +3468,122 @@ Per-seed differences:
 - **One line, no downside observed.** The change is a single input scale, and it should be the
   default for any black-box model of a system with cyclic coordinates.
 
-### 11.6 Improvement 3: model-free warm start
+### 11.6 Approach A vs Approach C
+
+§8.9 compares A and C on C's own protocol, which C's defaults were chosen on (§8.10). This section
+repeats the comparison on the shared benchmark, where neither approach was tuned:
+
+- **Scenarios.** S1 (A's home: hanging, two-tone input), S2 (B's home: swing-through with a +50 %
+  mass step) and S3 (C's home: weak, fading, non-PE input). See §11.1.
+- **Seeds and normalization.** 5 seeds per scenario, the same data-driven input normalization
+  for both, cold start.
+- **Prediction tests.** The four held-out inputs H1–H4, fixed before any result existed.
+- **Variants.** A-x and C-x are the same observers with the cart position removed from the
+  network input (§11.5).
+
+`python scripts/compare_a_c.py` reads the shared-benchmark CSVs for the tables and the bar chart
+(Figure 25), and reruns A and C on seed 0 for the error-over-time plot (Figure 26).
+
+**Medians over 5 seeds** (prediction: also over the 4 held-out inputs); lower is better; the
+better of A and C is in bold, and the best of all four is marked †.
+
+| Metric | Scenario | A | C | A-x | C-x |
+|:---|:---|---:|---:|---:|---:|
+| Steady $\dot\theta$ RMSE [rad/s] | S1 | 0.0149 | **0.0135** † | 0.0143 | 0.0162 |
+| | S2 | **0.0359** † | 0.0662 | 0.0389 | 0.0691 |
+| | S3 | 0.0100 | **0.0094** † | 0.0100 | 0.0094 |
+| $\dot\theta$ RMSE, 0.1–5 s [rad/s] | S1 | 0.0594 | **0.0578** | 0.0584 | 0.0573 † |
+| | S2 | 0.166 | **0.157** † | 0.174 | 0.160 |
+| | S3 | 0.0516 | **0.0437** † | 0.0523 | 0.0442 |
+| Held-out one-step $\ddot\theta$ NMSE | S1 | **2.33** | 2.41 | 1.67 | 0.884 † |
+| | S2 | **80.7** | 108.7 | 20.4 | 14.4 † |
+| | S3 | 1.84 | **1.80** | 0.917 | 0.326 † |
+| Held-out 0.5 s $\theta$ NMSE | S1 | 0.161 | **0.159** | 0.129 | 0.0854 † |
+| | S2 | **6.49** | 9.44 | 1.11 | 0.887 † |
+| | S3 | 0.170 | **0.0964** | 0.0566 | 0.0294 † |
+
+On S3 the steady $\dot\theta$ RMSE of C and C-x is equal to the shown precision.
+
+**Seeds where C beats A** (out of 5; for prediction, comparing each seed's median over the four
+held-out inputs):
+
+| Metric | S1 | S2 | S3 |
+|:---|:---:|:---:|:---:|
+| Steady $\dot\theta$ RMSE | 3 | **0** | **5** |
+| Held-out one-step $\ddot\theta$ NMSE | 4 | 2 | 3 |
+| Held-out 0.5 s $\theta$ NMSE | 3 | 3 | 2 |
+
+**Seed ranges of the steady $\dot\theta$ RMSE** [min, max]: S1: A [0.0137, 0.0156],
+C [0.0126, 0.0188]. S2: A [0.0317, 0.0430], C [0.0458, 0.0850]. S3: A [0.0083, 0.0103],
+C [0.0081, 0.0100].
+
+![Approach A vs Approach C](figures/comparisons/a_vs_c.png)
+
+**Figure 25.** Approach A against Approach C on the shared benchmark, with their x-free variants.
+Panels from left: steady-state pendulum-velocity error, pendulum-velocity error during start-up
+(0.1–5 s), held-out one-step acceleration error, held-out 0.5 s angle-prediction error. Bars are
+medians; whiskers span min to max over seeds (and held-out inputs). All axes are logarithmic.
+
+> **What it shows.** In the two velocity panels, A (blue) and C (light green) are close on S1
+> and S3, with C slightly lower, but C is almost twice as high as A on S2 in steady state. In the
+> two prediction panels, A and C are similar on S1 and S2, and C is lower on S3 for the 0.5 s
+> prediction. The x-free variants (pink A-x, dark green C-x) are lower than their originals in
+> every prediction bar, and C-x is the lowest of the four everywhere. The prediction whiskers
+> span two to three orders of magnitude.
+>
+> **What it means.** C's memory helps where it was designed to: weak excitation and a plant that
+> does not change. It hurts after a sudden plant change, because the memory still holds data from
+> the old plant. Removing the cart position from the inputs helps both black boxes, and helps C
+> most. Even so, the best black box (C-x) predicts held-out inputs 100–7000× worse than the
+> physics-structured hybrid E (§11.4).
+
+![Approach A vs Approach C, error over time](figures/comparisons/a_vs_c_velocity_error.png)
+
+**Figure 26.** Seed 0. Pendulum-velocity error of A and C over time (0.5 s moving RMS, log
+scale) on the three benchmark scenarios, rerun with the shared benchmark's harness and settings.
+The dotted line marks the mass step on S2.
+
+> **What it shows.** On S1, both errors settle to 0.01–0.03 rad/s. A has a burst to about 0.08
+> around 12 s that C does not have; after that the two lines cross back and forth. On S2, both sit
+> near 0.1 for the first 10 s. From about 15 s, and above all after the mass step at 25 s, C keeps
+> bursting back to 0.1–0.15 while A mostly stays at 0.02–0.05. On S3, C falls faster during the
+> first 15 s (A peaks near 0.06 at 5 s); after that both stay near 0.01.
+>
+> **What it means.** This is where the medians in the table come from. C's stored data help
+> early, while the input is still informative (S1 and S3). On S2 the stack holds data from parts of
+> the swing the pendulum keeps leaving, and after 25 s from the old, lighter pendulum, so concurrent
+> learning repeatedly pulls the model the wrong way.
+
+**Findings.**
+
+1. **On C's home scenario S3 (weak, non-PE input), C is the better observer and the better
+   predictor.** Its steady $\dot\theta$ error is lower in all 5 seeds, its start-up error is
+   15 % lower (0.0437 vs 0.0516), and its 0.5 s angle prediction is 1.8× better (0.096 vs 0.170).
+   One-step $\ddot\theta$ is a tie (1.80 vs 1.84). This confirms the finding of §8.9 on held-out
+   inputs that were not used to choose C's settings.
+2. **On A's home scenario S1, the two are tied.** C's median steady error is 9 % lower, but its
+   seed range is wider ([0.0126, 0.0188] against [0.0137, 0.0156]) and it wins only 3 of 5 seeds.
+   Held-out prediction is the same within the spread.
+3. **On S2 (swing-through with a +50 % mass step), C is clearly worse.** Its steady $\dot\theta$
+   error is 1.8× A's, in every seed, and the seed ranges do not overlap. Its held-out prediction is
+   also worse (one-step 108.7 against 80.7). The cause is the stack: it fills with pre-step data
+   and C has no change detector, so concurrent learning keeps pulling the model back to the old
+   plant (post-step $\dot\theta$ RMSE 0.079 against A's 0.046, §11.3; the bursts in Figure 26).
+   D's detector (§9.5) could be added to C.
+4. **C benefits most from removing the cart position.** C-x is the best black box on held-out
+   prediction in every scenario: its one-step $\ddot\theta$ NMSE is 2.6× (S1), 5.6× (S2) and
+   5.6× (S3) lower than A's, and its 0.5 s $\theta$ NMSE 1.9×, 7.3× and 5.8× lower. The stack
+   stores informative points, and without $x$ those points are not tied to cart positions the
+   tests never revisit. The x-free change leaves online velocity estimation unchanged.
+5. **Neither replaces a structured model as a predictor.** C-x's held-out one-step
+   $\ddot\theta$ NMSE (0.33–14) is still two to four orders of magnitude above E's (0.002–0.003).
+
+**Verdict.** Among the black boxes, C (preferably C-x) is the right choice when the excitation is
+weak and the plant does not change. A is the safer choice when the plant can change abruptly.
+For a model that has to predict, the physics-structured approaches (B, D, E) are far ahead of
+both.
+
+### 11.7 Improvement 3: model-free warm start
 
 Every observer starts from $\hat q = y(0)$ and $\hat{\dot q} = 0$. In all three scenarios the
 cart starts moving, at the drift-cancelling velocity, while the pendulum starts at rest.
@@ -3602,7 +3623,7 @@ better):
 
 ![Warm start](figures/shared_benchmark/warm_start.png)
 
-**Figure 26.** Start-up error (RMSE over 0.1–5 s) with cold start (light, left bar of each pair) and
+**Figure 27.** Start-up error (RMSE over 0.1–5 s) with cold start (light, left bar of each pair) and
 warm start (solid, right bar), per model and scenario. Top: cart velocity. Bottom: pendulum
 velocity.
 
@@ -3628,7 +3649,7 @@ velocity.
 - **Steady state is unaffected.** The largest difference is 10 %, in C-x on S1; everything else
   is within ±8 %.
 
-### 11.7 Caveats
+### 11.8 Caveats
 
 - **Simulation only.** The actuator dead-zone and stiction are off, as in every approach's own
   validation. The held-out inputs are near the hanging equilibrium.
@@ -3773,7 +3794,7 @@ each point is worked out in full.
 │   ├── baseline_estimation_comparison.png
 │   ├── approach_a/ … approach_e/ # figures of each approach's validation
 │   ├── shared_benchmark/         # figures of §11
-│   ├── comparisons/a_vs_c.png    # figure of §8.10
+│   ├── comparisons/              # figures of §11.6 (A vs C)
 │   └── diagrams/                 # Diagrams 1-14: .svg, editable .excalidraw, sources in src/*.json
 └── results/                      # CSVs written by the experiments (not stored in the repository)
 ```
@@ -3824,7 +3845,6 @@ each point is worked out in full.
 | `src/concurrent_learning/scenarios.py` | Non-PE training commands, drift-cancelling initial states, unseen test suite of §8.9 |
 | `src/identification/benchmark_predictor.py` | A vs C training, twin extraction, one-step and short-horizon metrics |
 | `experiments/run_cl_validation.py` | Non-PE convergence study and predictor benchmark, Figures 13–15 |
-| `scripts/compare_a_c.py` | A vs C on the shared benchmark, Figure 16 |
 | `tests/test_cl_lstm_observer.py`, `test_point_history_stack.py` | 23 tests: reduction to A with CL off, implicit step, convergence without excitation, monotone $\lambda_{\min}$, selection against FIFO |
 
 **Approach D (§9)**
@@ -3835,7 +3855,7 @@ each point is worked out in full.
 | `src/observers/pi_icl_observer.py` | `PIICLObserver`: two-part stack estimate, rank gate, Newton-form CL, change detection |
 | `src/concurrent_learning/history_stack.py` | Block-regressor history stack with singular-value-maximizing recording (also used by E) |
 | `src/concurrent_learning/savitzky_golay.py` | Causal Savitzky–Golay smoother and differentiator |
-| `experiments/run_d_validation.py` | 5-seed benchmark against A and B, identification, free swing, Figures 17–20 |
+| `experiments/run_d_validation.py` | 5-seed benchmark against A and B, identification, free swing, Figures 16–19 |
 | `tests/test_pi_icl.py`, `test_history_stack.py` | 23 tests: true parameters reproduce the plant, ICL identity, identification and change detection, stack policy |
 
 **Approach E (§10)**
@@ -3843,7 +3863,7 @@ each point is worked out in full.
 | File | Contents |
 |:---|:---|
 | `src/observers/hybrid_observer.py` | `HybridObserver`, `HybridObserverConfig`: damped blend step, own-coordinate freeze, optional residual, frozen twin |
-| `experiments/run_e_validation.py` | Three scenarios, B / D / E and the ablations, Figures 21–23 |
+| `experiments/run_e_validation.py` | Three scenarios, B / D / E and the ablations, Figures 20–22 |
 | `tests/test_hybrid.py` | 7 tests: blend algebra, frozen structure, dissipative residual, reduction to D, identification on small swings |
 
 **Shared benchmark (§11) and rig data (§12)**
@@ -3853,7 +3873,8 @@ each point is worked out in full.
 | `src/benchmark/scenarios.py` | S1–S3 and the held-out inputs H1–H4 |
 | `src/benchmark/models.py` | Model registry (A, A-x, B, C, C-x, D, E), shared normalization, twin adapters, prediction metrics |
 | `src/benchmark/warm_start.py` | Significance-gated state injection (improvement 3) |
-| `experiments/run_shared_benchmark.py` | The benchmark; CSVs in `results/shared_benchmark/`, Figures 24–26 |
+| `experiments/run_shared_benchmark.py` | The benchmark; CSVs in `results/shared_benchmark/`, Figures 23, 24 and 27 |
+| `scripts/compare_a_c.py` | Approach A vs Approach C on the shared benchmark (§11.6), Figures 25 and 26 |
 | `tests/test_shared_benchmark.py` | 8 tests: twin exactness with true parameters, x-free inputs, warm-start injection and gate |
 | `src/rig/rig_data.py` | Metadata template and parser, run-type keywords, unit conversion, resampling to 1 kHz, zero-phase reference derivatives |
 | `experiments/run_rig_evaluation.py` | Sign checks, rest-run noise floor, dead-zone thresholds, velocity and prediction scoring, rehearsal data, summary figure |
