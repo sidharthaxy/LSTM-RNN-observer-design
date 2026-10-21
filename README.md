@@ -21,45 +21,119 @@ history (§14.3).
 
 **Start here**
 
-- [simulation_instructions](#simulation_instructions): every terminal command in one place
-  - [Setup](#setup) · [Run the tests](#run-the-tests) · [Classical baselines](#classical-baselines) · [Approach A](#approach-a-commands) · [Approach B](#approach-b-commands) · [Approach C](#approach-c-commands) · [A vs C comparison](#a-vs-c-comparison-command) · [Approach D](#approach-d-commands) · [Approach E](#approach-e-commands) · [Shared benchmark](#shared-benchmark-commands) · [Real-rig data](#real-rig-data-commands) · [Diagrams](#diagram-commands) · [Everything, in order](#everything-in-order)
+- [simulation_instructions: every terminal command in one place](#simulation_instructions)
+  - [Setup](#setup)
+  - [Run the tests](#run-the-tests)
+  - [Classical baselines](#classical-baselines)
+  - [Approach A commands](#approach-a-commands)
+  - [Approach B commands](#approach-b-commands)
+  - [Approach C commands](#approach-c-commands)
+  - [A vs C comparison command](#a-vs-c-comparison-command)
+  - [Approach D commands](#approach-d-commands)
+  - [Approach E commands](#approach-e-commands)
+  - [Shared benchmark commands](#shared-benchmark-commands)
+  - [Real-rig data commands](#real-rig-data-commands)
+  - [Diagram commands](#diagram-commands)
+  - [Everything, in order](#everything-in-order)
 - [1. Overview: what was built and which approach is best](#1-overview-what-was-built-and-which-approach-is-best)
 
 **Background**
 
 - [2. Problem statement and the testbed](#2-problem-statement-and-the-testbed)
-  - [2.1 Sensor constraints](#21-sensor-constraints) · [2.2 Equations of motion](#22-equations-of-motion) · [2.3 Plant parameters](#23-plant-parameters) · [2.4 Analytic Jacobians](#24-analytic-jacobians)
+  - [2.1 Sensor constraints](#21-sensor-constraints)
+  - [2.2 Equations of motion](#22-equations-of-motion)
+  - [2.3 Plant parameters](#23-plant-parameters)
+  - [2.4 Analytic Jacobians](#24-analytic-jacobians)
 - [3. Research lineage](#3-research-lineage)
 - [4. Classical baselines and the architectural comparison matrix](#4-classical-baselines-and-the-architectural-comparison-matrix)
-  - [4.1 Comparison matrix](#41-comparison-matrix) · [4.2 Baseline benchmark](#42-baseline-benchmark)
+  - [4.1 Comparison matrix](#41-comparison-matrix)
+  - [4.2 Baseline benchmark](#42-baseline-benchmark)
 - [5. The common observer skeleton and its stability proof](#5-the-common-observer-skeleton-and-its-stability-proof)
-  - [5.1 Problem setting](#51-problem-setting) · [5.2 Filter and observer](#52-filter-and-observer) · [5.3 Filter algebra and exact cancellation](#53-filter-algebra-and-exact-cancellation) · [5.4 An implementable adaptation law](#54-an-implementable-adaptation-law) · [5.5 Robustness: the RISE integral lemma](#55-robustness-the-rise-integral-lemma)
+  - [5.1 Problem setting](#51-problem-setting)
+  - [5.2 Filter and observer](#52-filter-and-observer)
+  - [5.3 Filter algebra and exact cancellation](#53-filter-algebra-and-exact-cancellation)
+  - [5.4 An implementable adaptation law](#54-an-implementable-adaptation-law)
+  - [5.5 Robustness: the RISE integral lemma](#55-robustness-the-rise-integral-lemma)
 
 **The five approaches**
 
 - [6. Approach A: black-box Lb-LSTM observer](#6-approach-a-black-box-lb-lstm-observer)
-  - [6.1 Continuous-time LSTM](#61-continuous-time-lstm) · [6.2 Analytical Jacobians](#62-analytical-jacobians) · [6.3 Adaptation law and smooth projection](#63-adaptation-law-and-smooth-projection) · [6.4 Euler discretization](#64-euler-discretization) · [6.5 System identification stage](#65-system-identification-stage) · [6.6 Tuning guidelines](#66-tuning-guidelines) · [6.7 Results](#67-results)
+  - [6.1 Continuous-time LSTM](#61-continuous-time-lstm)
+  - [6.2 Analytical Jacobians](#62-analytical-jacobians)
+  - [6.3 Adaptation law and smooth projection](#63-adaptation-law-and-smooth-projection)
+  - [6.4 Euler discretization](#64-euler-discretization)
+  - [6.5 System identification stage](#65-system-identification-stage)
+  - [6.6 Tuning guidelines](#66-tuning-guidelines)
+  - [6.7 Results](#67-results)
 - [7. Approach B: physics-informed PI-LSTM observer](#7-approach-b-physics-informed-pi-lstm-observer)
-  - [7.1 Problem setting and Euler–Lagrange invariants](#71-problem-setting-and-eulerlagrange-invariants) · [7.2 Inertia sub-network](#72-inertia-sub-network-modified-cholesky-parametrization) · [7.3 Coriolis, gravity and friction](#73-coriolis-gravity-and-friction-sub-networks) · [7.4 Observer](#74-observer) · [7.5 Jacobian engine](#75-jacobian-engine-and-blockwise-adaptation) · [7.6 Discretization](#76-discretization) · [7.7 Design decisions](#77-design-decisions) · [7.8 Results](#78-results) · [7.9 Structure versus black box](#79-structure-versus-black-box) · [7.10 Limitations](#710-limitations)
+  - [7.1 Problem setting and Euler–Lagrange invariants](#71-problem-setting-and-eulerlagrange-invariants)
+  - [7.2 Inertia sub-network: modified Cholesky parametrization](#72-inertia-sub-network-modified-cholesky-parametrization)
+  - [7.3 Coriolis, gravity and friction sub-networks](#73-coriolis-gravity-and-friction-sub-networks)
+  - [7.4 Observer](#74-observer)
+  - [7.5 Jacobian engine and blockwise adaptation](#75-jacobian-engine-and-blockwise-adaptation)
+  - [7.6 Discretization](#76-discretization)
+  - [7.7 Design decisions](#77-design-decisions)
+  - [7.8 Results](#78-results)
+  - [7.9 Structure versus black box](#79-structure-versus-black-box)
+  - [7.10 Limitations](#710-limitations)
 - [8. Approach C: concurrent-learning Lb-LSTM observer](#8-approach-c-concurrent-learning-lb-lstm-observer)
-  - [8.1 The PE bottleneck](#81-the-persistence-of-excitation-bottleneck) · [8.2 Rank condition](#82-concurrent-learning-and-the-rank-condition) · [8.3 Architecture](#83-architecture) · [8.4 History stack](#84-history-stack-singular-value-maximizing-recording) · [8.5 Acceleration proxy](#85-acceleration-proxy-causal-savitzkygolay-differentiation) · [8.6 Adaptation laws](#86-adaptation-laws) · [8.7 Stability](#87-stability-and-convergence-under-concurrent-learning) · [8.8 Non-PE validation](#88-validation-under-non-pe-excitation) · [8.9 C's predictor benchmark](#89-open-loop-predictor-benchmark) · [**8.10 Approach A vs Approach C**](#810-approach-a-vs-approach-c-on-the-shared-benchmark) · [8.11 Configuration](#811-configuration) · [8.12 Limitations](#812-limitations)
+  - [8.1 The persistence-of-excitation bottleneck](#81-the-persistence-of-excitation-bottleneck)
+  - [8.2 Concurrent learning and the rank condition](#82-concurrent-learning-and-the-rank-condition)
+  - [8.3 Architecture](#83-architecture)
+  - [8.4 History stack: singular-value-maximizing recording](#84-history-stack-singular-value-maximizing-recording)
+  - [8.5 Acceleration proxy: causal Savitzky–Golay differentiation](#85-acceleration-proxy-causal-savitzkygolay-differentiation)
+  - [8.6 Adaptation laws](#86-adaptation-laws)
+  - [8.7 Stability and convergence under concurrent learning](#87-stability-and-convergence-under-concurrent-learning)
+  - [8.8 Validation under non-PE excitation](#88-validation-under-non-pe-excitation)
+  - [8.9 Open-loop predictor benchmark](#89-open-loop-predictor-benchmark)
+  - [8.10 Approach A vs Approach C on the shared benchmark](#810-approach-a-vs-approach-c-on-the-shared-benchmark)
+  - [8.11 Configuration](#811-configuration)
+  - [8.12 Limitations](#812-limitations)
 - [9. Approach D: physics-structured observer with integral concurrent learning](#9-approach-d-physics-structured-observer-with-integral-concurrent-learning)
-  - [9.1 Results at a glance](#91-results-at-a-glance) · [9.2 Model](#92-model-linear-in-parameters-eulerlagrange-structure) · [9.3 Integral concurrent learning](#93-integral-concurrent-learning-no-acceleration-needed) · [9.4 The pendulum row](#94-why-the-pendulum-row-needs-a-different-regression) · [9.5 Adaptation law](#95-adaptation-law) · [9.6 Model order](#96-model-order-why-k--1) · [9.7 Validation](#97-validation) · [9.8 What D does not do better](#98-what-d-does-not-do-better) · [9.9 Configuration](#99-configuration) · [9.10 What D resolves](#910-what-d-resolves)
+  - [9.1 Results at a glance](#91-results-at-a-glance)
+  - [9.2 Model: linear-in-parameters Euler–Lagrange structure](#92-model-linear-in-parameters-eulerlagrange-structure)
+  - [9.3 Integral concurrent learning: no acceleration needed](#93-integral-concurrent-learning-no-acceleration-needed)
+  - [9.4 Why the pendulum row needs a different regression](#94-why-the-pendulum-row-needs-a-different-regression)
+  - [9.5 Adaptation law](#95-adaptation-law)
+  - [9.6 Model order: why K = 1](#96-model-order-why-k--1)
+  - [9.7 Validation](#97-validation)
+  - [9.8 What D does not do better](#98-what-d-does-not-do-better)
+  - [9.9 Configuration](#99-configuration)
+  - [9.10 What D resolves](#910-what-d-resolves)
 - [10. Approach E: hybrid of B and D](#10-approach-e-hybrid-of-b-and-d)
-  - [10.1 Parents](#101-what-comes-from-each-parent) · [10.2 Own-coordinate inertia freeze](#102-why-d-fails-on-small-swings-and-the-own-coordinate-inertia-freeze) · [10.3 Information-weighted blend](#103-information-weighted-blend-of-the-two-adaptation-laws) · [10.4 Optional residual](#104-optional-residual-bs-dissipative-friction-lstm) · [10.5 Stability](#105-stability-and-convergence-sketch) · [10.6 Validation](#106-validation) · [10.7 What E does not do better](#107-what-e-does-not-do-better) · [10.8 Configuration](#108-configuration)
+  - [10.1 What comes from each parent](#101-what-comes-from-each-parent)
+  - [10.2 Why D fails on small swings, and the own-coordinate inertia freeze](#102-why-d-fails-on-small-swings-and-the-own-coordinate-inertia-freeze)
+  - [10.3 Information-weighted blend of the two adaptation laws](#103-information-weighted-blend-of-the-two-adaptation-laws)
+  - [10.4 Optional residual: B's dissipative friction LSTM](#104-optional-residual-bs-dissipative-friction-lstm)
+  - [10.5 Stability and convergence (sketch)](#105-stability-and-convergence-sketch)
+  - [10.6 Validation](#106-validation)
+  - [10.7 What E does not do better](#107-what-e-does-not-do-better)
+  - [10.8 Configuration](#108-configuration)
 
 **Comparing them**
 
 - [11. Shared benchmark: all approaches side by side](#11-shared-benchmark-all-approaches-side-by-side)
-  - [11.1 Protocol](#111-protocol) · [11.2 Velocity reconstruction](#112-velocity-reconstruction-cold-start) · [11.3 Transients and plant change](#113-transient-behaviour-and-recovery-from-the-plant-change) · [11.4 Held-out prediction](#114-held-out-prediction) · [11.5 Removing the cart position](#115-improvement-2-remove-the-cart-position-from-the-black-box-inputs) · [11.6 Warm start](#116-improvement-3-model-free-warm-start) · [11.7 Caveats](#117-caveats)
+  - [11.1 Protocol](#111-protocol)
+  - [11.2 Velocity reconstruction (cold start)](#112-velocity-reconstruction-cold-start)
+  - [11.3 Transient behaviour and recovery from the plant change](#113-transient-behaviour-and-recovery-from-the-plant-change)
+  - [11.4 Held-out prediction](#114-held-out-prediction)
+  - [11.5 Improvement 2: remove the cart position from the black-box inputs](#115-improvement-2-remove-the-cart-position-from-the-black-box-inputs)
+  - [11.6 Improvement 3: model-free warm start](#116-improvement-3-model-free-warm-start)
+  - [11.7 Caveats](#117-caveats)
 - [12. Evaluating on recorded rig data](#12-evaluating-on-recorded-rig-data)
-  - [12.1 Recording folder](#121-recording-folder) · [12.2 Running it](#122-running-it) · [12.3 What is reported](#123-what-is-reported-and-what-it-can-show)
+  - [12.1 Recording folder](#121-recording-folder)
+  - [12.2 Running it](#122-running-it)
+  - [12.3 What is reported, and what it can show](#123-what-is-reported-and-what-it-can-show)
 - [13. Literature review and result cross-verification](#13-literature-review-and-result-cross-verification)
+  - [13.1 Theory: points that need care](#131-theory-points-that-need-care)
+  - [13.2 Published claims, checked against our results](#132-published-claims-checked-against-our-results)
 
 **Reference**
 
 - [14. Repository layout](#14-repository-layout)
-  - [14.1 Directory tree](#141-directory-tree) · [14.2 File map](#142-file-map) · [14.3 Branch history](#143-branch-history)
+  - [14.1 Directory tree](#141-directory-tree)
+  - [14.2 File map](#142-file-map)
+  - [14.3 Branch history](#143-branch-history)
 - [15. References](#15-references)
 
 **How to read the figures.** Every plot is followed by a short box that says what it shows and
@@ -370,7 +444,7 @@ $u = F \in \mathbb{R}$, and state $\mathbf{x} = [x, \dot{x}, \theta, \dot{\theta
 
 Only positions are measured, by optical encoders:
 
-$$y(t) = \begin{bmatrix} x_m(t) \\ \theta_m(t) \end{bmatrix} = \mathbf{H} \mathbf{x}(t) + \mathbf{v}(t) = \begin{bmatrix} x(t) \\ \theta(t) \end{bmatrix} + \begin{bmatrix} v_x(t) \\ v_\theta(t) \end{bmatrix}$$
+$$y(t) = \begin{bmatrix} x_m(t) \cr  \theta_m(t) \end{bmatrix} = \mathbf{H} \mathbf{x}(t) + \mathbf{v}(t) = \begin{bmatrix} x(t) \cr  \theta(t) \end{bmatrix} + \begin{bmatrix} v_x(t) \cr  v_\theta(t) \end{bmatrix}$$
 
 where:
 
@@ -381,32 +455,32 @@ where:
 
 **Objective.** Reconstruct the full state $\hat{\mathbf{x}} = [\hat{x}, \hat{\dot{x}}, \hat{\theta}, \hat{\dot{\theta}}]^T$
 and identify the unknown dynamics, without velocity chattering and with a guaranteed bound
-$\lim_{t \to \infty} \|\mathbf{x}(t) - \hat{\mathbf{x}}(t)\| \le \epsilon$.
+$\lim_{t \to \infty} \Vert \mathbf{x}(t) - \hat{\mathbf{x}}(t)\Vert  \le \epsilon$.
 
 ### 2.2 Equations of motion
 
 From the Feedback Instruments 33-936S manual [21]:
 
 $$\begin{aligned}
-(M + m)\ddot{x} + b\dot{x} + m l \ddot{\theta}\cos(\theta) - m l \dot{\theta}^2\sin(\theta) &= F \\
+(M + m)\ddot{x} + b\dot{x} + m l \ddot{\theta}\cos(\theta) - m l \dot{\theta}^2\sin(\theta) &= F \cr 
 (I + m l^2)\ddot{\theta} - m g l \sin(\theta) + m l \ddot{x}\cos(\theta) + d\dot{\theta} &= 0
 \end{aligned}$$
 
 In matrix form:
 
-$$\begin{bmatrix} M + m & m l \cos\theta \\ m l \cos\theta & I + m l^2 \end{bmatrix} \begin{bmatrix} \ddot{x} \\ \ddot{\theta} \end{bmatrix} = \begin{bmatrix} F - b\dot{x} + m l \dot{\theta}^2\sin\theta \\ m g l \sin\theta - d\dot{\theta} \end{bmatrix}$$
+$$\begin{bmatrix} M + m & m l \cos\theta \cr  m l \cos\theta & I + m l^2 \end{bmatrix} \begin{bmatrix} \ddot{x} \cr  \ddot{\theta} \end{bmatrix} = \begin{bmatrix} F - b\dot{x} + m l \dot{\theta}^2\sin\theta \cr  m g l \sin\theta - d\dot{\theta} \end{bmatrix}$$
 
-$$\mathbf{M}(\theta) = \begin{bmatrix} M + m & m l \cos\theta \\ m l \cos\theta & I + m l^2 \end{bmatrix},\qquad
-\det(\mathbf{M}(\theta)) = (M + m)(I + m l^2) - (m l \cos\theta)^2 > 0 \quad \forall \theta \in \mathbb{R}.$$
+$$\mathbf{M}(\theta) = \begin{bmatrix} M + m & m l \cos\theta \cr  m l \cos\theta & I + m l^2 \end{bmatrix},\qquad
+\det(\mathbf{M}(\theta)) = (M + m)(I + m l^2) - (m l \cos\theta)^2 \gt 0 \quad \forall \theta \in \mathbb{R}.$$
 
-Because $\det(\mathbf{M}(\theta)) \ge (M+m)(I+ml^2) - m^2 l^2 > 0$, the mass matrix is symmetric
+Because $\det(\mathbf{M}(\theta)) \ge (M+m)(I+ml^2) - m^2 l^2 \gt 0$, the mass matrix is symmetric
 positive definite everywhere in state space. The plant convention puts $\theta = 0$ upright, so
 the pendulum hangs at $\theta = \pi$.
 
 **Forward accelerations:**
 
 $$\begin{aligned}
-\ddot{x} &= \frac{(I + m l^2)\left[F - b\dot{x} + m l \dot{\theta}^2\sin\theta\right] - (m l \cos\theta)\left[m g l \sin\theta - d\dot{\theta}\right]}{\det(\mathbf{M}(\theta))} \\
+\ddot{x} &= \frac{(I + m l^2)\left[F - b\dot{x} + m l \dot{\theta}^2\sin\theta\right] - (m l \cos\theta)\left[m g l \sin\theta - d\dot{\theta}\right]}{\det(\mathbf{M}(\theta))} \cr 
 \ddot{\theta} &= \frac{-(m l \cos\theta)\left[F - b\dot{x} + m l \dot{\theta}^2\sin\theta\right] + (M + m)\left[m g l \sin\theta - d\dot{\theta}\right]}{\det(\mathbf{M}(\theta))}
 \end{aligned}$$
 
@@ -434,15 +508,15 @@ $\mathbf{A} = \partial f/\partial \mathbf{x} \in \mathbb{R}^{4 \times 4}$ and th
 $\mathbf{B} = \partial f/\partial u \in \mathbb{R}^{4 \times 1}$ are derived in closed form:
 
 $$\mathbf{A} = \begin{bmatrix}
-0 & 1 & 0 & 0 \\
-0 & \frac{\partial \ddot{x}}{\partial \dot{x}} & \frac{\partial \ddot{x}}{\partial \theta} & \frac{\partial \ddot{x}}{\partial \dot{\theta}} \\
-0 & 0 & 0 & 1 \\
+0 & 1 & 0 & 0 \cr 
+0 & \frac{\partial \ddot{x}}{\partial \dot{x}} & \frac{\partial \ddot{x}}{\partial \theta} & \frac{\partial \ddot{x}}{\partial \dot{\theta}} \cr 
+0 & 0 & 0 & 1 \cr 
 0 & \frac{\partial \ddot{\theta}}{\partial \dot{x}} & \frac{\partial \ddot{\theta}}{\partial \theta} & \frac{\partial \ddot{\theta}}{\partial \dot{\theta}}
 \end{bmatrix}, \quad
 \mathbf{B} = \begin{bmatrix}
-0 \\
-\frac{I + m l^2}{\det(\mathbf{M})} \\
-0 \\
+0 \cr 
+\frac{I + m l^2}{\det(\mathbf{M})} \cr 
+0 \cr 
 \frac{-m l \cos\theta}{\det(\mathbf{M})}
 \end{bmatrix}$$
 
@@ -455,8 +529,8 @@ $10^{-5}$.
 
 ![Research lineage](figures/diagrams/research_lineage.svg)
 
-*Diagram 1. The published observers and controllers this project builds on (grey), and the five
-approaches developed here.*
+**Diagram 1.** The published observers and controllers this project builds on (grey), and the five
+approaches developed here.
 
 The observers studied here descend from one line of work at the University of Florida's
 Nonlinear Controls and Robotics group. Each step keeps the same observer skeleton:
@@ -527,15 +601,15 @@ reliable estimator and D had the best model when the data were rich.
 
 ![Testbed and baselines](figures/diagrams/testbed_signal_flow.svg)
 
-*Diagram 2. Signal flow of the testbed. The actuator and encoder models sit between the commanded
+**Diagram 2.** Signal flow of the testbed. The actuator and encoder models sit between the commanded
 input and the measurement. Every estimator, classical or adaptive, sees only the encoder signal and
-the commanded input. The metrics compare its velocity estimate with the true state.*
+the commanded input. The metrics compare its velocity estimate with the true state.
 
 ### 4.1 Comparison matrix
 
 | Estimator | Formulation | Stability guarantee | Prior model required | PE condition needed? | Noise and chattering robustness | Primary weakness |
 |:---|:---:|:---:|:---:|:---:|:---:|:---|
-| **Dirty derivative filter** | 1st-order linear filter $\frac{s}{\tau_d s + 1}$ | Asymptotically stable filter poles | None | No | **Very poor** (chattering ratio $> 18\times$) | Strong high-frequency noise amplification; phase lag |
+| **Dirty derivative filter** | 1st-order linear filter $\frac{s}{\tau_d s + 1}$ | Asymptotically stable filter poles | None | No | **Very poor** (chattering ratio $\gt 18\times$) | Strong high-frequency noise amplification; phase lag |
 | **Butterworth differentiator** | 2nd-order band-pass $\frac{10^4 s}{s^2 + 70.7s + 10^4}$ | Hurwitz transfer function | None | No | **Moderate** (chattering ratio $\approx 3.0\times$) | Fixed bandwidth trades phase delay against noise cut-off |
 | **Continuous–discrete EKF** | Nonlinear Riccati ODE + discrete update | Local exponential stability under small noise | Exact physical parameters $(M, m, l, I, b, d)$ | No | **Good** (chattering ratio $\approx 2.9\times$) | Sensitive to unmodelled stiction and parameter drift |
 | **Shallow dynamic RNN** (Dinh et al. 2014 [1]) | Continuous RNN + Lyapunov leakage | Semi-global uniform ultimate boundedness | Nominal plant structure | No (bounded weights) | **High** (chattering ratio $\approx 1.0\times$) | Limited capacity for long-term state dependencies |
@@ -581,8 +655,8 @@ means no chattering.
 
 ![Baseline estimation comparison](figures/baseline_estimation_comparison.png)
 
-*Figure 1. The four classical baselines on the first 4 s of the testbed run. Rows from top: cart
-position, cart velocity, pendulum angle, pendulum angular velocity. Black is the truth.*
+**Figure 1.** The four classical baselines on the first 4 s of the testbed run. Rows from top: cart
+position, cart velocity, pendulum angle, pendulum angular velocity. Black is the truth.
 
 > **What it shows.** The two position rows (1 and 3) are measured, and every method follows them.
 > The two velocity rows are *not* measured and must be estimated. For the cart velocity (row 2),
@@ -605,8 +679,8 @@ the learned model $\hat\Phi$ and its adaptation law.
 
 ![Common observer structure](figures/diagrams/common_observer_block_diagram.svg)
 
-*Diagram 3. The observer structure shared by all five approaches. They differ only in the learned
-model block and in the adaptation law. The dashed history stack exists in C, D and E.*
+**Diagram 3.** The observer structure shared by all five approaches. They differ only in the learned
+model block and in the adaptation law. The dashed history stack exists in C, D and E.
 
 ### 5.1 Problem setting
 
@@ -632,7 +706,7 @@ $$e = \tilde x_1 + \nu$$
 
 The observer is
 
-$$\dot{\hat x}_1 = \hat x_2, \qquad \dot{\hat x}_2 = \hat\Phi + k_s\,\mathrm{sgn}(e) + \chi, \qquad \chi = -(3\alpha + k_r)\eta + (2 - \alpha^2)\tilde x_1 - \nu.$$
+$$\dot{\hat x}_1 = \hat x_2, \qquad \dot{\hat x}_2 = \hat\Phi + k_s\thinspace \mathrm{sgn}(e) + \chi, \qquad \chi = -(3\alpha + k_r)\eta + (2 - \alpha^2)\tilde x_1 - \nu.$$
 
 `sign_mode="tanh"` replaces $\mathrm{sgn}(e)$ with the boundary-layer approximation
 $\tanh(e/\epsilon)$. Nothing in the filter requires the velocity.
@@ -641,7 +715,7 @@ $\tanh(e/\epsilon)$. Nothing in the filter requires the velocity.
 > $(\alpha^2 + 2)$. With the filter exactly as written above, the cross terms of the Lyapunov
 > derivative cancel **only for $(2 - \alpha^2)$**. The derivation follows, a SymPy check reproduces
 > it, and `tests/test_blackbox_lstm.py` asserts it against the implemented vector field. With
-> $(\alpha^2+2)$, a residual $-2\alpha^2\,\tilde x_1^T r$ remains. It is bounded and can be
+> $(\alpha^2+2)$, a residual $-2\alpha^2\thinspace \tilde x_1^T r$ remains. It is bounded and can be
 > dominated with Young's inequality, but the cancellation is no longer exact. The printed variant
 > is available as `chi_x1_coeff=alpha**2 + 2`.
 
@@ -660,30 +734,35 @@ with $\tilde x_2 = x_2 - \hat x_2$.
 3. **$\eta$ dynamics.** Differentiate $\eta$ and substitute $\dot p$, $p$ and
    $\tilde x_2 = r - \alpha\tilde x_1 - \eta$:
 
-   $$\dot\eta = -(k_r+2\alpha)\eta - \alpha(\alpha+k_r)\tilde x_1 + \tilde x_1 - \nu - (\alpha+k_r)\tilde x_2 = -(\alpha + k_r)\,r - \alpha\eta + \tilde x_1 - \nu.$$
+   ```math
+   \dot\eta = -(k_r+2\alpha)\eta - \alpha(\alpha+k_r)\tilde x_1 + \tilde x_1 - \nu - (\alpha+k_r)\tilde x_2 = -(\alpha + k_r)\thinspace r - \alpha\eta + \tilde x_1 - \nu.
+   ```
 
 4. **$r$ dynamics.** $\dot r = \dot{\tilde x}_2 + \alpha\tilde x_2 + \dot\eta$, with
-   $\dot{\tilde x}_2 = g - \hat\Phi - k_s\,\mathrm{sgn}(e) - \chi$:
+   $\dot{\tilde x}_2 = g - \hat\Phi - k_s\thinspace \mathrm{sgn}(e) - \chi$:
 
-   $$\dot r = g - \hat\Phi - k_s\,\mathrm{sgn}(e) - \chi - k_r r + (1 - \alpha^2)\tilde x_1 - 2\alpha\eta - \nu.$$
+   ```math
+   \dot r = g - \hat\Phi - k_s\thinspace \mathrm{sgn}(e) - \chi - k_r r + (1 - \alpha^2)\tilde x_1 - 2\alpha\eta - \nu.
+   ```
 
    Substituting $\chi$:
 
-   $$\dot r = \underbrace{g - \hat\Phi - k_s\,\mathrm{sgn}(e)}_{\text{learning + robust terms}} - k_r r - \tilde x_1 + (\alpha + k_r)\eta.$$
+   ```math
+   \dot r = \underbrace{g - \hat\Phi - k_s\thinspace \mathrm{sgn}(e)}_{\text{learning + robust terms}} - k_r r - \tilde x_1 + (\alpha + k_r)\eta.
+   ```
 
 5. **Cancellation.** Take $V_0 = \tfrac12(\tilde x_1^T\tilde x_1 + \eta^T\eta + \nu^T\nu + r^Tr)$
    and use $\dot{\tilde x}_1 = r - \alpha\tilde x_1 - \eta$:
 
-   $$\begin{aligned}
-   \dot V_0 ={}& \tilde x_1^T r - \alpha\|\tilde x_1\|^2 - \tilde x_1^T\eta \\
-   &- (\alpha + k_r)\eta^T r - \alpha\|\eta\|^2 + \eta^T\tilde x_1 - \eta^T\nu \\
-   &+ \nu^T\eta - \alpha\|\nu\|^2 \\
-   &- k_r\|r\|^2 - r^T\tilde x_1 + (\alpha+k_r)r^T\eta + r^T(g - \hat\Phi - k_s\,\mathrm{sgn}(e)).
-   \end{aligned}$$
+   ```math
+   \begin{aligned} \dot V_0 ={}& \tilde x_1^T r - \alpha\Vert \tilde x_1\Vert ^2 - \tilde x_1^T\eta \cr &- (\alpha + k_r)\eta^T r - \alpha\Vert \eta\Vert ^2 + \eta^T\tilde x_1 - \eta^T\nu \cr &+ \nu^T\eta - \alpha\Vert \nu\Vert ^2 \cr &- k_r\Vert r\Vert ^2 - r^T\tilde x_1 + (\alpha+k_r)r^T\eta + r^T(g - \hat\Phi - k_s\thinspace \mathrm{sgn}(e)). \end{aligned}
+   ```
 
    The pairs $\tilde x_1^T\eta$, $\eta^T\nu$, $\tilde x_1^T r$ and $\eta^T r$ cancel exactly:
 
-   $$\dot V_0 = -\alpha\left(\|\tilde x_1\|^2 + \|\eta\|^2 + \|\nu\|^2\right) - k_r\|r\|^2 + r^T\left(g - \hat\Phi - k_s\,\mathrm{sgn}(e)\right).$$
+   ```math
+   \dot V_0 = -\alpha\left(\Vert \tilde x_1\Vert ^2 + \Vert \eta\Vert ^2 + \Vert \nu\Vert ^2\right) - k_r\Vert r\Vert ^2 + r^T\left(g - \hat\Phi - k_s\thinspace \mathrm{sgn}(e)\right).
+   ```
 
    Every term of $\chi$ is there to remove one cross term: $-(3\alpha+k_r)\eta$ removes
    $\eta^Tr$, $(2-\alpha^2)\tilde x_1$ removes $\tilde x_1^Tr$, and $-\nu$ removes the
@@ -693,7 +772,7 @@ with $\tilde x_2 = x_2 - \hat x_2$.
 
 ### 5.4 An implementable adaptation law
 
-The weights adapt on the measurable error: $\dot{\hat\theta} = \mathrm{proj}(\Gamma\,\Phi'^Te)$
+The weights adapt on the measurable error: $\dot{\hat\theta} = \mathrm{proj}(\Gamma\thinspace \Phi'^Te)$
 (§6.3). A law driven by $r$, as in the tracking controllers [3], [5], cannot be implemented here,
 because $r$ contains the unmeasured velocity error $\tilde x_2$. It is not needed either. The
 argument is as follows.
@@ -707,7 +786,7 @@ where $\tilde\theta = \theta^\ast - \hat\theta$. Add $\tfrac{\alpha}{2}\tilde\th
 to the Lyapunov function. The projection property
 $\tilde\theta^T\Gamma^{-1}(\mathrm{proj}(\tau)-\tau) \ge 0$ [14] gives
 
-$$\frac{d}{dt}\Big(\tfrac{\alpha}{2}\tilde\theta^T\Gamma^{-1}\tilde\theta\Big) \le -\alpha\,e^TN_3.$$
+$$\frac{d}{dt}\Big(\tfrac{\alpha}{2}\tilde\theta^T\Gamma^{-1}\tilde\theta\Big) \le -\alpha\thinspace e^TN_3.$$
 
 Since $r = \dot e + \alpha e$, the cross term $r^TN_3$ in $\dot V_0$ splits into
 $\dot e^TN_3 + \alpha e^TN_3$. The measurable law cancels **only the $\alpha e^TN_3$ half**. The
@@ -724,20 +803,20 @@ same law without projection.
 
 ### 5.5 Robustness: the RISE integral lemma
 
-The observer injects $k_s\,\mathrm{sgn}(e)$, not $\mathrm{sgn}(r)$. The pointwise product
-$r^T(N - k_s\,\mathrm{sgn}(e))$ can be positive for any $k_s$, because $r$ and $e$ need not share
-signs at a given instant, so "$k_s$ larger than the disturbance" does **not** give domination.
+The observer injects $k_s\thinspace \mathrm{sgn}(e)$, not $\mathrm{sgn}(r)$. The pointwise product
+$r^T(N - k_s\thinspace \mathrm{sgn}(e))$ can be positive for any $k_s$, because $r$ and $e$ need not share
+signs at a given instant, so choosing $k_s$ larger than the disturbance does **not** give domination.
 Domination holds in integral, because $e$ is a filtered version of $r$. This is the lemma of
 Xian et al. [6].
 
-**Lemma 1 (RISE integral bound).** Let $r = \dot e + \alpha e$ with $\alpha > 0$. Let
+**Lemma 1 (RISE integral bound).** Let $r = \dot e + \alpha e$ with $\alpha \gt 0$. Let
 $\lVert N_B\rVert \le \zeta_1$, $\lVert N_D\rVert \le \zeta_2$ and
 $\lVert\dot N_B + \dot N_D\rVert \le \zeta_3$, and define
-$L \triangleq r^T(N_B + N_D - k_s\,\mathrm{sgn}(e)) - \alpha e^TN_D$. If
+$L \triangleq r^T(N_B + N_D - k_s\thinspace \mathrm{sgn}(e)) - \alpha e^TN_D$. If
 
-$$k_s \ge \max\Big\{\zeta_1 + \zeta_2,\ \ \zeta_1 + \tfrac{1}{\alpha}\zeta_3\Big\},$$
+$$k_s \ge \max\Big\lbrace \zeta_1 + \zeta_2,\ \ \zeta_1 + \tfrac{1}{\alpha}\zeta_3\Big\rbrace ,$$
 
-then $\int_0^tL\,d\tau \le \zeta_b \triangleq k_s\lVert e(0)\rVert_1 - e(0)^T\big(N_B(0)+N_D(0)\big)$
+then $\int_0^tL\thinspace d\tau \le \zeta_b \triangleq k_s\lVert e(0)\rVert_1 - e(0)^T\big(N_B(0)+N_D(0)\big)$
 for all $t \ge 0$.
 
 *Proof.* Substitute $r = \dot e + \alpha e$; the $\alpha e^TN_D$ terms cancel. Integrate
@@ -746,14 +825,14 @@ and $\lvert e^Tv\rvert \le \lVert e\rVert_1\lVert v\rVert$:
 
 $$\int_0^tL \le \lVert e(t)\rVert_1(\zeta_1+\zeta_2-k_s) + \alpha\int_0^t\lVert e\rVert_1\Big(\zeta_1+\tfrac{\zeta_3}{\alpha}-k_s\Big) + \zeta_b \le \zeta_b.\ ∎$$
 
-With $N_B = N_2$ and $N_D = N_3$, define $P(t) \triangleq \zeta_b - \int_0^tL\,d\tau \ge 0$, so that
+With $N_B = N_2$ and $N_D = N_3$, define $P(t) \triangleq \zeta_b - \int_0^tL\thinspace d\tau \ge 0$, so that
 $\dot P = -L$.
 
 **Proposition 1 (convergence).** Let
 $V = V_0 + \tfrac{\alpha}{2}\tilde\theta^T\Gamma^{-1}\tilde\theta + P$ and
 $\xi = [\tilde x_1^T,\eta^T,\nu^T,r^T,\tilde\theta^T,\sqrt P]^T$. Suppose the bounds of Lemma 1 hold
-while $\xi$ is in the ball $\mathcal S = \{\lVert\xi\rVert < \omega\}$, $k_s$ satisfies the lemma's
-condition, and $\xi(0) \in \{\lVert\xi\rVert < \sqrt{\beta_1/\beta_2}\,\omega\}$, where
+while $\xi$ is in the ball $\mathcal S = \lbrace \lVert\xi\rVert \lt \omega\rbrace$, $k_s$ satisfies the lemma's
+condition, and $\xi(0) \in \lbrace \lVert\xi\rVert \lt \sqrt{\beta_1/\beta_2}\thinspace \omega\rbrace$, where
 $\beta_1\lVert\xi\rVert^2 \le V \le \beta_2\lVert\xi\rVert^2$. Then all signals stay bounded, and
 $\tilde x_1, \eta, \nu, r \to 0$, hence $\tilde x_2 = r - \alpha\tilde x_1 - \eta \to 0$.
 
@@ -762,7 +841,7 @@ $\xi \in \mathcal S$,
 
 $$\dot V \le -\alpha\big(\lVert\tilde x_1\rVert^2 + \lVert\eta\rVert^2 + \lVert\nu\rVert^2\big) - k_r\lVert r\rVert^2.$$
 
-So $\lVert\xi(t)\rVert \le \sqrt{\beta_2/\beta_1}\lVert\xi(0)\rVert < \omega$, and $\xi$ stays in
+So $\lVert\xi(t)\rVert \le \sqrt{\beta_2/\beta_1}\lVert\xi(0)\rVert \lt \omega$, and $\xi$ stays in
 $\mathcal S$. The closed loop is a Filippov differential inclusion because of $\mathrm{sgn}(e)$
 [15], [16], and the nonsmooth LaSalle–Yoshizawa corollary [8] gives
 $(\tilde x_1, \eta, \nu, r) \to 0$. ∎
@@ -771,7 +850,7 @@ The result is semi-global: $\omega$ can be as large as desired, at the price of 
 larger $k_s$. It gives **no** parameter convergence ($\dot V$ has no $-\lVert\tilde\theta\rVert^2$
 term) and no exponential rate; an exponential variant needs a modified $P$-function [7]. Griffis et
 al. [4] use that variant and obtain $k_s \ge \kappa_1 + \kappa_2 + (\alpha\kappa_2+\kappa_3)/(\alpha-1)$
-with $\alpha > 1$.
+with $\alpha \gt 1$.
 
 **Operating regime of the tuned observers.** With $\tanh(e/\epsilon)$, or with $k_s$ below the
 lemma's bound, the conclusion weakens to uniform ultimate boundedness, with the residual set
@@ -801,10 +880,10 @@ updates are analytical ODEs in NumPy, with no autograd.
 
 ![Observer block diagram, Approach A](figures/diagrams/approach_a_observer_block_diagram.svg)
 
-*Diagram 4. Block diagram of Approach A's observer. The auxiliary filter turns the measurable error
+**Diagram 4.** Block diagram of Approach A's observer. The auxiliary filter turns the measurable error
 $\tilde x_1$ into $\eta$ and $\nu$ (§5.2). The linear feedback $\chi$, the robust term and the LSTM
 output $\hat\Phi$ add up to $\dot{\hat x}_2$, and two integrators give the estimates. Adaptation is
-driven only by the measurable error $e$.*
+driven only by the measurable error $e$.
 
 ### 6.1 Continuous-time LSTM
 
@@ -818,20 +897,20 @@ $$c = f \odot \hat{c} + i \odot c^\ast, \qquad h = o \odot \sigma_c(c), \qquad \
 
 and the continuous memory evolves as
 
-$$\dot{\hat c} = -b_c\,\hat c + b_c\,(f\odot\hat c + i\odot c^\ast), \qquad \dot{\hat h} = -b_h\,\hat h + b_h\,(o\odot\sigma_c(c)),$$
+$$\dot{\hat c} = -b_c\thinspace \hat c + b_c\thinspace (f\odot\hat c + i\odot c^\ast), \qquad \dot{\hat h} = -b_h\thinspace \hat h + b_h\thinspace (o\odot\sigma_c(c)),$$
 
 where $\sigma_g$ is the logistic sigmoid, $\sigma_c = \tanh$, $W_{c,i,f,o}\in\mathbb{R}^{d\times L}$
 and $W_h\in\mathbb{R}^{L\times n}$ [17].
 
 ![LSTM data flow](figures/diagrams/approach_a_lstm_dataflow.svg)
 
-*Diagram 5. Data flow through the continuous-time LSTM. The inputs are normalized and stacked with the
+**Diagram 5.** Data flow through the continuous-time LSTM. The inputs are normalized and stacked with the
 hidden memory and a bias into $\zeta$ (written $z$ in the figure). The four gates produce the
 instantaneous cell $c$ and hidden output $h$ (drawn $\bar c$, $\bar h$), and the readout gives
 $\hat\Phi$. The memories $\hat c$, $\hat h$ follow first-order ODEs. The dashed path is learning:
 the measurable error $e$ and the forward-pass quantities give $\Phi'^Te$ in $O(p)$ (§6.2), and the
 adaptation law (§6.3) updates every weight block. The green note marks the cart-position input scale,
-which the shared benchmark sets to zero (x-free variant, §11.5).*
+which the shared benchmark sets to zero (x-free variant, §11.5).
 
 **Interpretation used here.** $\hat c$ and $\hat h$ are the recurrent *memory states*.
 They are first-order low-pass copies of the cell and hidden outputs, the continuous-time
@@ -862,16 +941,16 @@ $$\delta_c = s \odot i \odot (1 - c^{\ast 2}),\qquad \delta_i = s \odot c^\ast \
 
 $$\delta_f = s \odot \hat c \odot f \odot (1 - f),\qquad \delta_o = \tanh(c) \odot o \odot (1 - o).$$
 
-Because $\partial a_\bullet / \partial\,\mathrm{vec}(W_\bullet) = I_L \otimes \zeta^T$, the blocks
+Because $\partial a_\bullet / \partial\thinspace \mathrm{vec}(W_\bullet) = I_L \otimes \zeta^T$, the blocks
 of $\Phi' = \partial\hat\Phi/\partial\theta \in \mathbb{R}^{n\times p}$ are
 
-$$\frac{\partial\hat\Phi}{\partial\,\mathrm{vec}(W_\bullet)} = \big(W_h^T\,\mathrm{diag}(\delta_\bullet)\big) \otimes \zeta^T \quad (\bullet \in \{c,i,f,o\}), \qquad \frac{\partial\hat\Phi}{\partial\,\mathrm{vec}(W_h)} = I_n \otimes h^T.$$
+$$\frac{\partial\hat\Phi}{\partial\thinspace \mathrm{vec}(W_\bullet)} = \big(W_h^T\thinspace \mathrm{diag}(\delta_\bullet)\big) \otimes \zeta^T \quad (\bullet \in \lbrace c,i,f,o\rbrace ), \qquad \frac{\partial\hat\Phi}{\partial\thinspace \mathrm{vec}(W_h)} = I_n \otimes h^T.$$
 
 The observer only ever needs $\Phi'^Te$. The mixed-product rule
 $(A\otimes\zeta)(e\otimes 1) = (Ae)\otimes\zeta$ turns that product into outer products,
 so it costs $O(p)$ without forming $\Phi'$:
 
-$$\big[\Phi'^T e\big]_{W_\bullet} = \mathrm{vec}\big(\zeta\,(\delta_\bullet \odot W_h e)^T\big), \qquad \big[\Phi'^T e\big]_{W_h} = \mathrm{vec}(h\,e^T).$$
+$$\big[\Phi'^T e\big]_{W_\bullet} = \mathrm{vec}\big(\zeta\thinspace (\delta_\bullet \odot W_h e)^T\big), \qquad \big[\Phi'^T e\big]_{W_h} = \mathrm{vec}(h\thinspace e^T).$$
 
 `tests/test_jacobian_engine.py` checks the explicit $\Phi'$ against central finite
 differences (agreement to about $10^{-11}$, all five blocks non-degenerate) and checks the
@@ -880,7 +959,7 @@ fast product against $\Phi'^Te$ to machine precision.
 > **Layout convention.** With gates written as $W z$,
 > $W \in \mathbb R^{l_2\times l_1}$, and column-stacking $\mathrm{vec}$, the factor above appears as
 > $(z^T\otimes I_{l_2})$. For the output gate:
-> $\partial h/\partial\,\mathrm{vec}(W_o) = D(\sigma_c(c))\,D(\sigma_g'(W_oz))\,(z^T\otimes I_{l_2})$.
+> $\partial h/\partial\thinspace \mathrm{vec}(W_o) = D(\sigma_c(c))\thinspace D(\sigma_g'(W_oz))\thinspace (z^T\otimes I_{l_2})$.
 > Without that factor the result would be $l_2\times l_2$, where an $l_2 \times l_1l_2$ matrix is
 > needed. $(z^T\otimes I_{l_2})$ and the $I_L\otimes\zeta^T$
 > used here are the same derivative in different memory layouts. A finite-difference check of the
@@ -894,19 +973,19 @@ fast product against $\Phi'^Te$ to machine precision.
 
 ### 6.3 Adaptation law and smooth projection
 
-$$\dot{\hat\theta} = \mathrm{proj}\left(\Gamma\,\Phi'^T e\right), \qquad \Gamma = \mathrm{diag}(\gamma_g I_{4dL},\ \gamma_h I_{Ln}).$$
+$$\dot{\hat\theta} = \mathrm{proj}\left(\Gamma\thinspace \Phi'^T e\right), \qquad \Gamma = \mathrm{diag}(\gamma_g I_{4dL},\ \gamma_h I_{Ln}).$$
 
 The projection uses the convex boundary function
-$f(\theta) = \dfrac{(1+\epsilon_p)\|\theta\|^2 - \bar W^2}{\epsilon_p\bar W^2}$, which is
-zero at $\|\theta\| = \bar W/\sqrt{1+\epsilon_p}$ and one at $\|\theta\| = \bar W$
+$f(\theta) = \dfrac{(1+\epsilon_p)\Vert \theta\Vert ^2 - \bar W^2}{\epsilon_p\bar W^2}$, which is
+zero at $\Vert \theta\Vert  = \bar W/\sqrt{1+\epsilon_p}$ and one at $\Vert \theta\Vert  = \bar W$
 (Pomet & Praly [13]; Lavretsky & Wise [14]):
 
-$$\mathrm{proj}(\tau) = \begin{cases} \tau - f(\theta)\,\dfrac{\Gamma\theta\,\theta^T\tau}{\theta^T\Gamma\theta} & f(\theta) > 0 \text{ and } \theta^T\tau > 0, \\[4pt] \tau & \text{otherwise.}\end{cases}$$
+$$\mathrm{proj}(\tau) = \begin{cases} \tau - f(\theta)\thinspace \dfrac{\Gamma\theta\thinspace \theta^T\tau}{\theta^T\Gamma\theta} & f(\theta) \gt 0 \text{ and } \theta^T\tau \gt 0, \cr [4pt] \tau & \text{otherwise.}\end{cases}$$
 
 The operator is Lipschitz. It leaves $\tau$ untouched in the interior and removes exactly
-the outward radial component on the outer sphere, so $\|\hat\theta(t)\| \le \bar W$ for the
+the outward radial component on the outer sphere, so $\Vert \hat\theta(t)\Vert  \le \bar W$ for the
 continuous flow. It also preserves the Lyapunov inequality
-$\tilde\theta^T\Gamma^{-1}(\mathrm{proj}(\tau) - \tau) \ge 0$ for $\|\theta^\ast\| \le \bar W/\sqrt{1+\epsilon_p}$.
+$\tilde\theta^T\Gamma^{-1}(\mathrm{proj}(\tau) - \tau) \ge 0$ for $\Vert \theta^\ast\Vert  \le \bar W/\sqrt{1+\epsilon_p}$.
 
 Initialization: gate weights are $\mathcal N(0, 0.5^2)$ and $W_h(0) = 0$, so that
 $\hat\Phi(0) = 0$ (no prior model). Random gates are necessary. With all weights at zero,
@@ -919,15 +998,15 @@ $X = (\hat x_1, \hat x_2, p, \nu, \hat c, \hat h, \hat\theta)$, of dimension
 $4n + 2L + p = 1480$. Between DAQ samples the measurement and input are zero-order held,
 and the ODE is integrated by forward Euler with $n_s$ sub-steps of $\Delta = T_s / n_s$:
 
-$$X_{j+1} = X_j + \Delta\, F(X_j,\ y_k,\ u_k), \qquad j = 0, \dots, n_s - 1, \qquad \hat\theta \leftarrow \hat\theta\cdot\min\!\big(1,\ \bar W / \|\hat\theta\|\big).$$
+$$X_{j+1} = X_j + \Delta\thinspace  F(X_j,\ y_k,\ u_k), \qquad j = 0, \dots, n_s - 1, \qquad \hat\theta \leftarrow \hat\theta\cdot\min\negthinspace \big(1,\ \bar W / \Vert \hat\theta\Vert \big).$$
 
 Why Euler is adequate here:
 
 - **Linear error modes.** With $\hat\Phi = g$ and $k_s = 0$, the per-channel error system
   in $(\tilde x_1, \tilde x_2, p, \nu)$ has eigenvalues
-  $\{-4.03 \pm 0.08j,\ -5.97 \pm 11.95j\}$ at $\alpha = 4$, $k_r = 8$. Hence
-  $\Delta|\lambda|_{\max} = 0.013 \ll 2$ at $T_s = 1$ ms. The memory filters contribute
-  $\Delta b_{c,h} = 0.005$.
+  $\lbrace -4.03 \pm 0.08j,\ -5.97 \pm 11.95j\rbrace$ at $\alpha = 4$, $k_r = 8$. Hence
+  $`\Delta|\lambda|_{\max} = 0.013 \ll 2`$ at $`T_s = 1`$ ms. The memory filters contribute
+  $`\Delta b_{c,h} = 0.005`$.
 - **Discontinuous feedback.** $\mathrm{sgn}(e)$ is discontinuous, so higher-order
   Runge–Kutta gains no accuracy. Its discrete effect is a ripple of amplitude about
   $k_s\Delta = 2\times10^{-4}$ in $\hat x_2$, far below the noise floor. This is why the
@@ -935,7 +1014,7 @@ Why Euler is adequate here:
 - **Projection overshoot.** Invariance of the ball holds for the flow, but one Euler step
   can overshoot it by $O(\Delta)$. The radial rescale after each step
   (`LyapunovAdaptationLaw.enforce_bound`) is a discretization safeguard only; it never
-  activates in the reported runs ($\|\hat\theta\| \approx 19 < \bar W = 40$).
+  activates in the reported runs ($\Vert \hat\theta\Vert  \approx 19 \lt \bar W = 40$).
 - **Sub-stepping.** `n_substeps > 1` is needed only if gains are raised until
   $T_s|\lambda|_{\max}$ approaches 1.
 
@@ -971,9 +1050,9 @@ inputs**. Defaults are in `LbLSTMObserverConfig`. Approaches B–E keep $\alpha$
 |:---|:---:|:---|
 | $\alpha$ | 4 | Rate of $e$, $\nu$, $\tilde x_1$ ($\dot e = -\alpha e + r$). Sets two of the four error poles at $\approx -\alpha$. Raise it for faster transients, at the cost of noise gain. |
 | $k_r$ | 8 | Damping of $r$. With $\alpha$, sets the complex pair ($\lvert\lambda\rvert \approx 13$ rad/s), i.e. the observer bandwidth and its noise gain. **$\Gamma$ must scale with this bandwidth**: $\alpha = 3$, $k_r = 6$ with the same $\Gamma$ drove $\hat\theta$ to the projection boundary and diverged. |
-| $k_s$ | 0.2 | Robust sgn gain. Theory wants $k_s > \lVert N\rVert_\infty + \lVert\dot N\rVert_\infty/\alpha$. In practice, because $e$ is dominated by encoder noise, a larger $k_s$ adds noise (0.5 was worse). Keep it small and let $\hat\Phi$ learn. |
+| $k_s$ | 0.2 | Robust sgn gain. Theory wants $k_s \gt \lVert N\rVert_\infty + \lVert\dot N\rVert_\infty/\alpha$. In practice, because $e$ is dominated by encoder noise, a larger $k_s$ adds noise (0.5 was worse). Keep it small and let $\hat\Phi$ learn. |
 | $\epsilon$ (tanh) | 0.005 | Boundary layer. Set it at about the size of the $e$ noise. The sgn and tanh variants perform alike here (§6.4). |
-| $\gamma_h$ (readout) | 300 | The dominant learning channel. The signal $e$ has DC gain of roughly $1/(\alpha k_r)$ from the mismatch, so $\gamma_h$ must be large ($10^2$–$10^3$). Above about 1500, individual seeds diverge to the projection boundary. |
+| $\gamma_h$ (readout) | 300 | The dominant learning channel. The signal $e$ has DC gain of roughly $1/(\alpha k_r)$ from the mismatch, so $\gamma_h$ must be large ($10^2$ to $10^3$). Above about 1500, individual seeds diverge to the projection boundary. |
 | $\gamma_g$ (gates) | 30 | Much smaller than $\gamma_h$. Gate weights drift only about 0.6 (vs about 4 for $W_h$) over 50 s. Gates above about 50 combined with $\gamma_h \ge 1000$ destabilize the loop. |
 | $b_c,\ b_h$ | 5 | Memory bandwidth [1/s]. Place it near or above the excitation band (1.5–3 rad/s). Results change little over $b \in [1, 10]$. |
 | $\bar W$, $\epsilon_p$ | 40, 0.1 | Choose $\bar W$ about 2× the expected $\lVert\theta^\ast\rVert$. Here $\lVert\hat\theta\rVert$ settles near 19 (dominated by the random gate initialization). |
@@ -1024,13 +1103,13 @@ truth, so 1 means no chattering. Bold marks the best of the learning observers.
 - **The shallow RNN is not black box.** It integrates the exact nominal plant model and
   learns only a residual, so it bounds what model knowledge buys. The black-box Lb-LSTM
   closes most of the gap between the dirty derivative and that bound, with no parameters.
-- **Online model fit** ($t \ge 20$ s): NMSE$(\hat\Phi, g)$ = 0.047 for $\ddot x$ and
+- **Online model fit** ($t \ge 20$ s): the NMSE of $\hat\Phi$ against $g$ is 0.047 for $\ddot x$ and
   0.048 for $\ddot\theta$.
 
 ![Tracking](figures/approach_a/tracking_trajectories.png)
 
-*Figure 2. Estimated against true velocities on S1, seed 0. Left: the first 5 s. Right: the last
-5 s. Top: cart velocity. Bottom: pendulum angular velocity.*
+**Figure 2.** Estimated against true velocities on S1, seed 0. Left: the first 5 s. Right: the last
+5 s. Top: cart velocity. Bottom: pendulum angular velocity.
 
 > **What it shows.** In the first half-second the Lb-LSTM (blue) starts from zero while the cart
 > is already moving at −0.5 m/s. It overshoots to about −0.63 m/s, then locks onto the truth by
@@ -1043,9 +1122,9 @@ truth, so 1 means no chattering. Bold marks the best of the learning observers.
 
 ![Error norm across all three scenarios](figures/approach_a/estimation_error_norm.png)
 
-*Figure 3. Size of the velocity-estimation error (100 ms RMS, log scale) for the dirty derivative,
+**Figure 3.** Size of the velocity-estimation error (100 ms RMS, log scale) for the dirty derivative,
 the shallow RNN and the Lb-LSTM on all three benchmark scenarios S1–S3 (§11.1). Produced by
-`scripts/generate_three_scenario_comparison.py`.*
+`scripts/generate_three_scenario_comparison.py`.
 
 > **What it shows.** The dirty derivative's error is flat at about 0.25 (S1, S3) and 0.5 (S2,
 > where the encoder noise is doubled) for the whole run. The Lb-LSTM starts near 0.4 and falls
@@ -1060,8 +1139,8 @@ the shallow RNN and the Lb-LSTM on all three benchmark scenarios S1–S3 (§11.1
 
 ![Phase plane](figures/approach_a/phase_plane.png)
 
-*Figure 4. Phase portraits after 20 s: velocity against position for the cart (left) and the
-pendulum (right). Blue: estimate. Dashed: truth.*
+**Figure 4.** Phase portraits after 20 s: velocity against position for the cart (left) and the
+pendulum (right). Blue: estimate. Dashed: truth.
 
 > **What it shows.** For the cart, the estimated orbit lies exactly on the true one. For the
 > pendulum, it follows every loop of the true trajectory with a small high-frequency wiggle.
@@ -1072,9 +1151,9 @@ pendulum (right). Blue: estimate. Dashed: truth.*
 
 ![Weight norm](figures/approach_a/weight_norm.png)
 
-*Figure 5. Top: the size of all 1440 weights, of the gate weights and of the readout $W_h$, against
+**Figure 5.** Top: the size of all 1440 weights, of the gate weights and of the readout $W_h$, against
 the projection bound $\bar W = 40$ (dashed; dotted: where projection begins to act). Bottom: how
-far each block has moved from its initial value.*
+far each block has moved from its initial value.
 
 > **What it shows.** The total weight norm stays near 19, far below the bound, so projection
 > never activates. Almost all of that norm is the random gate initialization. The readout moves
@@ -1099,9 +1178,9 @@ predicting the equilibrium.
 
 ![Digital twin](figures/approach_a/digital_twin.png)
 
-*Figure 6. The frozen Lb-LSTM run as an open-loop simulator (digital twin) on two inputs it never
+**Figure 6.** The frozen Lb-LSTM run as an open-loop simulator (digital twin) on two inputs it never
 saw: a step doublet (top) and a chirp (bottom). Blue: weights frozen at 20 s. Orange: frozen at
-50 s. Dashed: the true plant.*
+50 s. Dashed: the true plant.
 
 > **What it shows.** On the step doublet, the twin's pendulum starts swinging about a second
 > before the input does, while the true pendulum is still at rest, and its cart overshoots to
@@ -1165,19 +1244,19 @@ transient, not only at convergence:
 | $\hat M = \hat M^T \succeq \epsilon_M I$ | modified Cholesky $\hat M = LL^T + \epsilon_M I$, softplus diagonal | all $\theta_M$ |
 | $z^T(\dot{\hat M} - 2\hat V_m)z = 0$ | $\hat V_m$ from Christoffel symbols of $\hat M$, plus a skew gyroscopic term | all $\theta_M, \theta_V$ |
 | $\hat G$ conservative | $\hat G = \nabla_q \hat P$, gradient of a learned potential | all $\theta_G$ |
-| $\dot q^T\hat F \ge 0$ | $\hat F = \mathrm{diag}(d_i)\dot q$, $d_i = d^0_i\,\mathrm{softplus}(\cdot) > 0$ | all $\theta_F$ |
+| $\dot q^T\hat F \ge 0$ | $\hat F = \mathrm{diag}(d_i)\dot q$, $d_i = d^0_i\thinspace \mathrm{softplus}(\cdot) \gt 0$ | all $\theta_F$ |
 | $\hat M, \hat P$ independent of the cart position $x$ | $x$ is a cyclic coordinate of the learned Lagrangian | all $\theta$ |
 
 Together these make the learned model **passive**: $\frac{d}{dt}(\hat T + \hat P) \le \dot q^TBu$.
 
 ![PI-LSTM structure](figures/diagrams/approach_b_pilstm_structure.svg)
 
-*Diagram 6. Structure of the PI-LSTM. Fixed harmonic features of the configuration feed the inertia
+**Diagram 6.** Structure of the PI-LSTM. Fixed harmonic features of the configuration feed the inertia
 and potential blocks. The Coriolis force follows from the inertia by the Christoffel construction,
 and a recurrent block learns a dissipative friction. The blocks are assembled into
 $\hat\Phi = \hat M^{-1}\hat\tau$. The invariants in the green box hold for every parameter value.
 Learning (dashed) uses only the measurable error $e$, through an adjoint Jacobian in the kinetic
-metric (§7.5).*
+metric (§7.5).
 
 **Relation to Hart et al. [5].** [5] is a *tracking controller*. Its adaptation laws and its
 $\mathrm{sgn}$ term use $r = \dot e + \alpha e$ with $e = q - q_d$, which is measurable under
@@ -1231,7 +1310,7 @@ effects for Approach A.
 `src/observers/pilstm_network.py::cholesky_inertia`
 
 $$\hat M(q) = L(q)L(q)^T + \epsilon_M I,\qquad L = D\tilde L,\qquad
-\tilde L_{ii} = \mathrm{softplus}(a_{ii}),\quad \tilde L_{ij} = a_{ij}\ (i>j),\quad a = W_M^T\rho(q),$$
+\tilde L_{ii} = \mathrm{softplus}(a_{ii}),\quad \tilde L_{ij} = a_{ij}\ (i \gt j),\quad a = W_M^T\rho(q),$$
 
 where $D = \mathrm{diag}(d_i) \succ 0$ is a fixed row scale (§7.2.4) and $\rho(q)$ is the
 feature layer (§7.2.3).
@@ -1246,7 +1325,7 @@ $\lVert\hat M^{-1}\rVert_2 \le 1/\epsilon_M$.
 $z^T\hat Mz = \lVert L^Tz\rVert^2 + \epsilon_M\lVert z\rVert^2 \ge \epsilon_M\lVert z\rVert^2$.
 Hence $\lambda_{\min} \ge \epsilon_M$ and $\lVert\hat M^{-1}\rVert_2 = 1/\lambda_{\min} \le 1/\epsilon_M$. ∎
 
-The softplus diagonal makes $L$ nonsingular ($\det L = \prod_i d_i\tilde L_{ii} > 0$), so
+The softplus diagonal makes $L$ nonsingular ($\det L = \prod_i d_i\tilde L_{ii} \gt 0$), so
 $LL^T \succ 0$ already. The $\epsilon_M I$ term adds a margin that is **uniform in the
 parameters**: softplus can approach 0, so $\lambda_{\min}(LL^T)$ alone has no parameter-free
 lower bound. Consequently, $\hat\Phi = \hat M^{-1}\hat\tau$ is always well defined, and no
@@ -1254,7 +1333,7 @@ adaptation transient can produce a singular inertia.
 
 **Proposition 3 (no loss of generality).** The map $L \mapsto LL^T + \epsilon_MI$, over
 lower-triangular $L$ with positive diagonal, is a bijection onto
-$\{M = M^T : M - \epsilon_MI \succ 0\}$.
+$\lbrace M = M^T : M - \epsilon_MI \succ 0\rbrace$.
 
 *Proof.* Every symmetric positive-definite matrix $M - \epsilon_MI$ has a unique Cholesky
 factor with positive diagonal. Softplus maps $\mathbb R$ onto $(0,\infty)$, so every such
@@ -1273,19 +1352,19 @@ $\epsilon_MI \preceq \hat M \preceq \bar MI$.
 
 The Christoffel symbols and the adaptation law both need $\partial\hat M/\partial q_k$:
 
-$$\frac{\partial L_r}{\partial q_k} = g_r'(a_r)\,W_{M,r}^T\frac{\partial\rho}{\partial q_k},\qquad
+$$\frac{\partial L_r}{\partial q_k} = g_r'(a_r)\thinspace W_{M,r}^T\frac{\partial\rho}{\partial q_k},\qquad
 \frac{\partial\hat M}{\partial q_k} = \frac{\partial L}{\partial q_k}L^T + L\frac{\partial L}{\partial q_k}^T,$$
 
-with $g_r = d_i\,\mathrm{softplus}$ on the diagonal and $g_r = d_i\cdot\mathrm{id}$ below
+with $g_r = d_i\thinspace \mathrm{softplus}$ on the diagonal and $g_r = d_i\cdot\mathrm{id}$ below
 it. `tests/test_pilstm.py` checks $\partial\hat M/\partial q$ against finite differences.
 
 #### 7.2.3 Feature layer
 
-$$\rho(q) = \big[\,1,\ \xi(q),\ \tanh(V_0^T\xi(q) + b_0)\,\big],\qquad
+$$\rho(q) = \big[\thinspace 1,\ \xi(q),\ \tanh(V_0^T\xi(q) + b_0)\thinspace \big],\qquad
 \xi(q) = \big[\cos k\theta,\ \sin k\theta\big]_{k=1..K}\ \ (\text{revolute}),\quad s(x - \mu)\ \ (\text{prismatic}).$$
 
 The first layer is fixed; only the output layers $W_M$, $W_V$ and $w_G$ adapt. This keeps
-$\partial^2\hat M/\partial q\,\partial\theta_M$, which the Christoffel Jacobian needs
+$\partial^2\hat M/\partial q\thinspace \partial\theta_M$, which the Christoffel Jacobian needs
 (§7.5), in closed form.
 
 - **Default:** $K = 2$ harmonics and no random tanh units. For the rig this gives 5 features.
@@ -1333,7 +1412,7 @@ $$\hat C_{ij}(q,\dot q) = \sum_k \Gamma_{ijk}\dot q_k,\qquad
 
 **Proposition 5.** For every $\theta_M$, $N := \dot{\hat M} - 2\hat C$ is skew-symmetric.
 
-*Proof.* With $\dot{\hat M}_{ij} = \sum_k \partial_k\hat M_{ij}\,\dot q_k$:
+*Proof.* With $`\dot{\hat M}_{ij} = \sum_k \partial_k\hat M_{ij}\thinspace \dot q_k`$:
 
 $$N_{ij} = \sum_k\left(\partial_k\hat M_{ij} - \partial_k\hat M_{ij} - \partial_j\hat M_{ik} + \partial_i\hat M_{jk}\right)\dot q_k
 = \sum_k\left(\partial_i\hat M_{jk} - \partial_j\hat M_{ik}\right)\dot q_k.$$
@@ -1344,8 +1423,8 @@ value. ∎
 
 - **Implementation.** The code evaluates the equivalent vector form
   $\hat C\dot q = \dot{\hat M}\dot q - \tfrac12\nabla_q(\dot q^T\hat M\dot q)$.
-- **Check against the true rig.** For the true $M(\theta)$ this reproduces
-  $C = \begin{bmatrix}0 & -ml\dot\theta\sin\theta\\ 0 & 0\end{bmatrix}$.
+- **Check against the true rig.** For the true $M(\theta)$ this reproduces the rig's Coriolis
+  matrix, whose only non-zero entry is $C_{12} = -ml\dot\theta\sin\theta$.
 - **Tests.** The tests check the matrix against a brute-force Christoffel sum over
   finite-difference derivatives, and check $z^TNz = 0$ for random parameters.
 - **Measured along the trajectory.** $\max\lvert z^TNz\rvert/\lVert z\rVert^2 = 7\times10^{-17}$.
@@ -1353,7 +1432,7 @@ value. ∎
 **Gyroscopic block $\theta_V$.** The Christoffel term is fully determined by $\theta_M$.
 The separate block $\theta_V$ parametrizes
 
-$$S(q,\dot q) = \sum_{i<j} s_{ij}\,(E_{ij} - E_{ji}),\qquad s_{ij} = W_{V,ij}^T\big(\rho(q)\otimes\dot q\big),$$
+$$S(q,\dot q) = \sum_{i \lt j} s_{ij}\thinspace (E_{ij} - E_{ji}),\qquad s_{ij} = W_{V,ij}^T\big(\rho(q)\otimes\dot q\big),$$
 
 and $\hat V_m = \hat C + S$. $S$ is skew, so $\dot{\hat M} - 2\hat V_m = N - 2S$ remains
 skew-symmetric, and $\dot q^TS\dot q = 0$: the extra force does no work. It is quadratic
@@ -1375,7 +1454,7 @@ A continuous-time LSTM with the same cell as Approach A (§6.1) runs on
 $\zeta_F = [s\odot\dot q,\ \hat h_F,\ 1]$. Its readout $\phi_F = W_h^Th$ sets a diagonal,
 velocity- and history-dependent damping:
 
-$$\hat F = \mathrm{diag}(d)\,\dot q,\qquad d_i = d^0_i\,\mathrm{softplus}(\phi_{F,i} - 3) > 0
+$$\hat F = \mathrm{diag}(d)\thinspace \dot q,\qquad d_i = d^0_i\thinspace \mathrm{softplus}(\phi_{F,i} - 3) \gt 0
 \ \ \Rightarrow\ \ \dot q^T\hat F = \textstyle\sum_i d_i\dot q_i^2 \ge 0.$$
 
 Viscous, Coulomb and Stribeck laws all have this form, with
@@ -1415,22 +1494,22 @@ replaced by the structured model:
 
 ![Observer block diagram, Approach B](figures/diagrams/approach_b_observer_block_diagram.svg)
 
-*Diagram 7. Block diagram of the PI-LSTM observer. The filter, the feedback $\chi$ and the robust
-term are those of §5. Only the model block (Diagram 6) and the blockwise adaptation law differ.*
+**Diagram 7.** Block diagram of the PI-LSTM observer. The filter, the feedback $\chi$ and the robust
+term are those of §5. Only the model block (Diagram 6) and the blockwise adaptation law differ.
 
 $$\dot{\hat q} = \hat{\dot q},\qquad
-\dot{\hat{\dot q}} = \hat\Phi + k_s\,\mathrm{sgn}(e) + \chi,\qquad
+\dot{\hat{\dot q}} = \hat\Phi + k_s\thinspace \mathrm{sgn}(e) + \chi,\qquad
 \hat\Phi = \hat M^{-1}(\hat q)\big[Bu - \hat V_m(\hat q,\hat{\dot q})\hat{\dot q} - \hat G(\hat q) - \hat F\big].$$
 
 The auxiliary filter $(p,\nu,\eta,e)$ and $\chi$ are exactly those of §5.2 with
 $\tilde x_1 = \tilde q$. With $r = \tilde{\dot q} + \alpha\tilde q + \eta$ and $V_0$ of §5.3,
 
-$$\dot V_0 = -\alpha(\lVert\tilde q\rVert^2 + \lVert\eta\rVert^2 + \lVert\nu\rVert^2) - k_r\lVert r\rVert^2 + r^T\big(\ddot q - \hat\Phi - k_s\,\mathrm{sgn}(e)\big).$$
+$$\dot V_0 = -\alpha(\lVert\tilde q\rVert^2 + \lVert\eta\rVert^2 + \lVert\nu\rVert^2) - k_r\lVert r\rVert^2 + r^T\big(\ddot q - \hat\Phi - k_s\thinspace \mathrm{sgn}(e)\big).$$
 
 **Stability sketch.** Let $N = \ddot q - \hat\Phi$. As in §5.5, if $\hat\theta$ stays in a compact
 set (guaranteed by projection, §7.5) and $N, \dot N$ are bounded along the trajectory, the RISE
 integral lemma gives asymptotic convergence when $k_s$ exceeds its bound,
-$\max\{\zeta_1+\zeta_2,\ \zeta_1+\zeta_3/\alpha\}$. With the kinetic metric of §7.5 the adaptation
+$\max\lbrace \zeta_1+\zeta_2,\ \zeta_1+\zeta_3/\alpha\rbrace$. With the kinetic metric of §7.5 the adaptation
 cancels $\alpha e^T\hat M\Phi'\tilde\theta$ rather than $\alpha e^T\Phi'\tilde\theta$. The difference,
 $\alpha e^T(I - \hat M)\Phi'\tilde\theta$, is bounded and adds its bound to the second entry of that
 maximum. Otherwise it gives uniform ultimate boundedness. The default $k_s = 0.2$ is below the
@@ -1456,12 +1535,12 @@ The structure changes the bound on $\hat\Phi$ in two opposite ways:
 $\theta = [\theta_M, \theta_V, \theta_G, \theta_F]$ has 398 parameters on the rig: 15, 20,
 5 and 358. Every block adapts simultaneously:
 
-$$\dot{\hat\theta}_\beta = \mathrm{proj}_\beta\big(\Gamma_\beta\,\Phi_\beta'^T W e\big),\qquad \lVert\hat\theta_\beta\rVert \le \bar W_\beta,\qquad \beta \in \{M, V, G, F\},$$
+$$\dot{\hat\theta}_\beta = \mathrm{proj}_\beta\big(\Gamma_\beta\thinspace \Phi_\beta'^T W e\big),\qquad \lVert\hat\theta_\beta\rVert \le \bar W_\beta,\qquad \beta \in \lbrace M, V, G, F\rbrace ,$$
 
 with the smooth projection of §6.3 applied per block.
 
 **Adjoint form.** $\hat\Phi = \hat M^{-1}\hat\tau$, so
-$\Phi'_\beta = \hat M^{-1}(\partial\hat\tau/\partial\theta_\beta - (\partial\hat M/\partial\theta_\beta)\hat\Phi)$.
+$`\Phi'_\beta = \hat M^{-1}(\partial\hat\tau/\partial\theta_\beta - (\partial\hat M/\partial\theta_\beta)\hat\Phi)`$.
 With the adjoint vector $\lambda = \hat M^{-1}We$:
 
 $$\Phi_\beta'^TWe = \frac{\partial}{\partial\theta_\beta}\Big[\lambda^T\hat\tau - \lambda^T\hat M\hat\Phi\Big]_{\lambda,\hat\Phi\ \text{held}}.$$
@@ -1470,19 +1549,19 @@ This is evaluated in $O(p)$ without forming $\Phi'$:
 
 | Block | $\Phi_\beta'^TWe$ |
 |:---|:---|
-| $G$ | $-D\rho\,\lambda$ |
-| $V$ (pair $ij$) | $-(\lambda_i\dot q_j - \lambda_j\dot q_i)\,(\rho\otimes\dot q)$ |
+| $G$ | $-D\rho\thinspace \lambda$ |
+| $V$ (pair $ij$) | $-(\lambda_i\dot q_j - \lambda_j\dot q_i)\thinspace (\rho\otimes\dot q)$ |
 | $F$ | $\Phi_F'^T(-\lambda\odot\partial\hat F/\partial\phi_F)$, via the Kronecker product form of §6.2 |
-| $M$ (entry $r$) | $-(Z + K)_r\,g_r'\rho - \sum_k Y_{k,r}\big(g_r''\,\beta_{rk}\,\rho + g_r'\,\partial_k\rho\big)$ |
+| $`M`$ (entry $`r`$) | $`-(Z + K)_r\thinspace g_r'\rho - \sum_k Y_{k,r}\big(g_r''\thinspace \beta_{rk}\thinspace \rho + g_r'\thinspace \partial_k\rho\big)`$ |
 
 The inertia block is the only nontrivial one. $\hat M$ enters both through $\hat M^{-1}$
 and through the Christoffel vector
-$\lambda^T\hat C\dot q = \sum_k a_k^T\,\partial_k\hat M\,\dot q$, with
+$\lambda^T\hat C\dot q = \sum_k a_k^T\thinspace \partial_k\hat M\thinspace \dot q$, with
 $a_k = \dot q_k\lambda - \tfrac12\lambda_k\dot q$. That gives
 
 $$K = (\lambda\hat\Phi^T + \hat\Phi\lambda^T)L,\qquad
-Z = \sum_k(\dot q\,a_k^T + a_k\dot q^T)\,\partial_kL,\qquad
-Y_k = a_k\dot q^TL + \dot q\,a_k^TL,$$
+Z = \sum_k(\dot q\thinspace a_k^T + a_k\dot q^T)\thinspace \partial_kL,\qquad
+Y_k = a_k\dot q^TL + \dot q\thinspace a_k^TL,$$
 
 with $\beta_{rk} = W_{M,r}^T\partial_k\rho$. The second-order term
 $\partial(\partial_kL_r)/\partial W_r = g_r''\beta_{rk}\rho + g_r'\partial_k\rho$ is why the
@@ -1581,9 +1660,9 @@ Online model fit (35–50 s), as NMSE of $\hat\Phi$ against the true acceleratio
 
 ![Velocity tracking](figures/approach_b/velocity_tracking.png)
 
-*Figure 7. Estimated against true velocities on the swing-through scenario, in three windows: the
+**Figure 7.** Estimated against true velocities on the swing-through scenario, in three windows: the
 first 3 s after release, around the mass step at 25 s, and the last 4 s. Top: cart. Bottom:
-pendulum.*
+pendulum.
 
 > **What it shows.** In the first second both learned observers miss the cart velocity, A (red)
 > by more than B (blue): A overshoots to 0.52 m/s and −0.38 m/s where the truth peaks at 0.44
@@ -1595,8 +1674,8 @@ pendulum.*
 
 ![Error norm](figures/approach_b/error_norm.png)
 
-*Figure 8. Size of the velocity-estimation error (200 ms RMS, log scale) over the whole 50 s
-swing-through run.*
+**Figure 8.** Size of the velocity-estimation error (200 ms RMS, log scale) over the whole 50 s
+swing-through run.
 
 > **What it shows.** Both learned observers start near 0.2–0.4 and fall below 0.1 within a few
 > seconds. From about 10 s on, B (blue) sits mostly below A (red), and nothing happens to B's
@@ -1632,7 +1711,7 @@ The PI-LSTM's seed-to-seed spread is 5–50× smaller than Approach A's.
 
 **Why the input gain is the right comparison.** The black box has no inertia matrix, but
 for any Euler–Lagrange plant, $\partial\ddot q/\partial u = M^{-1}B$. Its first entry
-$(M^{-1})_{11} > 0$ because the inverse of a positive-definite matrix has a positive
+$(M^{-1})_{11} \gt 0$ because the inverse of a positive-definite matrix has a positive
 diagonal. A black box that predicts $\partial\hat\Phi_x/\partial u \le 0$ is predicting
 that pushing the cart forward accelerates it backward: a negative effective mass.
 Approach A does this in 5.7 % of samples, and its implied gain is off by 88 % even in
@@ -1640,8 +1719,8 @@ steady state. The PI-LSTM's is off by 19 %, and positive by construction.
 
 ![Inertia learning](figures/approach_b/inertia_learning.png)
 
-*Figure 9. The inertia matrix the PI-LSTM learns, entry by entry, against the truth (dashed), and
-(bottom right) the cart's input gain implied by each model. The dotted line marks the mass step.*
+**Figure 9.** The inertia matrix the PI-LSTM learns, entry by entry, against the truth (dashed), and
+(bottom right) the cart's input gain implied by each model. The dotted line marks the mass step.
 
 > **What it shows.** $\hat M_{11}$ (cart plus pendulum mass) climbs slowly from the prior 2.0 to
 > 2.3 kg but never reaches the true 2.63–2.75 kg. $\hat M_{12}$ oscillates with the right shape
@@ -1657,8 +1736,8 @@ steady state. The PI-LSTM's is off by 19 %, and positive by construction.
 
 ![Physical invariants](figures/approach_b/physical_invariants.png)
 
-*Figure 10. Left: the smallest eigenvalue of the learned inertia, against the structural floor
-$\epsilon_M = 0.05$ and the true value. Right: the learned kinetic energy against the true one.*
+**Figure 10.** Left: the smallest eigenvalue of the learned inertia, against the structural floor
+$\epsilon_M = 0.05$ and the true value. Right: the learned kinetic energy against the true one.
 
 > **What it shows.** The learned inertia's smallest eigenvalue stays between 0.115 and 0.23, far
 > above the floor, for the whole run. The learned kinetic energy is never negative and follows
@@ -1681,8 +1760,8 @@ energy $\hat H$ is conserved to $7.5\times10^{-14}$ J, as Proposition 6 requires
 
 ![Free swing](figures/approach_b/free_swing_energy.png)
 
-*Figure 11. Left: the frozen models released from rest with no input, against the true rigid
-pendulum. Right: the true mechanical energy along each model's response.*
+**Figure 11.** Left: the frozen models released from rest with no input, against the true rigid
+pendulum. Right: the true mechanical energy along each model's response.
 
 > **What it shows.** The frozen PI-LSTM (blue) swings almost on top of the truth for all 10 s.
 > The frozen Lb-LSTM (orange) swings with too small an amplitude, about a shifted centre, at the
@@ -1718,8 +1797,8 @@ is rate-limited by its projection. See Figure 12, where no block's drift steps a
 
 ![Block adaptation](figures/approach_b/block_adaptation.png)
 
-*Figure 12. How far each parameter block has moved from its initial value (log scale): inertia M,
-gyroscopic V, gravity G and friction F.*
+**Figure 12.** How far each parameter block has moved from its initial value (log scale): inertia M,
+gyroscopic V, gravity G and friction F.
 
 > **What it shows.** Gravity (dashed) and inertia (solid) move the most, to about 1 and 0.4,
 > mostly in the first 10 s. Friction moves about 0.015 and the gyroscopic block less than 0.01.
@@ -1859,13 +1938,13 @@ tested open loop on four unseen inputs:
 ### 8.1 The persistence-of-excitation bottleneck
 
 An adaptive observer adapts its weights with a gradient of the output error,
-$\dot{\hat\theta} = \Gamma\,\Phi'(t)^T e(t)$. The Lyapunov analysis of §5 makes the
-state-estimation errors converge, $\|\tilde x_2\| \to 0$. It does not make the parameter error
+$\dot{\hat\theta} = \Gamma\thinspace \Phi'(t)^T e(t)$. The Lyapunov analysis of §5 makes the
+state-estimation errors converge, $\Vert \tilde x_2\Vert  \to 0$. It does not make the parameter error
 $\tilde\theta = \theta^\ast - \hat\theta$ converge. Once $e \to 0$, adaptation stops wherever
 $\hat\theta$ happens to be. The parameter error then converges to zero only if the regressor is
 **persistently exciting**:
 
-$$\int_t^{t+T}\Phi'(\tau)^T\Phi'(\tau)\,d\tau \;\ge\; \beta I > 0 \qquad \forall t \ge 0.$$
+$$\int_t^{t+T}\Phi'(\tau)^T\Phi'(\tau)\thinspace d\tau \thickspace \ge\thickspace  \beta I \gt 0 \qquad \forall t \ge 0.$$
 
 For the output layer of the LSTM, $\Phi'_h = I_n \otimes h^T$, so PE requires the hidden-state
 trajectory $h(t) \in \mathbb{R}^{16}$ to keep visiting all 16 directions in every window of
@@ -1884,19 +1963,19 @@ practice is zero.
 
 Concurrent learning (Chowdhary & Johnson [9]; Chowdhary et al. [23]) replaces the
 persistence requirement with a condition on **recorded** data. Let
-$\{t_j\}_{j=1}^N$ be a stored set of past instants with regressors $\Phi'_j = \Phi'(t_j)$, and
+$\lbrace t_j\rbrace _{j=1}^N$ be a stored set of past instants with regressors $\Phi'_j = \Phi'(t_j)$, and
 let $\epsilon_j = \ddot x(t_j) - \hat\Phi(t_j)$ be the current model residual at each of them.
 The adaptation law becomes
 
-$$\dot{\hat\theta} = \Gamma\,\Phi'(t)^T e(t) \;+\; \Gamma_{CL}\sum_{j=1}^N \Phi'^T_j\big(\ddot x(t_j) - \hat\Phi(t_j)\big).$$
+$$\dot{\hat\theta} = \Gamma\thinspace \Phi'(t)^T e(t) \thickspace +\thickspace  \Gamma_{CL}\sum_{j=1}^N \Phi'^T_j\big(\ddot x(t_j) - \hat\Phi(t_j)\big).$$
 
 The second term is the negative gradient of the stack loss
-$J = \tfrac12\sum_j\|\ddot x(t_j) - \hat\Phi(t_j)\|^2$. It keeps acting after the trajectory has
+$J = \tfrac12\sum_j\Vert \ddot x(t_j) - \hat\Phi(t_j)\Vert ^2$. It keeps acting after the trajectory has
 stopped exciting the plant.
 
 The requirement moves from the trajectory to the stack. The information matrix
 
-$$\Omega = \sum_{j=1}^N \Phi'^T_j\Phi'_j \;\ge\; \underline\lambda\, I > 0 \qquad\text{(rank condition)}$$
+$$\Omega = \sum_{j=1}^N \Phi'^T_j\Phi'_j \thickspace \ge\thickspace  \underline\lambda\thinspace  I \gt 0 \qquad\text{(rank condition)}$$
 
 must be positive definite at *some* finite time $t_r$. This is an interval-excitation
 requirement: it is met once during a transient, not on every window forever.
@@ -1914,7 +1993,7 @@ $$\Omega_h = I_n \otimes \sum_j h_j h_j^T = I_n \otimes (H^TH),\qquad H = [h_1,\
 so that $\lambda_{\min}(\Omega_h) = \sigma_{\min}(H)^2$. This needs only $N \ge L = 16$ points.
 The rank condition is therefore imposed and monitored on the readout.
 
-Since $\mathrm{rank}\,\Omega \le nN$, the condition needs $nN \ge p$ at the very least. That makes the
+Since $\mathrm{rank}\thinspace \Omega \le nN$, the condition needs $nN \ge p$ at the very least. That makes the
 choice of parameter set decisive:
 
 | Design | Parameter set | Required stored points |
@@ -1932,11 +2011,11 @@ excitation guarantee (§8.6.3).
 
 ![Observer block diagram, Approach C](figures/diagrams/approach_c_observer_block_diagram.svg)
 
-*Diagram 8. Block diagram of the CL-Lb-LSTM observer. Everything outside the dashed path is Approach
+**Diagram 8.** Block diagram of the CL-Lb-LSTM observer. Everything outside the dashed path is Approach
 A, unchanged: the filter, the feedback $\chi$, the robust term, the LSTM and its instantaneous
 law. The dashed path adds the history stack. It records operating points with a Savitzky–Golay
 acceleration proxy (§8.5) and feeds the recorded-data terms into the adaptation (§8.6). Diagram 9
-(§8.4) details that path.*
+(§8.4) details that path.
 
 **What is inherited from Approach A.** The filter, the observer feedback $\chi$, the robust
 term, the LSTM memory ODEs, the analytical Jacobians (`src/adaptation/jacobian_engine.py`) and
@@ -1953,11 +2032,11 @@ that with the CL loop disabled the two observers produce identical states and we
 
 ![History stack and CL loops](figures/diagrams/approach_c_cl_pipeline.svg)
 
-*Diagram 9. The concurrent-learning data path. Encoder samples in a ring buffer give a delayed,
+**Diagram 9.** The concurrent-learning data path. Encoder samples in a ring buffer give a delayed,
 lag-free acceleration proxy. Candidate points pass a novelty gate. When the stack is full, a
 candidate replaces the entry whose removal most increases $\lambda_{\min}(\Omega)$. The stack drives
 the implicit readout step, which carries the rank guarantee, and the explicit gate step, which has
-none.*
+none.
 
 `src/concurrent_learning/point_history_stack.py`. Each entry stores what is needed to re-evaluate
 the network at the recorded operating point,
@@ -1968,12 +2047,14 @@ can be re-evaluated exactly at the current weights.
 **Policy** (Chowdhary & Johnson [10], adapted). For each candidate $r$, arriving at most
 every 20 ms after a 2 s warm-up:
 
-1. **Novelty gate.** Reject the candidate if $\|r - r_{last}\| < 0.05\,\|r\|$, where $r_{last}$
+1. **Novelty gate.** Reject the candidate if $\Vert r - r_{last}\Vert \lt 0.05\thinspace \Vert r\Vert$, where $r_{last}$
    is the last recorded regressor. Near-duplicates from a slowly moving trajectory add no rank.
 2. **Stack not full:** append.
 3. **Stack full:** evaluate every single swap $j \to r$ in one batched eigen-decomposition,
-   $$\lambda_j' = \lambda_{\min}\!\left(\Omega - r_jr_j^T + rr^T\right),\qquad j = 1..N,$$
-   and replace $j^\ast = \arg\max_j\lambda'_j$ only if $\lambda'_{j^\ast} > (1 + 10^{-3})\,\lambda_{\min}(\Omega)$.
+   ```math
+   \lambda_j' = \lambda_{\min}\negthinspace \left(\Omega - r_jr_j^T + rr^T\right),\qquad j = 1..N,
+   ```
+   and replace $`j^\ast = \arg\max_j\lambda'_j`$ only if $`\lambda'_{j^\ast} \gt (1 + 10^{-3})\thinspace \lambda_{\min}(\Omega)`$.
 4. **Rank-deficient phase.** While every swap leaves $\lambda_{\min} = 0$, rank the swaps that
    do not decrease $\lambda_{\min}$ by the D-optimal score $\log\det(\Omega + \delta I)$. This
    drives the stack to full rank.
@@ -1988,7 +2069,7 @@ between gate updates only.
 
 **Why maximize λ_min.** Selecting on $\sigma_{\min}$ keeps the most linearly independent points
 and discards clustered, redundant data. On a stream consisting of an informative burst followed
-by a collapsed regressor, the stack's $\lambda_{\min}$ is more than 10³× that of the last-$N$
+by a collapsed regressor, the stack's $\lambda_{\min}$ is more than 10³× that of the last $N$
 (FIFO) buffer (`test_svm_selection_beats_fifo_on_decaying_excitation`).
 
 ### 8.5 Acceleration proxy: causal Savitzky–Golay differentiation
@@ -1997,7 +2078,7 @@ The CL residual needs $\ddot x(t_j)$, which is never measured. `SavitzkyGolayAcc
 fits a degree-3 polynomial to the last $W = 251$ encoder samples ($T_w = 0.25$ s) by least
 squares [18], then differentiates it twice at the **window centre** $t_c = t - (W-1)/2\cdot T_s$:
 
-$$\hat{\ddot q}(t_c) = c_2^T\,[q(t-(W-1)T_s),\dots,q(t)]^T,\qquad c_2 = 2\,[V^+]_{3,:},\ V_{ki} = \tau_k^{\,i}.$$
+$$\hat{\ddot q}(t_c) = c_2^T\thinspace [q(t-(W-1)T_s),\dots,q(t)]^T,\qquad c_2 = 2\thinspace [V^+]_{3,:},\ V_{ki} = \tau_k^{\thinspace i}.$$
 
 - **Causal.** Only past samples are used. The 125 ms delay is harmless because CL learns from
   recorded data anyway. The observer keeps a ring buffer of its own $(\zeta, \hat c, h)$
@@ -2005,7 +2086,7 @@ $$\hat{\ddot q}(t_c) = c_2^T\,[q(t-(W-1)T_s),\dots,q(t)]^T,\qquad c_2 = 2\,[V^+]
 - **Unbiased and lag-free.** The centred window is exact for polynomials up to degree 3 and has
   zero phase at $t_c$.
 - **Noise.** For i.i.d. encoder noise $\sigma$, the proxy's standard deviation is
-  $\sigma\|c_2\| \approx \sigma\sqrt{720\,T_s/T_w^5} = 26.9\,\sigma$ (both values are tested).
+  $\sigma\Vert c_2\Vert  \approx \sigma\sqrt{720\thinspace T_s/T_w^5} = 26.9\thinspace \sigma$ (both values are tested).
   With $\sigma_\theta = 0.5°/\sqrt3$ plus quantization, the proxy's RMS error on the training
   data is 0.14 rad/s² for θ̈ (about 10 % of RMS θ̈) and 0.004 m/s² for ẍ (about 2 %).
   Substituting the true accelerations at the stack points leaves the stack fit essentially
@@ -2024,7 +2105,7 @@ $E = A - HW_h$ (the $N\times n$ residual matrix):
 
 #### 8.6.1 Readout (dual loop)
 
-$$\dot W_h = \underbrace{\gamma_h\, h(t)\,e(t)^T}_{\text{instantaneous (Approach A)}} \;+\; \underbrace{\gamma_{CL}\,(B - \Omega_r W_h)}_{\gamma_{CL}\sum_j h_j(\ddot x_j - W_h^Th_j)^T},\qquad \Omega_r = H^TH,\ B = H^TA.$$
+$$\dot W_h = \underbrace{\gamma_h\thinspace  h(t)\thinspace e(t)^T}_{\text{instantaneous (Approach A)}} \thickspace +\thickspace  \underbrace{\gamma_{CL}\thinspace (B - \Omega_r W_h)}_{\gamma_{CL}\sum_j h_j(\ddot x_j - W_h^Th_j)^T},\qquad \Omega_r = H^TH,\ B = H^TA.$$
 
 The CL term is affine in $W_h$ and stiff: $T_s\gamma_{CL}\lambda_{\max}(\Omega_r)$ can exceed 2.
 It is therefore integrated **implicitly** (IMEX Euler):
@@ -2037,12 +2118,12 @@ verifies the step at $T_s\gamma\lambda_{\max} \gg 2$.
 
 #### 8.6.2 Gates (CL loop only)
 
-$$\dot\theta_g = \gamma_{CL,g}\sum_j \Phi'_g(t_j)^T(\ddot x_j - \hat\Phi_j),\qquad \big[\Phi'^T_g w\big]_j = \mathrm{vec}\!\big(\zeta_j\,(\delta_j \odot \mathrm{tile}(W_h w, 4))^T\big),$$
+$$\dot\theta_g = \gamma_{CL,g}\sum_j \Phi'_g(t_j)^T(\ddot x_j - \hat\Phi_j),\qquad \big[\Phi'^T_g w\big]_j = \mathrm{vec}\negthinspace \big(\zeta_j\thinspace (\delta_j \odot \mathrm{tile}(W_h w, 4))^T\big),$$
 
 where $\delta_j$ are the gate sensitivities at $(\zeta_j, \hat c_j)$ (§6.2). The stack
-sum reduces to a single product, $\mathrm{vec}(Z^T\,\mathrm{BACK})$, computed in one batched LSTM
+sum reduces to a single product, $\mathrm{vec}(Z^T\thinspace \mathrm{BACK})$, computed in one batched LSTM
 pass. It matches the explicit Kronecker Jacobian to 1e-16. The norm bound
-$\|\theta\| \le \bar W = 80$ is enforced after each step, as in Approach A. Training the
+$\Vert \theta\Vert  \le \bar W = 80$ is enforced after each step, as in Approach A. Training the
 inner feature layers on recorded data while the outer layer adapts online is related to the
 asynchronous deep MRAC of Joshi et al. [25].
 
@@ -2063,17 +2144,17 @@ The proofs cover the readout with **fixed features** ($\gamma_g = \gamma_{CL,g} 
 the "C, frozen gates" configuration of §8.8, available as `gamma_cl_gates=0`.
 
 **Setting.** On the compact set of trajectories, write $g(x,u) = W^{\ast T}h + \varepsilon(t)$,
-with $\|\varepsilon\| \le \bar\varepsilon$. Here $\varepsilon$ collects the approximation error
+with $\Vert \varepsilon\Vert  \le \bar\varepsilon$. Here $\varepsilon$ collects the approximation error
 and the effect of evaluating the features at $\hat x$. At the stack points,
 $\ddot x_j = W^{\ast T}h_j + \varepsilon_j + \delta_j$, with $\delta_j$ the proxy error. Let
 $\tilde W = W^\ast - \hat W_h$ and $z = (\tilde x_1, \eta, \nu, r)$. The filter algebra of §5.3
 gives, with $P \ge 0$ the RISE auxiliary function of §5.5 [6],
 
-$$\dot V_0 + \dot P \le -W_0(z) := -\alpha\big(\|\tilde x_1\|^2 + \|\eta\|^2 + \|\nu\|^2\big) - k_r\|r\|^2,$$
+$$\dot V_0 + \dot P \le -W_0(z) := -\alpha\big(\Vert \tilde x_1\Vert ^2 + \Vert \eta\Vert ^2 + \Vert \nu\Vert ^2\big) - k_r\Vert r\Vert ^2,$$
 
 valid when $k_s$ satisfies Lemma 1, i.e. dominates the bounds on $N = g - \hat\Phi$ and
 $\dot N/\alpha$ in integral, not pointwise. $N$ is bounded because projection keeps
-$\|\hat\theta\| \le \bar W$. The observer is discontinuous (sgn), so solutions are taken in the
+$\Vert \hat\theta\Vert  \le \bar W$. The observer is discontinuous (sgn), so solutions are taken in the
 Filippov sense, and the nonsmooth LaSalle–Yoshizawa corollaries of Fischer, Kamalapurkar & Dixon
 [8] apply.
 
@@ -2085,21 +2166,21 @@ is every $\tilde W_\infty$ compatible with the trajectory. Concluding $\tilde W 
 PE of $h(t)$. The weights **stall**, wherever the transient leaves them.
 
 **Theorem 2 (concurrent learning: the state and parameters converge together).**
-Let the rank condition hold from $t_r$ on: $\lambda_{\min}(\Omega_r(t)) \ge \underline\lambda > 0$
+Let the rank condition hold from $t_r$ on: $\lambda_{\min}(\Omega_r(t)) \ge \underline\lambda \gt 0$
 for all $t \ge t_r$. The monotonicity lemma of §8.4 guarantees this with
 $\underline\lambda = \lambda_{\min}(\Omega_r(t_r))$. In the interior of the projection ball,
 
 $$\dot{\tilde W} = -\gamma_h h e^T - \gamma_{CL}\Omega_r\tilde W - \gamma_{CL}E_{\mathcal H},\qquad E_{\mathcal H} = \textstyle\sum_j h_j(\varepsilon_j + \delta_j)^T.$$
 
-Take $V_W = \frac{1}{2\gamma_{CL}}\|\tilde W\|_F^2$. Using $\|h\| \le \sqrt L$ (because $|h_i| < 1$)
-and letting $c = (\gamma_h/\gamma_{CL})\sqrt L$,
+Take $`V_W = \frac{1}{2\gamma_{CL}}\Vert \tilde W\Vert _F^2`$. Using $`\Vert h\Vert  \le \sqrt L`$ (because $`|h_i| \lt 1`$)
+and letting $`c = (\gamma_h/\gamma_{CL})\sqrt L`$,
 
-$$\dot V_W \le -\underline\lambda\|\tilde W\|^2 + c\,\|\tilde W\|\,\|e\| + \|E_{\mathcal H}\|\,\|\tilde W\|,$$
+$$\dot V_W \le -\underline\lambda\Vert \tilde W\Vert ^2 + c\thinspace \Vert \tilde W\Vert \thinspace \Vert e\Vert  + \Vert E_{\mathcal H}\Vert \thinspace \Vert \tilde W\Vert ,$$
 
 with the projection only adding non-positive terms. For the composite
-$V = V_0 + P + \beta V_W$, use $\|e\| \le \|\tilde x_1\| + \|\nu\|$ and Young's inequality twice:
+$V = V_0 + P + \beta V_W$, use $\Vert e\Vert  \le \Vert \tilde x_1\Vert  + \Vert \nu\Vert$ and Young's inequality twice:
 
-$$\dot V \le -\tfrac{\alpha}{2}\big(\|\tilde x_1\|^2 + \|\nu\|^2\big) - \alpha\|\eta\|^2 - k_r\|r\|^2 - \tfrac{\beta\underline\lambda}{2}\|\tilde W\|^2 + \frac{\beta}{\underline\lambda}\sup_t\|E_{\mathcal H}\|^2,\qquad 0 < \beta \le \frac{\alpha\underline\lambda}{4c^2}.$$
+$$\dot V \le -\tfrac{\alpha}{2}\big(\Vert \tilde x_1\Vert ^2 + \Vert \nu\Vert ^2\big) - \alpha\Vert \eta\Vert ^2 - k_r\Vert r\Vert ^2 - \tfrac{\beta\underline\lambda}{2}\Vert \tilde W\Vert ^2 + \frac{\beta}{\underline\lambda}\sup_t\Vert E_{\mathcal H}\Vert ^2,\qquad 0 \lt \beta \le \frac{\alpha\underline\lambda}{4c^2}.$$
 
 1. **Ideal case** ($\varepsilon_j = \delta_j = 0$). $\dot V \le -W(z, \tilde W)$ with $W$
    positive definite in *both* $z$ and $\tilde W$. By LaSalle–Yoshizawa,
@@ -2107,7 +2188,9 @@ $$\dot V \le -\tfrac{\alpha}{2}\big(\|\tilde x_1\|^2 + \|\nu\|^2\big) - \alpha\|
    without PE. Once $e$ has converged, the $\tilde W$ subsystem is exponentially stable with rate
    at least $\gamma_{CL}\underline\lambda$.
 2. **General case.** The system is uniformly ultimately bounded, and
-   $$\limsup_{t\to\infty}\|\tilde W(t)\| \le \frac{\bar e_{\mathcal H} + c\,\limsup\|e\|}{\underline\lambda},\qquad \bar e_{\mathcal H} = \sup\|E_{\mathcal H}\| \le \sqrt L\,N(\bar\varepsilon + \bar\delta).$$
+   ```math
+   \limsup_{t\to\infty}\Vert \tilde W(t)\Vert  \le \frac{\bar e_{\mathcal H} + c\thinspace \limsup\Vert e\Vert }{\underline\lambda},\qquad \bar e_{\mathcal H} = \sup\Vert E_{\mathcal H}\Vert  \le \sqrt L\thinspace N(\bar\varepsilon + \bar\delta).
+   ```
    The ball shrinks as the stack becomes more informative ($\underline\lambda\uparrow$) and as the
    model and proxy errors vanish.
 3. **Switching.** $\Omega_r(t)$ and $E_{\mathcal H}(t)$ are piecewise constant, changing at stack
@@ -2115,7 +2198,7 @@ $$\dot V \le -\tfrac{\alpha}{2}\big(\|\tilde x_1\|^2 + \|\nu\|^2\big) - \alpha\|
    $\underline\lambda$ bounds every one of them. No dwell-time condition is needed.
 
 The theorem is checked directly: with realizable targets, no excitation at all
-($y = \hat x$, $u = 0$) and the instantaneous law off, $\|\hat W_h - W^\ast\|$ decays at least
+($y = \hat x$, $u = 0$) and the instantaneous law off, $\Vert \hat W_h - W^\ast\Vert$ decays at least
 as fast as $e^{-\gamma_{CL}\underline\lambda t}$ and falls by more than 10³
 (`test_cl_converges_exponentially_to_true_parameters_without_excitation`). The standard law on
 the same data does not move (`test_standard_law_does_not_identify_without_excitation`).
@@ -2131,11 +2214,11 @@ equilibrium. The initial cart state is chosen so the cart stays centred on the t
 
 ![Rank condition and parameter convergence](figures/approach_c/rank_condition.png)
 
-*Figure 13. Left column: the decaying command. Right column: the single-frequency command. Row 1:
+**Figure 13.** Left column: the decaying command. Right column: the single-frequency command. Row 1:
 history-stack $\lambda_{\min}(\Omega)$ against the sliding-window excitation of the instantaneous
 regressor. Row 2: distance of each readout to its own CL fixed point $W_{\mathcal H}$ (every
 observer records a stack; only C adapts on it). Row 3: readout drift,
-$\|\hat\theta_h(t) - \hat\theta_h(t-5\,\mathrm{s})\|/5$. Row 4: online θ̈ model error.*
+$\Vert \hat\theta_h(t) - \hat\theta_h(t-5\thinspace \mathrm{s})\Vert /5$. Row 4: online θ̈ model error.
 
 > **What it shows.**
 > - **Row 1.** After 2.5–2.7 s the stack's information (orange) jumps from zero to about 10⁻²
@@ -2221,7 +2304,7 @@ predicting the mean.
 **Why full-length free runs are not used as the headline metric.** All the tests run near the
 **hanging** equilibrium; the upright one cannot be held by a prescribed open-loop input. There
 the linearized plant has poles
-$\{0,\ -0.019,\ -0.020 \pm 2.537j\}$. Two things follow:
+$\lbrace 0,\ -0.019,\ -0.020 \pm 2.537j\rbrace$. Two things follow:
 
 - **Cart.** The cart is a free double integrator with a very slow damping pole, so any constant
   error in the modelled force integrates twice into position drift.
@@ -2256,9 +2339,9 @@ Medians over 3 seeds; lower is better; the better of A and C is in bold.
 
 ![Prediction benchmark](figures/approach_c/prediction_benchmark.png)
 
-*Figure 14. The frozen A (blue) and C (orange) models on the four unseen test inputs. Top: one-step
+**Figure 14.** The frozen A (blue) and C (orange) models on the four unseen test inputs. Top: one-step
 acceleration error. Bottom: 0.5 s position-prediction error. Bars are medians over 3 seeds;
-whiskers span min to max; the dashed line is NMSE = 1.*
+whiskers span min to max; the dashed line is NMSE = 1.
 
 > **What it shows.** On the chirp and multisine, C's bars are lower in every panel, by up to
 > 3.5×. On the step doublet the two are close, with A ahead only on cart acceleration. On the
@@ -2273,8 +2356,8 @@ whiskers span min to max; the dashed line is NMSE = 1.*
 
 ![Chirp short-horizon predictions](figures/approach_c/short_horizon_chirp.png)
 
-*Figure 15. Chirp test, seed 0. Each model predicts the pendulum angle 0.5 s ahead, and is
-restarted from the true state every 0.5 s. Black: truth. Blue: A. Orange: C.*
+**Figure 15.** Chirp test, seed 0. Each model predicts the pendulum angle 0.5 s ahead, and is
+restarted from the true state every 0.5 s. Black: truth. Blue: A. Orange: C.
 
 > **What it shows.** The vertical jumps every 0.5 s are the restarts, where each prediction is
 > reset to the truth. Between restarts, A's predictions often run away from the truth, for
@@ -2374,10 +2457,10 @@ C [0.0081, 0.0100].
 
 ![Approach A vs Approach C](figures/comparisons/a_vs_c.png)
 
-*Figure 16. Approach A against Approach C on the shared benchmark, with their x-free variants.
+**Figure 16.** Approach A against Approach C on the shared benchmark, with their x-free variants.
 Panels from left: steady-state pendulum-velocity error, pendulum-velocity error during start-up
 (0.1–5 s), held-out one-step acceleration error, held-out 0.5 s angle-prediction error. Bars are
-medians; whiskers span min to max over seeds (and held-out inputs). All axes are logarithmic.*
+medians; whiskers span min to max over seeds (and held-out inputs). All axes are logarithmic.
 
 > **What it shows.** In the two velocity panels, A (blue) and C (light green) are close on S1
 > and S3, with C slightly lower, but C is almost twice as high as A on S2 in steady state. In the
@@ -2431,12 +2514,12 @@ Defaults of `CLLbLSTMObserverConfig`:
 | `gamma_gates` | 0 | Instantaneous gate law (A uses 30); off in C |
 | `gamma_cl` | 50 | Readout CL gain (implicit step) |
 | `gamma_cl_gates` | 5 | Gate CL gain (explicit step); 0 gives the frozen-gate configuration of Theorem 2 |
-| `cl_normalize_outputs` | False | Optional weighting $\Lambda = \mathrm{diag}(1/\mathrm{Var}\,\ddot x_i)$ of the CL residuals. It performed worse on the benchmark and is off. |
+| `cl_normalize_outputs` | False | Optional weighting $\Lambda = \mathrm{diag}(1/\mathrm{Var}\thinspace \ddot x_i)$ of the CL residuals. It performed worse on the benchmark and is off. |
 | `stack_capacity` | 48 | $N \ge L$ is required for the rank condition |
 | `record_start, record_interval` | 2 s, 20 ms | Warm-up (observer transient) and candidate spacing |
 | `novelty_tol, min_rel_improvement` | 0.05, 1e-3 | Recording-policy thresholds (§8.4) |
 | `sg_window, sg_order` | 0.25 s, 3 | Acceleration proxy (§8.5) |
-| `w_bar` | 80 | $\|\theta\|$ bound; about 19 of it is the random gate initialization |
+| `w_bar` | 80 | $\Vert \theta\Vert$ bound; about 19 of it is the random gate initialization |
 
 These defaults were chosen with the 3-seed benchmark of §8.9 itself, among a small set of variants
 (frozen or CL-driven gates, gate gain 1–20, output weighting on or off, capacity 48–160). The
@@ -2480,9 +2563,9 @@ needed (integral CL [11]).
 
 ![Observer block diagram, Approach D](figures/diagrams/approach_d_observer_block_diagram.svg)
 
-*Diagram 10. Block diagram of the PI-ICL observer. The filter, the feedback $\chi$ and the robust
+**Diagram 10.** Block diagram of the PI-ICL observer. The filter, the feedback $\chi$ and the robust
 term are those of §5. The model is a linear-in-parameters Euler–Lagrange model (§9.2). The dashed
-path is integral concurrent learning, detailed in Diagram 11 (§9.5).*
+path is integral concurrent learning, detailed in Diagram 11 (§9.5).
 
 B's main open problem was incomplete inertia identification: 16 % error, and $\hat M_{22}$ does
 not follow a change of the pendulum (§7.10). Approach D identifies all four rigid-body
@@ -2522,9 +2605,9 @@ B's extreme-condition scenario and metrics (§7.8.1): a 50 s run starting 0.5 ra
 
 $$M(q)\ddot q + C(q,\dot q)\dot q + G(q) + F(\dot q) = Bu$$
 
-$$M(q) = \sum_{e=(i\le j)}\sum_k \theta_{e,k}\,\rho_k(q)\,E_e,\qquad C\dot q = \dot M\dot q - \tfrac12\partial_q(\dot q^TM\dot q),\qquad G = \partial_q P,\ P = \sum_{k\ge1} w_{G,k}\rho_k(q),$$
+$$M(q) = \sum_{e=(i\le j)}\sum_k \theta_{e,k}\thinspace \rho_k(q)\thinspace E_e,\qquad C\dot q = \dot M\dot q - \tfrac12\partial_q(\dot q^TM\dot q),\qquad G = \partial_q P,\ P = \sum_{k\ge1} w_{G,k}\rho_k(q),$$
 
-$$F = \mathrm{diag}(d_v)\,\dot q + \mathrm{diag}(d_c)\tanh(\dot q / v_c),\qquad d_v, d_c \ge 0.$$
+$$F = \mathrm{diag}(d_v)\thinspace \dot q + \mathrm{diag}(d_c)\tanh(\dot q / v_c),\qquad d_v, d_c \ge 0.$$
 
 The features $\rho(q) = [1, \cos\theta, \sin\theta]$ are B's feature layer (§7.2.3), with $x$
 cyclic, so it is not embedded. With first harmonics ($K = 1$) there are $p = 15$ parameters. The
@@ -2543,11 +2626,11 @@ unidentifiable.
 
 Positive-definiteness moves from B's Cholesky parametrization (valid for every $\theta$) to a
 projection. This is the price of linearity. The set
-$\{\theta : M(q_g;\theta) \succeq \epsilon_M I\}$ over a grid of angles $q_g$ is an intersection
+$\lbrace \theta : M(q_g;\theta) \succeq \epsilon_M I\rbrace$ over a grid of angles $q_g$ is an intersection
 of LMIs, each linear in $\theta$, so it is convex.
 
 **Exactness.** The true rig is one point of this family:
-$\theta^\ast = \{m_{11} = M+m,\ m_{12} = ml\cos\theta,\ m_{22} = I + ml^2,\ P = mgl\cos\theta,\ d_v = (b, d)\}$.
+$\theta^\ast = \lbrace m_{11} = M+m,\ m_{12} = ml\cos\theta,\ m_{22} = I + ml^2,\ P = mgl\cos\theta,\ d_v = (b, d)\rbrace$.
 It reproduces the plant's accelerations to $10^{-15}$ (`test_true_parameters_reproduce_the_plant`).
 *True parameter convergence* therefore has a concrete meaning here, which it cannot have for the
 LSTM models of Approaches A–C. A linear-in-parameters robot model of this kind goes back to
@@ -2559,15 +2642,15 @@ Every term of the model has an analytic regressor that is linear in $\theta$:
 
 | Regressor | Equals |
 |:---|:---|
-| Torque $Y(q,\dot q,a)\,\theta$ | $Ma + C\dot q + G + F$ |
-| Momentum $Y_{mom}\,\theta$ | $M\dot q$ |
-| Integrand $Y_{int}\,\theta$ | $-\tfrac12\partial_q(\dot q^TM\dot q) + G + F$ |
+| Torque $Y(q,\dot q,a)\thinspace \theta$ | $Ma + C\dot q + G + F$ |
+| Momentum $Y_{mom}\thinspace \theta$ | $M\dot q$ |
+| Integrand $Y_{int}\thinspace \theta$ | $-\tfrac12\partial_q(\dot q^TM\dot q) + G + F$ |
 
 Because $\frac{d}{dt}(M\dot q) - \frac12\partial_q(\dot q^TM\dot q) = M\ddot q + C\dot q$,
 integrating the equations of motion over a window $[t-\Delta, t]$ gives the **ICL identity**
 (Parikh, Kamalapurkar & Dixon [11]):
 
-$$\underbrace{[Y_{mom}]_{t-\Delta}^{t} + \int_{t-\Delta}^{t}Y_{int}\,d\tau}_{\mathcal Y_j}\ \theta^\ast = \underbrace{\int_{t-\Delta}^{t}Bu\,d\tau}_{b_j}.$$
+$$\underbrace{[Y_{mom}]_{t-\Delta}^{t} + \int_{t-\Delta}^{t}Y_{int}\thinspace d\tau}_{\mathcal Y_j}\ \theta^\ast = \underbrace{\int_{t-\Delta}^{t}Bu\thinspace d\tau}_{b_j}.$$
 
 It needs positions and velocities only. They come from a causal, delayed-centre Savitzky–Golay
 smoother [18]: 0.1 s cubic fit, evaluated 50 ms back (`src/concurrent_learning/savitzky_golay.py`).
@@ -2599,7 +2682,7 @@ collapses: $I + ml^2$ comes out as 0.02 instead of 0.129 with the 0.1 s smoother
 Smoothing is not the problem; noise is. The pendulum row has no input ($B_2 = 0$), so its
 equation is **homogeneous**: $\mathcal Y_{2}\theta^\ast = 0$. Least squares with noisy
 regressors then shrinks the row towards $\theta = 0$ (errors-in-variables attenuation [19]). Only
-the small cart–pendulum coupling term $ml\cos\theta\,\ddot x$ resists, because $ml$ is pinned by
+the small cart–pendulum coupling term $ml\cos\theta\thinspace \ddot x$ resists, because $ml$ is pinned by
 the cart row. The ratio $mgl/(I+ml^2) = \omega^2$ survives; the absolute scale does not. B
 showed the same limit: "the learned $\hat M_{22}$ stays wrong while the ratio is right" (§7.9).
 
@@ -2617,7 +2700,7 @@ project builds on ([1], [4], [5]). It is specific to underactuated systems.
 row by its leading coefficient $J = [M_{22}]_{const}$. Take the columns it shares with the cart
 row (the coupling inertia) from the cart-row estimate $\phi_A$. That leaves
 
-$$\kappa\,z + \sum_{c\ \text{own}}\mathcal Y_{2c}\,\psi_c = -\mathcal Y_{2J},\qquad z = \sum_{c\ \text{shared}}\mathcal Y_{2c}\,\phi_{A,c},\quad \kappa = 1/\phi_J,\quad \psi_c = \phi_c/\phi_J.$$
+$$\kappa\thinspace z + \sum_{c\ \text{own}}\mathcal Y_{2c}\thinspace \psi_c = -\mathcal Y_{2J},\qquad z = \sum_{c\ \text{shared}}\mathcal Y_{2c}\thinspace \phi_{A,c},\quad \kappa = 1/\phi_J,\quad \psi_c = \phi_c/\phi_J.$$
 
 The noisy momentum term $\mathcal Y_{2J} = \Delta\dot\theta$ is now the **target**, and noise in
 the target causes no bias. The regressors are built from positions and from $\dot x$. On this rig
@@ -2640,18 +2723,18 @@ unobservable, and the constructor refuses it.
 
 ![PI-ICL pipeline](figures/diagrams/approach_d_pi_icl_pipeline.svg)
 
-*Diagram 11. The identification pipeline. Encoder data are smoothed to positions and velocities only
+**Diagram 11.** The identification pipeline. Encoder data are smoothed to positions and velocities only
 (no $\ddot q$) and integrated over 0.25 s windows into the ICL identity (§9.3). Windows enter two
 history stacks through a novelty and minimum-singular-value test. The actuated row is solved by
 ordinary least squares with a noise-free target, and the unactuated row in the normalized form of
 §9.4. The combined estimate $\phi_H$ drives the CL term once the rank gate opens. Projections keep the
 inertia positive definite and the friction dissipative. A residual-based detector purges the stacks
-after a plant change.*
+after a plant change.
 
 In scaled parameters $\phi = \theta / s$, where $s$ holds unit scales derived from the inertia
 prior:
 
-$$\dot\phi = \underbrace{-\gamma\, s\odot Y(\hat q, \hat{\dot q}, \hat\Phi)^T e}_{\text{instantaneous (B's kinetic metric)}} + \underbrace{\gamma_{CL}\,(\phi_H - \phi)}_{\text{integral CL}},\qquad \hat\Phi = \hat M^{-1}(Bu - Y_{rest}\,\theta).$$
+$$\dot\phi = \underbrace{-\gamma\thinspace  s\odot Y(\hat q, \hat{\dot q}, \hat\Phi)^T e}_{\text{instantaneous (B's kinetic metric)}} + \underbrace{\gamma_{CL}\thinspace (\phi_H - \phi)}_{\text{integral CL}},\qquad \hat\Phi = \hat M^{-1}(Bu - Y_{rest}\thinspace \theta).$$
 
 - **Instantaneous term.** Since $\partial\hat\Phi/\partial\theta = -\hat M^{-1}Y(\hat q,\hat{\dot q},\hat\Phi)$,
   this term is the gradient of $\tfrac12 e^T\hat M e$. That is B's kinetic metric (§7.5), with
@@ -2682,7 +2765,7 @@ row *invariant* ($\omega^2$ and $ml/J$ unchanged). Observed ratios: at most 4.9 
 the filter Lyapunov function of §5 with its RISE term (§5.5, and §7.4 for the kinetic metric).
 Between stack updates $\phi_H$ is constant, and
 
-$$\dot{\tilde\phi} = -\gamma_{CL}\tilde\phi + \gamma_{CL}(\phi^\ast - \phi_H) + \gamma\, s\odot Y^Te.$$
+$$\dot{\tilde\phi} = -\gamma_{CL}\tilde\phi + \gamma_{CL}(\phi^\ast - \phi_H) + \gamma\thinspace  s\odot Y^Te.$$
 
 Take $V = V_0 + P + \tfrac{\beta}{2}\lVert\tilde\phi\rVert^2$. The regressors are bounded on
 the compact set kept invariant by the projections, so $\lVert s\odot Y^Te\rVert \le c\lVert e\rVert$
@@ -2734,10 +2817,10 @@ metric definitions are imported unchanged from `experiments/run_pilstm_validatio
 
 ![Parameter tracking](figures/approach_d/parameter_tracking.png)
 
-*Figure 17. Seed 0. D's physical reading of its parameters (green) against the truth (black), for
+**Figure 17.** Seed 0. D's physical reading of its parameters (green) against the truth (black), for
 the four rigid-body quantities $M+m$, $ml$, $I+ml^2$ and $mgl$. For comparison: B's $\hat M_{11}$
 and $\hat M_{22}$ at $\hat q$ (red), and D with concurrent learning off (yellow). The dotted line
-marks the purge 0.4 s after the step.*
+marks the purge 0.4 s after the step.
 
 > **What it shows.** For the first 3 s D stays at its prior. Once its rank gate opens it jumps
 > almost onto the truth: $M+m$ and $ml$ exactly, $I+ml^2$ near 0.12 against 0.129, and $mgl$
@@ -2753,9 +2836,9 @@ marks the purge 0.4 s after the step.*
 
 ![Rank condition](figures/approach_d/rank_condition.png)
 
-*Figure 18. Seed 0. Top: the information ($\lambda_{\min}$) in the actuated stack and in the
+**Figure 18.** Seed 0. Top: the information ($\lambda_{\min}$) in the actuated stack and in the
 normalized pendulum-row regression, against the CL gate $\bar\lambda$ (dashed). Bottom: number of
-windows stored.*
+windows stored.
 
 > **What it shows.** Both curves cross the gate about 3 s after the start, keep rising to about
 > 10⁻³, collapse to zero at the purge just after 25 s, and cross the gate again about 3 s later.
@@ -2776,8 +2859,8 @@ windows stored.*
 
 ![Velocity error](figures/approach_d/velocity_error.png)
 
-*Figure 19. Seed 0. 0.5 s RMS velocity error of A, B and D over the whole run. Top: cart. Bottom:
-pendulum. Log scale; the mass step is at 25 s.*
+**Figure 19.** Seed 0. 0.5 s RMS velocity error of A, B and D over the whole run. Top: cart. Bottom:
+pendulum. Log scale; the mass step is at 25 s.
 
 > **What it shows.** From about 5 s on, D (green) has the lowest error in both channels: about
 > 0.002 m/s on the cart and 0.015 rad/s on the pendulum. B reaches the same level only after 12–20
@@ -2801,8 +2884,8 @@ true energy reflects its 4–8 % error in $I+ml^2$ and $mgl$.
 
 ![Free swing](figures/approach_d/free_swing.png)
 
-*Figure 20. Seed 0. The models frozen at 50 s, released from rest at $\theta = \pi - 1$ with no
-input, against the true post-shift pendulum.*
+**Figure 20.** Seed 0. The models frozen at 50 s, released from rest at $\theta = \pi - 1$ with no
+input, against the true post-shift pendulum.
 
 > **What it shows.** B (red) and D (green) both swing with the right amplitude and nearly the
 > right frequency for 10 s; by the end D runs slightly ahead of the truth and B slightly behind.
@@ -2904,9 +2987,9 @@ Results on the three benchmark scenarios, medians over 5 seeds (§10.6, §11):
 
 ![Observer block diagram, Approach E](figures/diagrams/approach_e_observer_block_diagram.svg)
 
-*Diagram 12. Block diagram of the hybrid observer. The filter, the feedback $\chi$ and the robust
+**Diagram 12.** Block diagram of the hybrid observer. The filter, the feedback $\chi$ and the robust
 term are those of §5. The model is D's linear-in-parameters Euler–Lagrange model. The adaptation
-block blends the two laws (Diagram 13, §10.3).*
+block blends the two laws (Diagram 13, §10.3).
 
 ### 10.1 What comes from each parent
 
@@ -2921,7 +3004,7 @@ block blends the two laws (Diagram 13, §10.3).*
 
 The model is D's (`src/observers/el_linear_model.py`):
 
-$$M(q)\ddot q + C(q,\dot q)\dot q + G(q) + F(\dot q) = Bu,\qquad \hat\Phi = \hat M^{-1}\big(Bu - Y_{rest}(\hat q,\hat{\dot q})\,\hat\theta - F_{res}\big),$$
+$$M(q)\ddot q + C(q,\dot q)\dot q + G(q) + F(\dot q) = Bu,\qquad \hat\Phi = \hat M^{-1}\big(Bu - Y_{rest}(\hat q,\hat{\dot q})\thinspace \hat\theta - F_{res}\big),$$
 
 with features $\rho(q) = [1, \cos\theta, \sin\theta]$, 15 parameters of which 13 are free (§10.2), and
 $F_{res} = 0$ unless the residual is enabled.
@@ -2966,10 +3049,10 @@ does depend on its own coordinate, such as a closed kinematic loop.
 
 ![Blend of the two laws](figures/diagrams/approach_e_blend_flow.svg)
 
-*Diagram 13. How one adaptation step is formed. The stacks supply the information matrix $\Omega$.
+**Diagram 13.** How one adaptation step is formed. The stacks supply the information matrix $\Omega$.
 It splits parameter space into identified directions, which integral concurrent learning moves
 towards the stack solution, and weak directions, which the instantaneous law moves along the
-current error. The two shares always add up to the identity.*
+current error. The two shares always add up to the identity.
 
 **The two laws.** For a stack with information matrix $\Omega = \sum_j \mathcal Y_j^T\mathcal Y_j$
 and cross term $c = \sum_j \mathcal Y_j^T b_j$ (so that $\Omega\phi^\ast = c$ for exact windows):
@@ -2977,18 +3060,18 @@ and cross term $c = \sum_j \mathcal Y_j^T b_j$ (so that $\Omega\phi^\ast = c$ fo
 - D pulls $\phi$ to the least-squares solution at the same rate in every direction:
   $\dot\phi = \gamma_{CL}(\phi_{LS} - \phi)$. This Newton form divides by the eigenvalues of
   $\Omega$, so it amplifies noise in weakly excited directions, and it must sit behind a rank gate.
-- B descends the instantaneous error: $\dot\phi = -\gamma\, g$, with $g = s\odot Y^Te$ the gradient
+- B descends the instantaneous error: $\dot\phi = -\gamma\thinspace  g$, with $g = s\odot Y^Te$ the gradient
   of the kinetic metric $\tfrac12 e^T\hat Me$. It needs no identifiability, but it only makes the
   model right along the current trajectory.
 
-**The blend.** With a damping constant $\lambda > 0$, define
+**The blend.** With a damping constant $\lambda \gt 0$, define
 
 $$W_s = \Omega(\Omega + \lambda I)^{-1},\qquad W_w = \lambda(\Omega + \lambda I)^{-1} = I - W_s.$$
 
 $W_s$ and $W_w$ share the eigenvectors of $\Omega$. In a direction with eigenvalue $\mu$ their
 gains are $\mu/(\mu+\lambda)$ and $\lambda/(\mu+\lambda)$. The adaptation law is
 
-$$\dot\phi = \underbrace{-\gamma\,W_w\,g}_{\text{instantaneous (B), weak directions}} + \underbrace{\gamma_{CL}\,W_s(\phi_{LS} - \phi)}_{\text{integral CL (D), identified directions}},\qquad W_s(\phi_{LS} - \phi) = (\Omega + \lambda I)^{-1}(c - \Omega\phi).$$
+$$\dot\phi = \underbrace{-\gamma\thinspace W_w\thinspace g}_{\text{instantaneous (B), weak directions}} + \underbrace{\gamma_{CL}\thinspace W_s(\phi_{LS} - \phi)}_{\text{integral CL (D), identified directions}},\qquad W_s(\phi_{LS} - \phi) = (\Omega + \lambda I)^{-1}(c - \Omega\phi).$$
 
 - **Identified directions** ($\mu \gg \lambda$) follow D. The instantaneous law is switched off
   there, so it cannot fight the stack estimate.
@@ -3013,11 +3096,11 @@ boundary. Values from 0.005 to 0.03 give the same steady-state error to within 1
 
 ![Information weights](figures/approach_e/information_weights.png)
 
-*Figure 21. Seed 0. Each horizontal band is one eigen-direction of a stack (pendulum row above,
+**Figure 21.** Seed 0. Each horizontal band is one eigen-direction of a stack (pendulum row above,
 cart row below, weakest at the bottom of each). The colour is the share $\mu/(\mu+\lambda)$ of
 that direction given to integral concurrent learning: dark blue = identified from stored data,
 light grey = left to the instantaneous law. Left: hanging (small swings). Right: swing-through
-with the mass step.*
+with the mass step.
 
 > **What it shows.** Nothing is drawn for the first 3–4 s, before the stacks hold enough windows:
 > E is then a pure instantaneous learner. On small swings (left), the top bands turn dark, but the
@@ -3034,7 +3117,7 @@ with the mass step.*
 
 `residual=True` adds B's friction block (§7.3.3) to the model:
 
-$$F_{res} = \mathrm{diag}(d)\,\hat{\dot q},\qquad d_i = d^0_i\,\mathrm{softplus}(\phi_{F,i} - 3) \ge 0,$$
+$$F_{res} = \mathrm{diag}(d)\thinspace \hat{\dot q},\qquad d_i = d^0_i\thinspace \mathrm{softplus}(\phi_{F,i} - 3) \ge 0,$$
 
 where $\phi_F$ is the readout of an 8-cell continuous-time LSTM on the estimated velocities. It is
 adapted by the instantaneous law in the kinetic metric. It can only dissipate
@@ -3046,7 +3129,7 @@ exactly, so the residual has nothing to learn. It is kept for hardware, where fr
 history. Two limits should be kept in mind when it is enabled:
 
 - the integral-CL windows do not include $F_{res}$, so the stack estimate treats it as unmodelled;
-- it starts as a small extra damping, $0.049\,d^0_i$.
+- it starts as a small extra damping, $0.049\thinspace d^0_i$.
 
 ### 10.5 Stability and convergence (sketch)
 
@@ -3054,7 +3137,7 @@ Let $V_0 + P$ be the filter Lyapunov function of §5 with its RISE term, and
 $\tilde\phi = \phi^\ast - \phi$. For exact windows, $c = \Omega\phi^\ast$, and between stack
 updates
 
-$$\dot{\tilde\phi} = -\gamma_{CL}\,W_s\,\tilde\phi + \gamma\,W_w\,g.$$
+$$\dot{\tilde\phi} = -\gamma_{CL}\thinspace W_s\thinspace \tilde\phi + \gamma\thinspace W_w\thinspace g.$$
 
 $W_s$ is symmetric positive semidefinite, with smallest eigenvalue
 $\underline\mu/(\underline\mu + \lambda)$ on the span of the identified directions, and
@@ -3062,7 +3145,7 @@ $\lVert W_w\rVert \le 1$. With $V = V_0 + P + \tfrac{\beta}{2}\lVert\tilde\phi\r
 $\lVert g\rVert \le c_g\lVert e\rVert$ on the compact set kept invariant by the projections, and
 Young's inequality:
 
-$$\dot V \le -\tfrac{\alpha}{2}\big(\lVert\tilde x_1\rVert^2 + \lVert\nu\rVert^2\big) - \alpha\lVert\eta\rVert^2 - k_r\lVert r\rVert^2 - \beta\gamma_{CL}\,\tilde\phi^TW_s\tilde\phi + \beta\gamma c_g\lVert\tilde\phi\rVert\lVert e\rVert.$$
+$$\dot V \le -\tfrac{\alpha}{2}\big(\lVert\tilde x_1\rVert^2 + \lVert\nu\rVert^2\big) - \alpha\lVert\eta\rVert^2 - k_r\lVert r\rVert^2 - \beta\gamma_{CL}\thinspace \tilde\phi^TW_s\tilde\phi + \beta\gamma c_g\lVert\tilde\phi\rVert\lVert e\rVert.$$
 
 - **State errors.** They behave as in Approaches A–D: asymptotic convergence if $k_s$ meets the
   RISE bound, uniform ultimate boundedness at the tuned $k_s = 0.2$.
@@ -3113,8 +3196,8 @@ are in §11.3, next to the other approaches.
 
 ![Velocity error](figures/approach_e/velocity_error.png)
 
-*Figure 22. Seed 0. 0.5 s RMS pendulum-velocity error of B, D and E on the three scenarios (log
-scale).*
+**Figure 22.** Seed 0. 0.5 s RMS pendulum-velocity error of B, D and E on the three scenarios (log
+scale).
 
 > **What it shows.** On the hanging scenario (left), D's error (yellow) returns in bursts of
 > 0.05–0.1 rad/s around 8–15 s, 25–28 s and 37–40 s, while B and E stay near 0.01. On the
@@ -3156,8 +3239,8 @@ Relative error of the physical parameters read from the model at the end of the 
 
 ![Parameter tracking](figures/approach_e/parameter_tracking.png)
 
-*Figure 23. Seed 0. The four physical parameters read from D (yellow) and E (purple) against the
-truth (dashed). Top row: hanging scenario. Bottom row: swing-through with the mass step at 25 s.*
+**Figure 23.** Seed 0. The four physical parameters read from D (yellow) and E (purple) against the
+truth (dashed). Top row: hanging scenario. Bottom row: swing-through with the mass step at 25 s.
 
 > **What it shows.** On the hanging scenario, D's $I+ml^2$ shoots off the top of the axes at
 > about 5 s and never returns, and its $mgl$ settles near 0.62 against 0.81. E's $M+m$,
@@ -3170,7 +3253,7 @@ truth (dashed). Top row: hanging scenario. Bottom row: swing-through with the ma
 > swings at all (explained below), but the inertia matrix as a whole is still right to 0.2 %.
 
 **The coupling inertia $ml$ on small swings.** $M_{12} = c_0 + ml\cos\theta$, and near
-$\theta = \pi$ the data fix only $c_0 - ml$. The reading "$ml$" is then off by 31–36 % for both D
+$\theta = \pi$ the data fix only $c_0 - ml$. The reading of $ml$ is then off by 31–36 % for both D
 and E, while $M_{12}$ itself, and with it the whole inertia matrix, is right to 0.2 %. This split
 is not identifiable from small swings. On the swing-through, $ml$ is within 1 %.
 
@@ -3266,10 +3349,10 @@ The common observer structure is Diagram 3 (§5).
 
 ![Benchmark harness](figures/diagrams/benchmark_harness.svg)
 
-*Diagram 14. How every approach is evaluated. The seven models run online on the three training
+**Diagram 14.** How every approach is evaluated. The seven models run online on the three training
 scenarios, which gives the velocity metrics. Each is then frozen, decoupled from its observer and
 driven by held-out inputs, which gives the prediction metrics. The gated warm start (§11.6) is an
-optional wrapper around the online run.*
+optional wrapper around the online run.
 
 **Training scenarios.** Each is the validation scenario of one approach, reproduced exactly
 (`src/benchmark/scenarios.py`):
@@ -3327,9 +3410,9 @@ compared with A and C in §8.10.
 
 ![Velocity](figures/shared_benchmark/velocity.png)
 
-*Figure 24. All seven models on the three scenarios. Left: steady-state pendulum-velocity error.
+**Figure 24.** All seven models on the three scenarios. Left: steady-state pendulum-velocity error.
 Middle: steady-state cart-velocity error. Right: peak pendulum-velocity error during start-up
-(0.1–2 s). Bars are medians over 5 seeds; whiskers span min to max; log scale.*
+(0.1–2 s). Bars are medians over 5 seeds; whiskers span min to max; log scale.
 
 > **What it shows.** In the left panel, E (purple) has the shortest bar in all three scenarios.
 > D (yellow) is tall on S1, and C and C-x (greens) are the tallest on S2. In the middle panel,
@@ -3406,10 +3489,10 @@ Bold marks the best of all seven models. Among A–D alone, B is best after S1 a
 
 ![Held-out](figures/shared_benchmark/held_out.png)
 
-*Figure 25. All seven models, frozen after training on each scenario, predicting the four held-out
+**Figure 25.** All seven models, frozen after training on each scenario, predicting the four held-out
 inputs. Left: one-step pendulum-acceleration error. Middle: one-step cart-acceleration error.
 Right: 0.5 s pendulum-angle prediction error. Bars are medians; whiskers span min to max; log
-scale over nine decades.*
+scale over nine decades.
 
 > **What it shows.** The bars split into two groups. The black boxes (A, C, A-x, C-x) sit mostly
 > between 0.1 and 100, often around or above 1, i.e. no better than predicting the average. The
@@ -3489,7 +3572,7 @@ cart starts moving, at the drift-cancelling velocity, while the pendulum starts 
 2. **Fit.** Fit a quadratic and differentiate it at the last sample (a causal Savitzky–Golay
    end-point estimate).
 3. **Gate.** For each coordinate, test whether the fitted velocity is significant:
-   $|\dot q_{fit}| > 3\sigma_v$, with $\sigma_v$ taken from the fit residual.
+   $|\dot q_{fit}| \gt 3\sigma_v$, with $\sigma_v$ taken from the fit residual.
 4. **Inject.** For significant coordinates only, overwrite the position and velocity estimates
    with the fit, and re-initialize that coordinate's auxiliary filter exactly as at start-up
    ($p = (\alpha + k_r)\tilde q$, $\nu = 0$).
@@ -3519,9 +3602,9 @@ better):
 
 ![Warm start](figures/shared_benchmark/warm_start.png)
 
-*Figure 26. Start-up error (RMSE over 0.1–5 s) with cold start (light, left bar of each pair) and
+**Figure 26.** Start-up error (RMSE over 0.1–5 s) with cold start (light, left bar of each pair) and
 warm start (solid, right bar), per model and scenario. Top: cart velocity. Bottom: pendulum
-velocity.*
+velocity.
 
 > **What it shows.** In the top row, every solid bar is shorter than its light partner, often
 > several times shorter: B, D and E drop the most, to about a quarter or less of their
@@ -3646,7 +3729,7 @@ each point is worked out in full.
 | Feedback coefficients | The feedback $\chi$ must match the Lyapunov function it is derived from | With the filter of [4] and an unweighted Lyapunov function, exact cancellation needs the coefficient $(2-\alpha^2)$; [4] prints $(\alpha^2+2)$, which leaves a bounded residual (§5.2–§5.3) |
 | LSTM Jacobians | The output-gate Jacobian needs the factor $(z^T\otimes I_{l_2})$ to have the right dimension | §6.2, checked against finite differences |
 | Jacobian meaning | The Jacobian of the static map, with the memories held fixed, is an approximation of the true sensitivity | §6.2, caveat |
-| EKF prediction | The covariance update needs the discrete transition, not the continuous Jacobian | $F_k \approx I + T_s\,\partial f/\partial x\rvert_{\hat x_k}$, or integrate the Riccati equation between samples, as the continuous–discrete EKF of §4 does |
+| EKF prediction | The covariance update needs the discrete transition, not the continuous Jacobian | $F_k \approx I + T_s\thinspace \partial f/\partial x\rvert_{\hat x_k}$, or integrate the Riccati equation between samples, as the continuous–discrete EKF of §4 does |
 | High-gain observer noise | The noise gain depends on which state is estimated | For an $N$-th order HGO, the $i$-th state estimate carries noise gain $O(\epsilon^{-(i-1)})$ [12], [22], so the velocity estimate is $O(1/\epsilon)$. Peaking of the $i$-th state is also $O(\epsilon^{-(i-1)})$ |
 | Pendulum inertia | $(I + ml^2)\ddot\theta$ means $I$ is taken about the centre of mass | The plant's $I = 0.099$ kg m² is the centroidal inertia (§2.3) |
 | Benchmarks | [1], [4] and [5] all use a fully actuated two-link manipulator | The underactuated cart–pendulum raises issues those papers do not face: identifiability of unactuated rows (§9.4), rank attainability (§8.2), discretization (§6.4), input design (§11.5) |
