@@ -122,8 +122,9 @@ history (§14.3).
   - [11.8 Caveats](#118-caveats)
 - [12. Evaluating on recorded rig data](#12-evaluating-on-recorded-rig-data)
   - [12.1 Recording folder](#121-recording-folder)
-  - [12.2 Running it](#122-running-it)
-  - [12.3 What is reported, and what it can show](#123-what-is-reported-and-what-it-can-show)
+  - [12.2 Recording protocol](#122-recording-protocol)
+  - [12.3 Running the evaluation](#123-running-the-evaluation)
+  - [12.4 What is reported, and what it can show](#124-what-is-reported-and-what-it-can-show)
 - [13. Literature review and result cross-verification](#13-literature-review-and-result-cross-verification)
   - [13.1 Theory: points that need care](#131-theory-points-that-need-care)
   - [13.2 Published claims, checked against our results](#132-published-claims-checked-against-our-results)
@@ -333,7 +334,9 @@ Other options: `--workers N`, `--no-plots`.
 
 ### Real-rig data commands
 
-Replays recordings from the physical rig through the observers (§12).
+Replays recordings from the physical rig through the observers (§12). At the rig, in MATLAB, run
+`scripts/rig/rig_inputs.m` once to create every run's input, and `export_run(...)` from
+`scripts/rig/export_run.m` after each run (§12.2). Then, on this computer:
 
 ```bash
 # 1. Write the metadata template, then edit it to match your DAQ setup
@@ -3668,7 +3671,8 @@ velocity.
 Everything above is simulation. `experiments/run_rig_evaluation.py` replays recordings from the
 real Feedback 33-936S rig through the same models. The observers use only the encoder readings and
 the commanded input, and they are causal, so a replayed recording gives the estimates they would
-have produced live. No closed-loop controller is needed.
+have produced live. No balancing controller is needed: the pendulum hangs, and a weak cart-centring
+loop keeps the cart on the track (§12.2).
 
 ### 12.1 Recording folder
 
@@ -3688,13 +3692,13 @@ The run type is read from a keyword in the file name; the run number and trial s
 
 | Keyword | Run | Used for |
 |:---|:---|:---|
-| `rest` | Zero input, pendulum at rest, 20 s | Noise, encoder resolution, noise floor of the velocity reference |
-| `freeswing` | Pendulum lifted 20–30° and released, zero input | Identification run |
-| `deadzone` | Command ramped slowly through both directions | Command at which the cart starts to move |
-| `twotone` | <i>u</i> = 2 sin 1.5<i>t</i> + 1.2 cos 3<i>t</i> N, 50 s (scaled down if the cart drifts) | Identification run |
-| `fading` | <i>u</i> = 3<i>e</i><sup>−<i>t</i>/8</sup> sin 1.6<i>t</i> N, 60 s | Identification run |
-| `heldout` | Square wave, multisine, slow chirp, pulse train, about 12 s each | Test runs: predicted, never learned from |
-| `mass_step` | The two-tone run with a different rod or added mass | Identification run on a changed plant |
+| `rest` | Zero input, pendulum hanging still, 20 s | Noise, encoder resolution, noise floor of the velocity reference |
+| `freeswing` | Zero input; pendulum lifted 20–30° and released, 60 s | Identification run |
+| `deadzone` | Staircase of short ±pulses, 0.10 to 0.80 V, 45 s | Break-away voltage of the cart in each direction |
+| `twotone` | <i>A</i>(2 sin 1.5<i>t</i> + 1.2 cos 3<i>t</i>) V, <i>A</i> = 0.25 to 0.40, 50 s (shape of S1) | Identification run |
+| `fading` | <i>A</i> · 3<i>e</i><sup>−<i>t</i>/8</sup> sin 1.6<i>t</i> V, <i>A</i> = 0.40, 60 s (shape of S3) | Identification run |
+| `heldout` | H1–H4 of §11.1 (square, multisine, slow chirp, pulse train), peak 0.7 V, 12 s each | Test runs: predicted, never learned from |
+| `mass_step` | The two-tone run with the extra mass collar or the alternate rod | Identification run on a changed plant |
 
 **CSV format.** One file per run, sampled at 1 kHz, with a header row and four columns:
 `time_s, cart_pos, pend_angle, command_v`. Raw encoder counts and amplifier volts can be logged as
@@ -3705,14 +3709,84 @@ in. It declares the units (counts, metres, radians, degrees, volts or newtons), 
 resolutions, the amplifier gain, which angle reads zero (hanging or upright), and the two sign
 conventions. The evaluation checks the signs against the physics and says which one to flip.
 
-### 12.2 Running it
+### 12.2 Recording protocol
+
+`scripts/rig/rig_inputs.m` builds every run's input in MATLAB, and `scripts/rig/export_run.m`
+writes each recording in the format of §12.1. The vendor's identification model (Start → All
+Programs → Feedback Instruments → Pendulum Real-Time Models) is used only for its hardware
+interface: encoder inputs, DAC output, and the build / connect / start sequence.
+
+**Simulink set-up**
+
+1. Configuration Parameters (Ctrl + E): fixed-step solver `ode1`, step 0.001 s.
+2. Disconnect the vendor's excitation and controller from the motor DAC. Feed the DAC from a From
+   Workspace block (Data = `u_run4` etc., output after the final value set to zero), plus the
+   centring loop below.
+3. **Cart-centring loop.** DAC input = excitation − <i>K</i><sub><i>p</i></sub> <i>x</i> − <i>K</i><sub><i>d</i></sub> <i>ẋ</i>, with the cart
+   position <i>x</i> in metres, <i>ẋ</i> from a Transfer Fcn block <i>s</i>/(0.02<i>s</i> + 1) on <i>x</i>, <i>K</i><sub><i>p</i></sub> = 1.5 V/m and
+   <i>K</i><sub><i>d</i></sub> = 2.0 V·s/m. With the amplifier gain of about 2 N/V this is a slow spring and damper on the
+   cart (about 1 rad/s, damping ratio 0.7), below the excitation band. It stops drift; it does not
+   balance anything. Check its sign before the first run: with only the loop on, push the cart
+   by hand. It must be pulled back to the centre. If it is pushed away, flip the sign of both gains.
+4. Log, in one To Workspace block at 0.001 s (format "Structure With Time"): cart position,
+   pendulum angle, and the **total DAC input** (excitation plus loop). The observers need the
+   voltage that actually reached the amplifier, not the excitation alone.
+
+**Before every run**
+
+- Centre the cart and let the pendulum hang completely still: the encoders read zero where they
+  start, so `angle_zero = hanging` in `metadata.txt`.
+- Incremental Build → Connect to Target → physical Start button → Run.
+- Keep a hand near the Stop button. Repeat any run in which the cart touches an end stop.
+
+**Order of runs**
+
+| Order | Run | Trials | Notes |
+|:---:|:---|:---:|:---|
+| 1 | `run1_rest` | 1 | Do not touch the rig |
+| 2 | `run3_deadzone` | 1 | Gives the break-away voltage; set `A_heldout` to at least 1.5× it |
+| 3 | `run2_freeswing` | 3 | Lift 20–30°, release just after Run |
+| 4 | `run4_twotone` | 3 | Start at <i>A</i> = 0.25; raise to 0.40 only if the cart stays within ±0.25 m |
+| 5 | `run5_fading` | 3 | |
+| 6 | `run6_heldout_square`, `_multisine`, `_chirp`, `_pulse` | 1 each | Same amplitude for all four |
+| 7 | `run7_mass_step_twotone` | 1 | Fit the extra mass; note its mass and position in `metadata.txt` |
+
+After each run: `export_run('run4_twotone_trial1', simout.time, simout.signals.values, [cart angle command])`,
+with the column numbers of the logged signals. It prints the duration and the largest sample gap;
+the evaluation resamples to 1 kHz, so the row count need not be exact.
+
+**`metadata.txt`.** Fill in the units actually logged (counts or metres, counts, radians or degrees,
+volts), the encoder resolutions, the amplifier gain (N/V) from the manual, the usable half-length
+of the track, the fitted rod and, for run 7, what was changed. Record the centring-loop gains under
+`notes`. If a sign convention is wrong, the evaluation says which one to flip.
+
+**Why this differs from a plain open-loop protocol.** The simulations of §6–§11 start the cart at a
+drift-cancelling velocity, which the rig cannot do: it starts at rest. Simulated from rest with
+the rig's assumed dead-zone (+0.15 / −0.12 V) and friction (0.35 N), cart travel in metres:
+
+| Input | Open loop, from rest | With the centring loop |
+|:---|:---|:---|
+| Run 3: slow ramp to ±2 V | end stop | (replaced by the staircase) |
+| Run 3: pulse staircase to 0.8 V | −0.11 to +0.03 | −0.05 to +0.04 |
+| Run 4: two-tone, <i>A</i> = 0.25 | end stop | −0.13 to 0.00 |
+| Run 4: two-tone, <i>A</i> = 0.40 | end stop | −0.23 to +0.10 |
+| Run 5: fading, <i>A</i> = 0.40 | end stop | −0.12 to +0.24 |
+| Run 6: square, 0.7 V | end stop | −0.13 to +0.16 |
+| Run 6: chirp, 0.7 V | end stop | −0.07 to +0.14 |
+| Run 6: multisine / pulse train, 0.7 V | −0.06 to +0.13 / −0.03 to +0.04 | −0.05 to +0.05 / −0.02 to +0.03 |
+
+A sine force applied to a cart at rest gives it a constant mean velocity, so it drifts into an end
+stop whatever the amplitude. Held-out inputs much below 0.5 V do not move the cart at all in this
+model, because the dead-zone and stiction hold it. The real thresholds come from run 3.
+
+### 12.3 Running the evaluation
 
 The commands are in [Real-rig data commands](#real-rig-data-commands). In short:
 `--template` writes the metadata template, `--make-demo` writes simulated runs in the rig format
 for a rehearsal, and `--data <folder>` evaluates a folder (models B, D and E by default; `--models
 A B C D E` for every approach). The output files are listed there too.
 
-### 12.3 What is reported, and what it can show
+### 12.4 What is reported, and what it can show
 
 The rig has no velocity sensor, so there is no true velocity to score against.
 
@@ -3787,7 +3861,8 @@ each point is worked out in full.
 │   ├── benchmark/                # shared-benchmark scenarios, model registry, warm start
 │   └── rig/                      # loading and converting recordings from the real rig
 ├── experiments/                  # one validation script per approach, the shared benchmark, the rig evaluation
-├── scripts/                      # baseline benchmark and plots, three-scenario plot, A-vs-C comparison
+├── scripts/                      # baseline benchmark and plots, three-scenario plot, A-vs-C comparison;
+│                                 # rig/: MATLAB input and export scripts for the real rig
 ├── tests/                        # 126 tests
 ├── data/rig/metadata.txt         # template for real-rig recordings (§12)
 ├── figures/
@@ -3880,6 +3955,7 @@ each point is worked out in full.
 | `experiments/run_rig_evaluation.py` | Sign checks, rest-run noise floor, dead-zone thresholds, velocity and prediction scoring, rehearsal data, summary figure |
 | `tests/test_rig_data.py` | 6 tests: unit and sign conventions round trip, file checks, accuracy of the reference velocity, detection of a flipped sign convention, rest-run and dead-zone statistics, a full replay scored end to end |
 | `data/rig/metadata.txt` | Metadata template to fill in for the real rig |
+| `scripts/rig/rig_inputs.m`, `scripts/rig/export_run.m` | MATLAB: the input of every rig run, and the CSV export after each run (§12.2) |
 
 **Diagrams**
 
