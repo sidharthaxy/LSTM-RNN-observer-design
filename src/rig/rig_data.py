@@ -55,10 +55,48 @@ METADATA_TEMPLATE: Dict[str, Any] = {
     "command_units": "V",              # "V" or "N"
     "newtons_per_volt": 2.0,           # amplifier gain (20 N at 10 V)
     "track_half_length_m": 0.5,
+    "pendulum_natural_frequency_rad_s": 0.0,   # measured on the free swings; > 0 sets the gravity scale of D and E to its square
     "pendulum": "standard",            # free text: which rod / mass was fitted
     "mass_step_pendulum": "",          # free text: what differs in the mass_step runs
     "notes": "",
+    # Automatic calibration (scripts/rig/characterise_rig.py --calibrate). Written as a block; while
+    # cal_runs is empty, the evaluation uses its hand-tuned settings and ignores every cal_ field.
+    # Used by the evaluation: the natural frequency (D's gravity scale), the inertia margin (B, D, E)
+    # and the starting friction and force terms (B, D, E); the other fields are information.
+    "cal_runs": "",                    # the runs the calibration was computed from
+    "cal_natural_frequency_rad_s": 0.0,   # pendulum, from the free swing (gravity scale = its square)
+    "cal_damping_ratio": 0.0,
+    "cal_accel_per_volt": 0.0,         # cart acceleration per logged volt, from the drive run
+    "cal_cart_inertia_kg": 0.0,        # M + m = newtons_per_volt / cal_accel_per_volt (information: not used as a prior, README §12.5.5)
+    "cal_pendulum_ml_kg_m": 0.0,       # coupling m l (cart fit's pendulum term times M + m)
+    "cal_pendulum_inertia_kg_m2": 0.0,    # I + m l^2 = m l g / omega^2 (rigid pendulum)
+    "cal_inertia_margin": 0.0,         # eps_M of B, D, E: half the smallest eigenvalue of the calibrated M(theta)
+    "cal_cart_viscous_n_s_per_m": 0.0,    # starting values of the friction and force terms of B, D, E
+    "cal_pendulum_viscous_n_m_s": 0.0,
+    "cal_cart_coulomb_n": 0.0,
+    "cal_constant_force_n": 0.0,       # > 0: a steady push towards -x
+    "cal_command_force_n": 0.0,        # force along the sign of the command (the drive's friction compensation)
+    "cal_breakaway_pos_v": 0.0,        # break-away from rest (staircase only; information)
+    "cal_breakaway_neg_v": 0.0,
 }
+
+# metadata key -> name in the calibration dictionary passed to make_observer
+CALIBRATION_KEYS = {
+    "cal_natural_frequency_rad_s": "natural_frequency",
+    "cal_inertia_margin": "inertia_margin",
+    "cal_cart_viscous_n_s_per_m": "cart_viscous",
+    "cal_pendulum_viscous_n_m_s": "pendulum_viscous",
+    "cal_cart_coulomb_n": "cart_coulomb",
+    "cal_constant_force_n": "constant_force",
+    "cal_command_force_n": "command_force",
+}
+
+
+def calibration_from_metadata(meta: Dict[str, Any]) -> Dict[str, float] | None:
+    """The automatic calibration in metadata.txt as make_observer's `calibration`, or None without one."""
+    if not str(meta.get("cal_runs", "")).strip():
+        return None
+    return {name: float(meta[key]) for key, name in CALIBRATION_KEYS.items()}
 
 # Keyword in the file name -> role in the evaluation (first match wins)
 ROLES = (
@@ -151,7 +189,10 @@ def convert(raw: np.ndarray, meta: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarr
     """raw (N, 3) = [cart_pos, pend_angle, command] in logged units -> (meas (N, 2), u (N,)) in SI."""
     x = raw[:, 0] / meta["cart_counts_per_m"] if meta["cart_units"] == "counts" else raw[:, 0]
     scale = {"counts": 2.0 * np.pi / meta["angle_counts_per_rev"], "rad": 1.0, "deg": np.pi / 180.0}[meta["angle_units"]]
-    theta = float(meta["angle_sign"]) * scale * raw[:, 1] + (np.pi if meta["angle_zero"] == "hanging" else 0.0)
+    # logged angle -> angle from upright, then a flipped direction is mirrored about the hanging position,
+    # so a hanging pendulum stays at pi whatever the logged convention
+    from_upright = scale * raw[:, 1] + (np.pi if meta["angle_zero"] == "hanging" else 0.0)
+    theta = np.pi + float(meta["angle_sign"]) * (from_upright - np.pi)
     u = raw[:, 2] * (meta["newtons_per_volt"] if meta["command_units"] == "V" else 1.0)
     return np.column_stack((float(meta["cart_sign"]) * x, theta)), u
 
@@ -206,7 +247,8 @@ def write_run(path: Path, t: np.ndarray, x: np.ndarray, theta: np.ndarray, force
     """Inverse of `load_run` (used to export simulated runs in the rig's file format)."""
     cart = float(meta["cart_sign"]) * x * (meta["cart_counts_per_m"] if meta["cart_units"] == "counts" else 1.0)
     scale = {"counts": meta["angle_counts_per_rev"] / (2.0 * np.pi), "rad": 1.0, "deg": 180.0 / np.pi}[meta["angle_units"]]
-    angle = float(meta["angle_sign"]) * (theta - (np.pi if meta["angle_zero"] == "hanging" else 0.0)) * scale
+    from_upright = np.pi + float(meta["angle_sign"]) * (theta - np.pi)
+    angle = (from_upright - (np.pi if meta["angle_zero"] == "hanging" else 0.0)) * scale
     if meta["cart_units"] == "counts":
         cart = np.round(cart)
     if meta["angle_units"] == "counts":

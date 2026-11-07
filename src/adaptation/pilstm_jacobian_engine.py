@@ -44,7 +44,7 @@ from src.adaptation.jacobian_engine import phi_jacobian_transpose_vec, smooth_pr
 if TYPE_CHECKING:  # annotations only: src.observers imports this module
     from src.observers.pilstm_network import PILSTMCache, PILSTMLayout, PILSTMNetwork
 
-BLOCKS = ("M", "V", "G", "F")  # == PILSTMLayout.BLOCKS
+BLOCKS = ("M", "V", "G", "F", "X")  # == PILSTMLayout.BLOCKS
 Metric = Literal["euclidean", "kinetic"]
 
 
@@ -95,6 +95,13 @@ def friction_block_grad(layout: PILSTMLayout, theta: np.ndarray, cache: PILSTMCa
     return phi_jacobian_transpose_vec(cache.friction, layout.theta_F(theta), layout.friction, -lam * cache.friction_gain)
 
 
+def extra_block_grad(net: PILSTMNetwork, cache: PILSTMCache, lam: np.ndarray) -> np.ndarray:
+    """Phi'_X^T e = (d tau / d theta_X)^T lambda: the optional rig forces enter tau linearly."""
+    if net.layout.n_extra == 0:
+        return np.zeros(0)
+    return net.extra_regressor(cache.u).T @ lam
+
+
 def block_gradients(
     net: PILSTMNetwork, theta: np.ndarray, cache: PILSTMCache, e: np.ndarray, metric: Metric = "euclidean"
 ) -> Dict[str, np.ndarray]:
@@ -105,6 +112,7 @@ def block_gradients(
         "V": gyroscopic_block_grad(net, cache, lam) if net.pairs else np.zeros(0),
         "G": gravity_block_grad(cache, lam),
         "F": friction_block_grad(net.layout, theta, cache, lam),
+        "X": extra_block_grad(net, cache, lam),
     }
     return grads
 
@@ -141,6 +149,7 @@ class PILSTMAdaptationLaw:
         required = ("M", "V", "G", "F_gates", "F_out")
         if any(gammas[k] < 0.0 for k in required):
             raise ValueError("Adaptation gains must be non-negative.")
+        w_bars = {"X": 1.0, **w_bars}                       # the rig-force block is optional
         if any(w_bars[b] <= 0.0 for b in BLOCKS) or proj_eps <= 0.0:
             raise ValueError("Projection radii and proj_eps must be strictly positive.")
         self.net = net
@@ -154,6 +163,7 @@ class PILSTMAdaptationLaw:
             "V": np.full(self.layout.block_size("V"), gammas["V"]),
             "G": np.full(self.layout.block_size("G"), gammas["G"]),
             "F": np.concatenate((np.full(fl.n_gate_params, gammas["F_gates"]), np.full(fl.n_out_params, gammas["F_out"]))),
+            "X": np.full(self.layout.block_size("X"), gammas.get("X", 0.0)),
         }
 
     def theta_dot(self, theta: np.ndarray, cache: PILSTMCache, e: np.ndarray) -> np.ndarray:
@@ -174,6 +184,9 @@ class PILSTMAdaptationLaw:
             norm = float(np.linalg.norm(blk))
             if norm > self.w_bars[b]:
                 blk *= self.w_bars[b] / norm
+        if self.net.n_input_sign:                           # a drive compensates along the command, never against it
+            x = theta[self.layout.block_slice("X")]
+            x[-self.net.n_input_sign:] = np.maximum(x[-self.net.n_input_sign:], 0.0)
 
     def block_norms(self, theta: np.ndarray) -> Dict[str, float]:
         return {b: float(np.linalg.norm(theta[self.layout.block_slice(b)])) for b in BLOCKS}

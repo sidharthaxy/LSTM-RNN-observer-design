@@ -13,7 +13,7 @@ import pytest
 from experiments.run_rig_evaluation import check_signs, deadzone_thresholds, job, rest_statistics
 from src.benchmark.scenarios import simulate
 from src.rig.rig_data import (
-    METADATA_TEMPLATE, as_dataset, is_mass_step, load_folder, load_metadata, load_run, metadata_text, reference_derivatives,
+    METADATA_TEMPLATE, as_dataset, convert, is_mass_step, load_folder, load_metadata, load_run, metadata_text, reference_derivatives,
     role_of, write_run,
 )
 
@@ -42,12 +42,18 @@ def test_units_and_conventions_round_trip(folder: Path) -> None:
     np.testing.assert_allclose(run.meas[:, 1], d.meas[:n, 1], atol=2.0 * np.pi / 4096.0)
     np.testing.assert_allclose(run.u, d.u[:n], atol=1e-5)
     # other declared units give the same result
-    for alt in ({"angle_units": "deg", "angle_zero": "upright"}, {"cart_units": "m", "command_units": "N"}, {"angle_sign": -1, "cart_sign": -1}):
+    for alt in ({"angle_units": "deg", "angle_zero": "upright"}, {"cart_units": "m", "command_units": "N"}, {"angle_sign": -1, "cart_sign": -1},
+                {"cart_units": "m", "angle_units": "rad", "angle_zero": "upright", "angle_sign": -1}):   # the real rig's convention
         m2 = {**meta, **alt}
         write_run(folder / "run4_twotone_trial2.csv", d.t, d.meas[:, 0], d.meas[:, 1], d.u, m2)
         r2 = load_run(folder / "run4_twotone_trial2.csv", m2)
         np.testing.assert_allclose(r2.meas, d.meas[:n], atol=2e-3)
         np.testing.assert_allclose(r2.u, d.u[:n], atol=1e-5)
+    # the rig logs pi with the pendulum hanging and the opposite rotation: hanging must stay at pi, not -pi
+    m3 = {**meta, "angle_units": "rad", "angle_zero": "upright", "angle_sign": -1}
+    hanging = np.column_stack((np.zeros(3), np.full(3, np.pi), np.zeros(3)))
+    swung = np.column_stack((np.zeros(3), np.full(3, np.pi + 0.1), np.zeros(3)))
+    assert np.allclose(convert(hanging, m3)[0][:, 1], np.pi) and np.allclose(convert(swung, m3)[0][:, 1], np.pi - 0.1)
 
 
 def test_file_checks(folder: Path) -> None:
@@ -116,3 +122,24 @@ def test_replay_job_scores_velocity_parameters_and_held_out_prediction(folder: P
     assert rows[0]["diverged"] == 0.0 and np.isfinite(rows[0]["th_dot RMSE vs ref, second half"])
     assert rows[1]["M+m datasheet"] == pytest.approx(2.63)
     assert rows[2]["test"] == "run6_heldout_pulse" and np.isfinite(rows[2]["0.5 s NMSE theta"])
+
+
+def test_automatic_calibration_block_in_metadata(tmp_path: Path) -> None:
+    """characterise_rig.py writes a cal_ block that the loader reads; without it the evaluation is hand-tuned."""
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts" / "rig"))
+    from characterise_rig import write_calibration
+    from src.rig.rig_data import calibration_from_metadata
+
+    path = tmp_path / "metadata.txt"
+    path.write_text(metadata_text({"notes": "keep me"}), encoding="utf-8")
+    assert calibration_from_metadata(load_metadata(tmp_path)) is None
+    cal = {"cal_runs": "run2_freeswing_trial2, run4_twotone_trial2", "cal_natural_frequency_rad_s": 5.48,
+           "cal_cart_inertia_kg": 2.88, "cal_inertia_margin": 0.0175, "cal_constant_force_n": 0.42}
+    write_calibration(path, cal)
+    write_calibration(path, {**cal, "cal_inertia_margin": 0.018})              # re-running replaces the block
+    text = path.read_text(encoding="utf-8")
+    assert text.count("cal_inertia_margin") == 1 and "notes = keep me" in text
+    got = calibration_from_metadata(load_metadata(tmp_path))
+    assert got is not None
+    assert got["natural_frequency"] == 5.48 and got["inertia_margin"] == 0.018 and got["command_force"] == 0.0

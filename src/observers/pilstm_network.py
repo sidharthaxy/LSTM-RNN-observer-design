@@ -146,8 +146,9 @@ class PILSTMLayout:
     n_features: int                 # P = dim(rho) (constant + skip + random features)
     friction: LSTMWeightLayout
     gyroscopic: bool = True
+    n_extra: int = 0                # optional real-rig forces: constant force(s), then force(s) along the command
 
-    BLOCKS: ClassVar[Tuple[str, ...]] = ("M", "V", "G", "F")
+    BLOCKS: ClassVar[Tuple[str, ...]] = ("M", "V", "G", "F", "X")
 
     @property
     def n_chol(self) -> int:
@@ -164,6 +165,7 @@ class PILSTMLayout:
             "V": P * self.n * self.n_pairs,
             "G": P,
             "F": self.friction.n_params,
+            "X": self.n_extra,
         }[name]
 
     def block_slice(self, name: str) -> slice:
@@ -190,6 +192,9 @@ class PILSTMLayout:
 
     def theta_F(self, theta: np.ndarray) -> np.ndarray:
         return theta[self.block_slice("F")]
+
+    def theta_X(self, theta: np.ndarray) -> np.ndarray:
+        return theta[self.block_slice("X")]
 
 
 # ---------------------------------------------------------------------------- caches
@@ -312,6 +317,9 @@ class PILSTMNetwork:
         damping_scale: Sequence[float] | None = None,
         damping_offset: float = -3.0,
         seed: int = 0,
+        constant_force: bool = False,
+        command_sign_force: bool = False,
+        command_sign_eps: float = 0.05,
     ) -> None:
         if len(revolute) != n_coords:
             raise ValueError("revolute must have one entry per coordinate.")
@@ -344,7 +352,14 @@ class PILSTMNetwork:
         self.damping_scale = scale if damping_scale is None else np.asarray(damping_scale, dtype=np.float64)
         self.damping_offset = damping_offset
         friction_layout = LSTMWeightLayout(n + friction_hidden + 1, friction_hidden, n)
-        self.layout = PILSTMLayout(n, self.features.dim, friction_layout, gyroscopic)
+        # Optional real-rig forces (as in Approach D, src/observers/el_linear_model.py): a constant force
+        # f_0 on each cyclic coordinate (a tilted track) and a force k_u tanh(u / eps) along each input
+        # (a drive that compensates friction itself). Both enter tau linearly.
+        self.const_coords = np.flatnonzero(self.cyclic) if constant_force else np.zeros(0, dtype=int)
+        self.n_input_sign = self.B.shape[1] if command_sign_force else 0
+        self.u_eps = float(command_sign_eps)
+        self.layout = PILSTMLayout(n, self.features.dim, friction_layout, gyroscopic,
+                                   int(self.const_coords.size) + self.n_input_sign)
 
     # -------------------------------------------------------------- parameters
     def initial_parameters(
@@ -410,13 +425,25 @@ class PILSTMNetwork:
             friction_force = friction.phi
             friction_gain = np.ones(self.n)
 
-        tau = self.B @ u - coriolis - gyro - gravity - friction_force
+        tau = self.B @ u - coriolis - gyro - gravity - friction_force + self.extra_force(theta, u)
         phi = np.linalg.solve(inertia.M, tau)
         return PILSTMCache(
             q=q, q_dot=q_dot, u=u, rho=rho, drho=drho, inertia=inertia, coriolis=coriolis,
             gyro_basis=gyro_basis, gyro=gyro, potential=potential, gravity=gravity,
             friction=friction, friction_force=friction_force, friction_gain=friction_gain, tau=tau, phi=phi,
         )
+
+    def extra_regressor(self, u: np.ndarray) -> np.ndarray:
+        """(n, n_extra): d tau / d theta_X; columns -e_c for f_0, B_j tanh(u_j / eps) for k_u."""
+        cols = [-np.eye(self.n)[:, self.const_coords]]
+        if self.n_input_sign:
+            cols.append(self.B * np.tanh(np.atleast_1d(u) / self.u_eps)[None, :])
+        return np.hstack(cols)
+
+    def extra_force(self, theta: np.ndarray, u: np.ndarray) -> np.ndarray:
+        if self.layout.n_extra == 0:
+            return np.zeros(self.n)
+        return self.extra_regressor(u) @ self.layout.theta_X(theta)
 
     # -------------------------------------------------------------- diagnostics
     def coriolis_matrix(self, theta: np.ndarray, q: np.ndarray, q_dot: np.ndarray) -> np.ndarray:

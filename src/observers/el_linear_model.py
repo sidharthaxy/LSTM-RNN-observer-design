@@ -11,6 +11,14 @@ the whole parameter vector:
     C q_dot        = M_dot q_dot - 1/2 d/dq (q_dot^T M q_dot)          (Christoffel symbols of M)
     G(q; w_G)      = d P / d q,   P(q) = sum_{k >= 1} w_{G,k} rho_k(q)   (conservative)
     F(q_dot)       = diag(d_v) q_dot + diag(d_c) tanh(q_dot / v_c),   d_v, d_c >= 0 (dissipative)
+    F0             = f_0 on the cyclic coordinates (optional, constant_force=True): a constant
+                     generalized force, e.g. gravity along a slightly tilted track. It is the gradient
+                     of the potential f_0 x, linear in the cyclic coordinate, so it is conservative and
+                     every invariant below still holds.
+    F_u            = -k_u B tanh(u / u_eps) (optional, command_sign_force=True): a force in the
+                     direction of the command, of unknown size k_u. It models drives that add their
+                     own friction compensation to the command (the Feedback 33-201 DAC block does).
+                     It depends on the input, so the regressors take u (u = None: zero).
 
 rho(q) is Approach B's fixed feature layer [1, cos k q_i, sin k q_i, ..., s_i (q_i - mu_i)]
 (harmonics of revolute joints; cyclic coordinates are not embedded, so M and P do not depend on
@@ -45,10 +53,12 @@ from src.plant.pendulum_plant import PendulumParameters
 
 @dataclass(frozen=True)
 class LinearELLayout:
-    """theta = [vec(W_M) (P x R, column-major), w_G (P-1), d_v (n), d_c (n or 0)]."""
+    """theta = [vec(W_M) (P x R, column-major), w_G (P-1), d_v (n), d_c (n or 0), f_0 (n_const), k_u (n_input_sign)]."""
     n: int
     n_features: int         # P
     coulomb: bool
+    n_const: int = 0        # constant generalized forces (one per cyclic coordinate, or none)
+    n_input_sign: int = 0   # command-direction forces (one per input, or none)
 
     @property
     def n_entries(self) -> int:
@@ -57,7 +67,7 @@ class LinearELLayout:
     @property
     def sizes(self) -> Dict[str, int]:
         return {"M": self.n_features * self.n_entries, "G": self.n_features - 1,
-                "Fv": self.n, "Fc": self.n if self.coulomb else 0}
+                "Fv": self.n, "Fc": self.n if self.coulomb else 0, "F0": self.n_const, "Fu": self.n_input_sign}
 
     def block_slice(self, name: str) -> slice:
         start = 0
@@ -92,6 +102,9 @@ class LinearELModel:
         coulomb: bool = True,
         coulomb_velocity: Sequence[float] = (0.01, 0.05),
         seed: int = 0,
+        constant_force: bool = False,
+        command_sign_force: bool = False,
+        command_sign_eps: float = 0.05,
     ) -> None:
         n = n_coords
         self.n = n
@@ -107,7 +120,10 @@ class LinearELModel:
         )
         self.harmonics = harmonics
         self.v_c = np.asarray(coulomb_velocity, dtype=np.float64)
-        self.layout = LinearELLayout(n, self.features.dim, coulomb)
+        self.const_coords = np.flatnonzero(self.cyclic) if constant_force else np.zeros(0, dtype=int)
+        self.u_eps = float(command_sign_eps)
+        self.layout = LinearELLayout(n, self.features.dim, coulomb, int(self.const_coords.size),
+                                     self.B.shape[1] if command_sign_force else 0)
         self.entries = [(i, j) for i in range(n) for j in range(i, n)]   # (i <= j), column order of W_M
         self._ei = np.array([i for i, _ in self.entries])
         self._ej = np.array([j for _, j in self.entries])
@@ -148,10 +164,11 @@ class LinearELModel:
         return dM
 
     # ------------------------------------------------------------------ regressors
-    def regressors(self, q: np.ndarray, q_dot: np.ndarray, a: np.ndarray | None = None) -> Dict[str, np.ndarray]:
+    def regressors(self, q: np.ndarray, q_dot: np.ndarray, a: np.ndarray | None = None,
+                   u: np.ndarray | None = None) -> Dict[str, np.ndarray]:
         """
         Blocks of the regressors (n x block size): "acc" (M a), "cor" (C q_dot), "mom" (M q_dot),
-        "kin" (-1/2 d/dq q_dot^T M q_dot), "G", "Fv", "Fc".
+        "kin" (-1/2 d/dq q_dot^T M q_dot), "G", "Fv", "Fc", "F0", "Fu" (zero if u is None).
         """
         rho, drho = self.rho(q)
         n, P = self.n, rho.size
@@ -169,28 +186,37 @@ class LinearELModel:
             "G": drho[1:, :].T.copy(),
             "Fv": np.diag(q_dot),
             "Fc": np.diag(np.tanh(q_dot / self.v_c)) if self.layout.coulomb else np.zeros((n, 0)),
+            "F0": np.eye(n)[:, self.const_coords],
+            "Fu": self._command_sign(u),
         }
         if a is not None:
             out["acc"] = (self._E_times(a)[:, :, None] * rho[None, None, :]).reshape(n, R * P)
         return out
 
+    def _command_sign(self, u: np.ndarray | None) -> np.ndarray:
+        """(n, n_input_sign): column j = -B_j tanh(u_j / u_eps), so that -Y theta adds k_u B tanh(u / u_eps)."""
+        k = self.layout.n_input_sign
+        if k == 0 or u is None:
+            return np.zeros((self.n, k))
+        return -self.B * np.tanh(np.atleast_1d(u) / self.u_eps)[None, :]
+
     def _assemble(self, M_part: np.ndarray, blocks: Dict[str, np.ndarray], with_rest: bool) -> np.ndarray:
         n = self.n
         parts = [M_part]
         if with_rest:
-            parts += [blocks["G"], blocks["Fv"], blocks["Fc"]]
+            parts += [blocks["G"], blocks["Fv"], blocks["Fc"], blocks["F0"], blocks["Fu"]]
         else:
-            parts += [np.zeros((n, self.layout.sizes[b])) for b in ("G", "Fv", "Fc")]
+            parts += [np.zeros((n, self.layout.sizes[b])) for b in ("G", "Fv", "Fc", "F0", "Fu")]
         return np.hstack(parts)
 
-    def torque_regressor(self, q: np.ndarray, q_dot: np.ndarray, a: np.ndarray) -> np.ndarray:
+    def torque_regressor(self, q: np.ndarray, q_dot: np.ndarray, a: np.ndarray, u: np.ndarray | None = None) -> np.ndarray:
         """Y(q, q_dot, a): Y theta = M a + C q_dot + G + F."""
-        b = self.regressors(q, q_dot, a)
+        b = self.regressors(q, q_dot, a, u)
         return self._assemble(b["acc"] + b["cor"], b, True)
 
-    def rest_regressor(self, q: np.ndarray, q_dot: np.ndarray) -> np.ndarray:
+    def rest_regressor(self, q: np.ndarray, q_dot: np.ndarray, u: np.ndarray | None = None) -> np.ndarray:
         """Y_rest(q, q_dot): Y_rest theta = C q_dot + G + F."""
-        b = self.regressors(q, q_dot)
+        b = self.regressors(q, q_dot, None, u)
         return self._assemble(b["cor"], b, True)
 
     def momentum_regressor(self, q: np.ndarray, q_dot: np.ndarray) -> np.ndarray:
@@ -198,14 +224,14 @@ class LinearELModel:
         b = self.regressors(q, q_dot)
         return self._assemble(b["mom"], b, False)
 
-    def integrand_regressor(self, q: np.ndarray, q_dot: np.ndarray) -> np.ndarray:
+    def integrand_regressor(self, q: np.ndarray, q_dot: np.ndarray, u: np.ndarray | None = None) -> np.ndarray:
         """Y_int theta = -1/2 d/dq(q_dot^T M q_dot) + G + F."""
-        b = self.regressors(q, q_dot)
+        b = self.regressors(q, q_dot, None, u)
         return self._assemble(b["kin"], b, True)
 
-    def icl_regressors(self, q: np.ndarray, q_dot: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    def icl_regressors(self, q: np.ndarray, q_dot: np.ndarray, u: np.ndarray | None = None) -> Tuple[np.ndarray, np.ndarray]:
         """(Y_mom, Y_int) from one feature evaluation."""
-        b = self.regressors(q, q_dot)
+        b = self.regressors(q, q_dot, None, u)
         return self._assemble(b["mom"], b, False), self._assemble(b["kin"], b, True)
 
     # ------------------------------------------------------------------ model outputs
@@ -213,7 +239,7 @@ class LinearELModel:
         """(Phi_hat, M_hat): Phi_hat = M^{-1} (B u - Y_rest theta)."""
         rho, _ = self.rho(q)
         M = self.inertia(theta, q, rho)
-        tau = self.B @ np.atleast_1d(u) - self.rest_regressor(q, q_dot) @ theta
+        tau = self.B @ np.atleast_1d(u) - self.rest_regressor(q, q_dot, u) @ theta
         return np.linalg.solve(M, tau), M
 
     def observer_terms(
@@ -223,7 +249,7 @@ class LinearELModel:
         (Phi_hat, M_hat, Y(q, q_dot, Phi_hat)) from one feature evaluation. The torque regressor at
         a = Phi_hat gives the Jacobian d Phi_hat / d theta = -M_hat^{-1} Y(q, q_dot, Phi_hat).
         """
-        b = self.regressors(q, q_dot)
+        b = self.regressors(q, q_dot, None, u)
         rho, _ = self.rho(q)
         M = self.inertia(theta, q, rho)
         Y = self._assemble(b["cor"], b, True)
@@ -244,7 +270,7 @@ class LinearELModel:
 
     def potential_energy(self, theta: np.ndarray, q: np.ndarray) -> float:
         rho, _ = self.rho(q)
-        return float(theta[self.layout.block_slice("G")] @ rho[1:])
+        return float(theta[self.layout.block_slice("G")] @ rho[1:] + theta[self.layout.block_slice("F0")] @ q[self.const_coords])
 
     def skew_residual(self, theta: np.ndarray, q: np.ndarray, q_dot: np.ndarray) -> np.ndarray:
         """N = M_dot - 2 C with C the Christoffel matrix; skew-symmetric by construction."""
@@ -281,6 +307,8 @@ class LinearELModel:
         s[lay.block_slice("Fv")] = m0 * friction_rate
         if lay.coulomb:
             s[lay.block_slice("Fc")] = m0 * friction_rate
+        s[lay.block_slice("F0")] = m0[self.const_coords] * friction_rate
+        s[lay.block_slice("Fu")] = [m0[self.B[:, j] != 0.0].max() * friction_rate for j in range(lay.n_input_sign)]
         return s
 
     def _cart_pendulum_indices(self) -> Tuple[int, int]:
@@ -310,6 +338,10 @@ class LinearELModel:
             "M+m": float(W_M[k0, 0]), "ml": float(W_M[kc, 1]), "I+ml^2": float(W_M[k0, 2]),
             "mgl": float(wG[kc - 1]), "b": float(dv[0]), "d": float(dv[1]),
         }
+        if self.layout.n_const:
+            out["f0"] = float(theta[self.layout.block_slice("F0")][0])   # constant force on the cart
+        if self.layout.n_input_sign:
+            out["k_u"] = float(theta[self.layout.block_slice("Fu")][0])  # command-direction force
         return out
 
     @staticmethod

@@ -7,6 +7,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from src.concurrent_learning.history_stack import HistoryStack, HistoryStackEntry
 from src.observers.el_linear_model import LinearELModel
 from src.observers.hybrid_observer import HybridObserver, HybridObserverConfig, damped_step
 from src.observers.pi_icl_observer import PIICLObserver, PIICLObserverConfig
@@ -16,9 +17,9 @@ from src.plant.sensor_noise import SensorNoiseConfig, SensorNoiseModel
 DT = 1e-3
 
 
-def _hanging_run(obs, t_final: float, noise_deg: float = 0.0, seed: int = 0):
+def _hanging_run(obs, t_final: float, noise_deg: float = 0.0, seed: int = 0, p: PendulumParameters | None = None):
     """Hanging pendulum, two-tone input (Approach A's scenario). Returns (velocity error, plant parameters)."""
-    p = PendulumParameters()
+    p = p or PendulumParameters()
     plant = PendulumPlant(p)
     plant.reset(np.array([0.0, -2.0 / (1.5 * (p.M + p.m)), np.pi - 0.4, 0.0]))
     sensor = SensorNoiseModel(SensorNoiseConfig(theta_noise_deg=noise_deg, x_noise_mm=0.0 if noise_deg == 0.0 else 0.2))
@@ -76,6 +77,28 @@ def test_own_coordinate_inertia_is_frozen() -> None:
     # the true rig is still inside the model class
     assert np.all(obs.model.true_parameters(PendulumParameters())[expected] == 0.0)
     assert not HybridObserver(HybridObserverConfig(freeze_own_inertia=False)).frozen.any()
+
+
+
+def test_leakage_pulls_only_the_cart_inertia_back_to_its_prior() -> None:
+    """Same data with and without leakage: the cart's inertia ends closer to its prior, nothing else differs much."""
+    out, lay, P = {}, None, None
+    for sigma in (0.0, 1.0):
+        obs = HybridObserver(HybridObserverConfig(leakage=sigma, cl_enabled=False))
+        lay, P = obs.model.layout, obs.model.layout.n_features
+        obs.reset(np.array([0.0, 0.0, np.pi, 0.0]))
+        obs.theta[lay.block_slice("M")] = obs.theta0[lay.block_slice("M")] * 0.5
+        for _ in range(500):                                 # 0.5 s, pendulum hanging at rest, no input
+            obs.update(np.array([0.0, np.pi]), np.zeros(1), 1e-3)
+        out[sigma] = obs.theta.copy()
+    e11 = HybridObserver(HybridObserverConfig()).model.entries.index((0, 0))
+    cart = np.arange(lay.block_slice("M").start + e11 * P, lay.block_slice("M").start + (e11 + 1) * P)
+    prior = HybridObserver(HybridObserverConfig()).theta0[cart]
+    gap = {k: np.abs(v[cart] - prior).sum() for k, v in out.items()}
+    assert gap[1.0] < 0.7 * gap[0.0]                         # about exp(-0.5) of the gap is left
+    rest = np.ones(lay.n_params, dtype=bool)
+    rest[cart] = False                                       # the pendulum's inertia and all other blocks
+    np.testing.assert_allclose(out[1.0][rest], out[0.0][rest], atol=1e-3)
 
 
 def test_frozen_parameters_stay_zero_and_residual_dissipates() -> None:
@@ -138,3 +161,58 @@ def test_identifies_the_pendulum_from_small_swings_where_approach_d_does_not() -
     assert np.sqrt(np.mean(err_h[-5000:, 1] ** 2)) < 0.03
     w = hybrid.information_weights()
     assert set(w) == {"actuated", "row 1 (normalized)"} and all(np.all((v >= 0.0) & (v <= 1.0)) for v in w.values())
+
+
+# ---------------------------------------------------------------------- real-rig options
+def test_rescaled_stack_gives_the_same_solution_in_the_new_units() -> None:
+    rng = np.random.default_rng(3)
+    st = HistoryStack(50, 4, rows_per_entry=2)
+    theta = rng.normal(size=4)
+    for _ in range(30):
+        Y = rng.normal(size=(2, 4))
+        st.consider(HistoryStackEntry(Y, Y @ theta, 0.0))
+    f = np.array([1.0, 6.0, 0.5, 1.0])
+    st.rescale_columns(f)                                # column c of Y now multiplies theta_c / f_c
+    np.testing.assert_allclose(st.least_squares(), theta / f, rtol=1e-9)
+    np.testing.assert_allclose(st.information_matrix(), st.data_matrix().T @ st.data_matrix(), rtol=1e-12)
+
+
+def test_coupling_from_the_pendulum_row_identifies_the_coupling() -> None:
+    """
+    The pendulum's own stack sets the coupling's shape (the cart's stack only its scale). Near the
+    hanging position only the coupling at theta = pi is determined (the constant and cos features of
+    M12 are nearly collinear there): -M12(pi) / J within 1 % of ml / J.
+    """
+    obs = HybridObserver(HybridObserverConfig(coupling_from_unactuated=True))
+    err, p = _hanging_run(obs, 20.0)
+    assert obs.coupled_steps > 0
+    M = obs.inertia_estimate(np.array([0.0, np.pi]))
+    truth = p.m * p.l / (p.I + p.m * p.l ** 2)
+    assert abs(-M[0, 1] / M[1, 1] / truth - 1.0) < 0.01
+    assert np.sqrt(np.mean(err[-5000:, 1] ** 2)) < 3e-3
+
+
+def test_coupling_option_is_gated_off_without_cart_motion() -> None:
+    """A free swing (no input, cart held by nothing but its own inertia) carries no coupling information."""
+    obs = HybridObserver(HybridObserverConfig(coupling_from_unactuated=True))
+    p = PendulumParameters()
+    plant = PendulumPlant(p)
+    plant.reset(np.array([0.0, 0.0, np.pi - 0.3, 0.0]))
+    obs.reset(np.array([0.0, 0.0, np.pi - 0.3, 0.0]))
+    for _ in range(int(8.0 / DT)):
+        s = plant.state.to_array()
+        obs.update(np.array([0.0, s[2]]), 0.0, DT)       # cart position reads zero: no cart motion in the data
+        plant.step(0.0, DT)
+    assert obs.coupled_steps == 0
+
+
+def test_gravity_scale_is_learned_from_the_pendulum_stack() -> None:
+    """A short pendulum (omega^2 = 26 1/s^2) from the simulation default (5): E re-sets the scale itself."""
+    p = PendulumParameters(l=0.3, I=0.005)
+    w2 = p.m * p.g * p.l / (p.I + p.m * p.l ** 2)
+    obs = HybridObserver(HybridObserverConfig(gravity_scale_auto=True, eps_M=0.01))
+    err, _ = _hanging_run(obs, 20.0, p=p)
+    assert obs.gravity_scale_changes, "no re-set"
+    assert abs(obs.gravity_scale_now / w2 - 1.0) < 0.2
+    pp = obs.physical_parameters()
+    assert abs(pp["mgl"] / pp["I+ml^2"] / w2 - 1.0) < 0.05

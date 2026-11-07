@@ -213,6 +213,18 @@ class HistoryStack:
         self.version += 1
         return StackDecision.REPLACED
 
+    def rescale_columns(self, factor: np.ndarray) -> None:
+        """Multiplies regressor column c of every stored entry by factor[c] (a change of parameter units)."""
+        factor = np.asarray(factor, dtype=np.float64)
+        self._blocks = self._blocks * factor[None, None, :]
+        for e in self.entries:
+            e.regressor = e.regressor * factor[None, :]
+        R = self._blocks.reshape(-1, self.regressor_dim)
+        self._omega = R.T @ R
+        if self._last is not None:
+            self._last = self._last * factor[None, :]
+        self.version += 1
+
     def clear(self, purge: bool = False) -> None:
         """Empties the stack. `purge=True` counts it as a change-detection purge (stats kept)."""
         self.entries.clear()

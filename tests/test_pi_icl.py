@@ -194,3 +194,87 @@ def test_invariants_hold_along_an_online_run() -> None:
     lay = obs.model.layout
     assert np.all(obs.theta[lay.block_slice("Fv")] >= 0.0) and np.all(obs.theta[lay.block_slice("Fc")] >= 0.0)
     assert np.linalg.norm(obs.phi - obs.phi0) <= obs.config.w_bar + 1e-9
+
+
+# ---------------------------------------------------------------------- real-rig force terms
+def _rig_model() -> LinearELModel:
+    return LinearELModel(harmonics=1, constant_force=True, command_sign_force=True)
+
+
+def test_rig_force_terms_are_off_by_default() -> None:
+    plain, rig = LinearELModel(harmonics=1), _rig_model()
+    assert plain.layout.n_params + 2 == rig.layout.n_params
+    assert plain.layout.sizes["F0"] == plain.layout.sizes["Fu"] == 0
+
+
+def test_rig_force_terms_keep_the_structure() -> None:
+    """f0 is conservative (the gradient of f0 x), k_u acts along B, and all regressors stay consistent."""
+    m = _rig_model()
+    rng = np.random.default_rng(4)
+    th = m.prior_parameters((2.0, 0.2)) + 0.05 * rng.normal(size=m.layout.n_params)
+    u = np.array([0.3])
+    for _ in range(10):
+        q, qd, a = rng.normal(size=2), rng.normal(size=2), rng.normal(size=2)
+        h = 1e-6
+        grad = [(m.potential_energy(th, q + h * e) - m.potential_energy(th, q - h * e)) / (2 * h) for e in np.eye(2)]
+        b = m.regressors(q, qd, None, u)
+        G = b["G"] @ th[m.layout.block_slice("G")] + b["F0"] @ th[m.layout.block_slice("F0")]
+        np.testing.assert_allclose(G, grad, atol=1e-7)
+        np.testing.assert_allclose(b["Fu"][:, 0], -m.B[:, 0] * np.tanh(u[0] / m.u_eps))
+        assert not m.regressors(q, qd)["Fu"].any()                     # no input, no command force
+        dYmom = (m.momentum_regressor(q + h * qd, qd + h * a) - m.momentum_regressor(q - h * qd, qd - h * a)) / (2 * h)
+        np.testing.assert_allclose(dYmom + m.integrand_regressor(q, qd, u), m.torque_regressor(q, qd, a, u), atol=1e-6)
+        phi, M, Y = m.observer_terms(th, q, qd, u)
+        np.testing.assert_allclose(Y, m.torque_regressor(q, qd, phi, u), atol=1e-12)
+        np.testing.assert_allclose(M @ phi + m.rest_regressor(q, qd, u) @ th, m.B[:, 0] * u[0], atol=1e-12)
+
+
+def test_icl_identity_holds_with_tilt_and_drive_compensation() -> None:
+    """On a trajectory of a plant with a tilted track and a drive-side compensation, the ICL identity is exact."""
+    m = _rig_model()
+    th = m.true_parameters(PendulumParameters())
+    th[m.layout.block_slice("F0")] = -0.3                              # push towards -x
+    th[m.layout.block_slice("Fu")] = 0.8                               # 0.1 V x 8 N/V along the command
+    f = lambda t: 2.0 * np.sin(3.0 * t)
+    z, Z = np.array([0.0, 0.5, 0.0, 0.0]), []
+    for k in range(2001):                                              # RK4 of the model itself
+        Z.append(z.copy())
+        acc = lambda zz, t: np.concatenate((zz[2:], m.acceleration(th, zz[:2], zz[2:], np.array([f(t)]))[0]))
+        t = k * DT
+        k1 = acc(z, t); k2 = acc(z + 0.5 * DT * k1, t + 0.5 * DT); k3 = acc(z + 0.5 * DT * k2, t + 0.5 * DT); k4 = acc(z + DT * k3, t + DT)
+        z = z + DT / 6.0 * (k1 + 2 * k2 + 2 * k3 + k4)
+    Z = np.array(Z)
+    k0, k1_ = 500, 800
+    Yi = np.array([m.integrand_regressor(Z[k, :2], Z[k, 2:], np.array([f(k * DT)])) for k in range(k0, k1_ + 1)])
+    integral = DT * (0.5 * Yi[0] + Yi[1:-1].sum(axis=0) + 0.5 * Yi[-1])
+    lhs = (m.momentum_regressor(Z[k1_, :2], Z[k1_, 2:]) - m.momentum_regressor(Z[k0, :2], Z[k0, 2:]) + integral) @ th
+    us = np.array([f(k * DT) for k in range(k0, k1_ + 1)])
+    rhs = m.B[:, 0] * DT * (0.5 * us[0] + us[1:-1].sum() + 0.5 * us[-1])
+    np.testing.assert_allclose(lhs, rhs, atol=1e-6)
+
+
+def test_rig_force_terms_enter_the_actuated_stack_only() -> None:
+    obs = PIICLObserver(PIICLObserverConfig(constant_force=True, command_sign_force=True))
+    lay = obs.model.layout
+    new = list(range(*lay.block_slice("F0").indices(lay.n_params))) + list(range(*lay.block_slice("Fu").indices(lay.n_params)))
+    assert set(new) <= set(obs.cols_A)
+    for u in obs.unact:
+        assert not set(new) & set(u.cols)
+
+
+def test_initial_force_values_set_the_starting_parameters() -> None:
+    """A rig calibration's starting values enter theta(0), survive a reset, and need their force option."""
+    cfg = PIICLObserverConfig(constant_force=True, command_sign_force=True, initial_damping=(2.3, 0.001),
+                              initial_coulomb=(1.5, 0.0), initial_constant_force=0.42, initial_command_force=0.9)
+    obs = PIICLObserver(cfg)
+    lay = obs.model.layout
+    for block, want in (("Fv", [2.3, 0.001]), ("Fc", [1.5, 0.0]), ("F0", [0.42]), ("Fu", [0.9])):
+        np.testing.assert_allclose(obs.theta[lay.block_slice(block)], want)
+    obs.theta[:] = 0.0
+    obs.reset()
+    np.testing.assert_allclose(obs.theta[lay.block_slice("F0")], [0.42])
+    np.testing.assert_allclose(PIICLObserver().theta0, PIICLObserver(PIICLObserverConfig()).theta0)   # default: unchanged
+    with pytest.raises(ValueError):
+        PIICLObserver(PIICLObserverConfig(initial_constant_force=0.4))          # constant_force is off
+    with pytest.raises(ValueError):
+        PIICLObserver(PIICLObserverConfig(command_sign_force=True, initial_command_force=-0.1))

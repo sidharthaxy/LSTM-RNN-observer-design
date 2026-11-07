@@ -44,7 +44,7 @@ the change detector.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, cast
 import numpy as np
 
 from src.adaptation.jacobian_engine import (
@@ -61,7 +61,14 @@ class HybridObserverConfig(PIICLObserverConfig):
     gamma_inst: float = 20.0          # instantaneous gain; acts only on weakly excited directions
     blend: bool = True                # False: Approach D's Newton CL with its rank gate
     lambda_damp: float = 0.01         # lambda: eigenvalue that separates "identified" from "weak"
+    leakage: float = 0.0              # sigma [1/s]: pull of the cart's inertia towards its prior, in the weak
+                                      # directions only (sigma-modification against drift where the data carry
+                                      # no information about the cart; the other blocks have no informative prior)
     freeze_own_inertia: bool = True   # M_ii independent of q_i
+    coupling_from_unactuated: bool = False   # the coupling's shape from the unactuated row, its scale from the
+                                             # actuated rows (default: the coupling from the actuated rows)
+    coupling_min_information: float | None = None   # switch to it once the unactuated stack's information along
+                                                    # the coupling reaches this (None: lambda_damp)
 
     # Optional residual: Approach B's dissipative friction LSTM (no measurable effect in simulation)
     residual: bool = False
@@ -105,7 +112,7 @@ class FrozenHybridModel:
         m = self.model
         rho, _ = m.rho(q)
         M = m.inertia(self.theta, q, rho)
-        tau = m.B @ np.atleast_1d(u) - m.rest_regressor(q, q_dot) @ self.theta
+        tau = m.B @ np.atleast_1d(u) - m.rest_regressor(q, q_dot, u) @ self.theta
         if not self.residual:
             return np.linalg.solve(M, tau), mem
         c_hat, h_hat = mem[: self.L], mem[self.L:]
@@ -117,7 +124,9 @@ class FrozenHybridModel:
 class HybridObserver(PIICLObserver):
     """Approach E observer. Interface of the other observers: reset(x0), update(y, u, dt)."""
 
-    config: HybridObserverConfig
+    @property
+    def config(self) -> HybridObserverConfig:
+        return cast(HybridObserverConfig, self._config)   # __init__ only ever stores a HybridObserverConfig
 
     def __init__(self, config: HybridObserverConfig | None = None) -> None:
         cfg = config or HybridObserverConfig()
@@ -132,6 +141,10 @@ class HybridObserver(PIICLObserver):
         self.theta_res = self.theta_res0.copy()
         self.frozen = np.zeros(0, dtype=bool)
         super().__init__(cfg)
+
+    def gamma_inst(self) -> float:
+        """Instantaneous gain, kept in step with the gravity units (it acts on the scaled parameters)."""
+        return self.config.gamma_inst * self.config.gravity_scale / self.gravity_scale_now
 
     # ------------------------------------------------------------------ structure
     def _frozen_mask(self) -> np.ndarray:
@@ -154,6 +167,11 @@ class HybridObserver(PIICLObserver):
     def _structural_support(self) -> np.ndarray:
         support = super()._structural_support()
         self.frozen = self._frozen_mask()
+        self.leak_mask = np.zeros(self.model.layout.n_params)
+        lay, P = self.model.layout, self.model.layout.n_features
+        for e, (i, j) in enumerate(self.model.entries):        # inertia of the cyclic (cart) coordinates only
+            if i == j and self.model.cyclic[i]:
+                self.leak_mask[lay.block_slice("M").start + e * P: lay.block_slice("M").start + (e + 1) * P] = 1.0
         support[:, self.frozen] = False                 # frozen parameters enter no stack
         self.metric = self.metric.copy()
         self.metric[self.frozen] = 0.0                  # and are not moved by the inertia projection
@@ -171,6 +189,7 @@ class HybridObserver(PIICLObserver):
         self._hkey: Tuple[int, ...] | None = None
         self._A: Tuple[np.ndarray, np.ndarray] | None = None
         self._U: List[Tuple[np.ndarray, np.ndarray] | None] = []
+        self.coupled_steps = 0            # steps that took the coupling from the unactuated row
 
     def frozen_model(self) -> FrozenHybridModel:
         return FrozenHybridModel(self)
@@ -193,7 +212,7 @@ class HybridObserver(PIICLObserver):
     def _model_terms(self, u: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, LSTMCache | None]:
         """(Phi_hat, M_hat, Y(q_hat, q_dot_hat, Phi_hat), dF_res/dphi_F, cache)."""
         m = self.model
-        blocks = m.regressors(self.q_hat, self.q_dot_hat)
+        blocks = m.regressors(self.q_hat, self.q_dot_hat, None, u)
         rho, _ = m.rho(self.q_hat)
         M = m.inertia(self.theta, self.q_hat, rho)
         Y = m._assemble(blocks["cor"], blocks, True)
@@ -247,9 +266,79 @@ class HybridObserver(PIICLObserver):
         T[u.own, 1 + np.arange(u.own.size)] = 1.0
         return T
 
+    def _coupled_update(self, phi: np.ndarray, grad: np.ndarray, dt: float) -> np.ndarray | None:
+        """
+        Blend with the coupling taken from the unactuated row (`coupling_from_unactuated`). With
+        p = (phi_N, phi_J, psi): phi_N the actuated-only columns, phi_J the row's leading inertia,
+        psi = phi_c / phi_J ALL its other columns (shared coupling included),
+          * the unactuated stack gives psi (the coupling-to-inertia ratios and the row's own terms),
+          * the actuated stack, with its shared columns written as phi_J psi_shared, gives (phi_N, phi_J).
+        Both are linear least-squares problems, each blended as in `_blended_update`. Returns None
+        (use `_blended_update`) until both stacks are usable. One unactuated row.
+        """
+        cfg = self.config
+        if len(self.unact) != 1 or self._A is None or self._U[0] is None:
+            return None
+        u, (Om_u, c_u) = self.unact[0], self._U[0]
+        if phi[u.col_J] <= 0.0:
+            return None
+        # Only once the unactuated row pins the coupling: information along the current coupling
+        # direction, with the row's own columns eliminated (Schur complement). Without cart motion
+        # (free swings) it is ~1e-12 and the actuated rows keep the coupling (`_blended_update`).
+        sh, own = u.shared, u.own
+        psi_sh = phi[u.cols[sh]] / phi[u.col_J]
+        nrm = float(np.linalg.norm(psi_sh))
+        if nrm == 0.0:
+            return None
+        S = Om_u[np.ix_(sh, sh)] - Om_u[np.ix_(sh, own)] @ np.linalg.pinv(Om_u[np.ix_(own, own)]) @ Om_u[np.ix_(own, sh)]
+        v = psi_sh / nrm
+        min_info = cfg.lambda_damp if cfg.coupling_min_information is None else cfg.coupling_min_information
+        if float(v @ S @ v) < min_info:
+            return None
+        lam, g = cfg.lambda_damp, dt * cfg.gamma_cl
+        step = g / (1.0 + g)
+        cA = self.cols_A
+        notsh = np.setdiff1d(np.arange(cA.size), u.shared_in_A)
+        phi_J = phi[u.col_J]
+        psi = phi[u.cols] / phi_J
+        T = np.zeros((cA.size, notsh.size + 1))           # phi_A = T x,  x = (phi_N, phi_J)
+        T[notsh, np.arange(notsh.size)] = 1.0
+        T[u.shared_in_A, -1] = psi[u.shared]
+        x = np.concatenate((phi[cA[notsh]], [phi_J]))
+        d_x, W_x = damped_step(T.T @ self._A[0] @ T, T.T @ self._A[1], x, lam)
+        d_psi, W_psi = damped_step(Om_u, c_u, psi, lam)
+        # instantaneous law on the weak directions of p: map grad to p, project, step
+        idx = np.concatenate((cA[notsh], [u.col_J], u.cols))
+        n_x = x.size
+        J = np.zeros((idx.size, idx.size))                # d phi[idx] / d p
+        J[:n_x, :n_x] = np.eye(n_x)
+        J[n_x:, n_x - 1] = psi
+        J[n_x:, n_x:] = phi_J * np.eye(psi.size)
+        g_p = np.linalg.solve(J, grad[idx])
+        g_p[:n_x] = W_x @ g_p[:n_x]
+        g_p[n_x:] = W_psi @ g_p[n_x:]
+        rest = np.ones(phi.size, dtype=bool)
+        rest[idx] = False
+        phi = phi.copy()
+        phi[rest] -= dt * self.gamma_inst() * grad[rest]
+        x = x - dt * self.gamma_inst() * g_p[:n_x] + step * d_x
+        psi = psi - dt * self.gamma_inst() * g_p[n_x:] + step * d_psi
+        if x[-1] * self.s[u.col_J] <= cfg.eps_M:          # inadmissible inertia: keep the old scale
+            x[-1] = phi_J
+        phi[cA[notsh]] = x[:-1]
+        phi[u.col_J] = x[-1]
+        phi[u.cols] = x[-1] * psi
+        return phi
+
     def _blended_update(self, phi: np.ndarray, grad: np.ndarray, dt: float) -> np.ndarray:
         cfg = self.config
         lam = cfg.lambda_damp
+        if cfg.coupling_from_unactuated:
+            self._refresh_stacks()
+            out = self._coupled_update(phi, grad, dt)
+            if out is not None:
+                self.coupled_steps += 1
+                return out
         g = dt * cfg.gamma_cl
         step = g / (1.0 + g)
         self._refresh_stacks()
@@ -274,7 +363,7 @@ class HybridObserver(PIICLObserver):
             J[1:, 0] = -sol[1:] / kappa ** 2
             grad[idx] = J @ W_w @ np.linalg.solve(J, grad[idx])
             increments.append((u, own, d_sol))
-        phi = phi - dt * cfg.gamma_inst * grad                      # instantaneous law, weak directions
+        phi = phi - dt * self.gamma_inst() * grad                      # instantaneous law, weak directions
         if d_A is not None:
             phi[cA] = phi[cA] + step * d_A                          # integral CL, identified directions
         for u, own, d_sol in increments:
@@ -317,11 +406,13 @@ class HybridObserver(PIICLObserver):
         if cfg.adapt:
             phi = self.theta / self.s
             grad = self.s * (Y.T @ e)                               # gradient of the kinetic metric
+            if cfg.leakage > 0.0:                                   # projected onto the weak directions below
+                grad = grad + (cfg.leakage / self.gamma_inst()) * self.leak_mask * (phi - self.phi0)
             grad[self.frozen] = 0.0
             if cfg.cl_enabled and cfg.blend:
                 phi = self._blended_update(phi, grad, dt)
             else:
-                phi = phi - dt * cfg.gamma_inst * grad
+                phi = phi - dt * self.gamma_inst() * grad
                 if cfg.cl_enabled:
                     phi_H, mask = self.stack_estimate()             # Approach D: Newton CL behind a rank gate
                     if phi_H is not None:

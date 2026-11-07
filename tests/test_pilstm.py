@@ -172,9 +172,10 @@ def test_friction_is_dissipative_for_random_parameters() -> None:
 
 
 # ---------------------------------------------------------------------------- Jacobians
-@pytest.mark.parametrize("dissipative", [True, False])
-def test_block_jacobians_match_finite_differences(dissipative) -> None:
-    net = _net(dissipative_friction=dissipative, cyclic=(True, False))
+@pytest.mark.parametrize("dissipative, rig_forces", [(True, False), (False, False), (True, True)])
+def test_block_jacobians_match_finite_differences(dissipative, rig_forces) -> None:
+    net = _net(dissipative_friction=dissipative, cyclic=(True, False),
+               constant_force=rig_forces, command_sign_force=rig_forces)
     rng = np.random.default_rng(0)
     th = _random_theta(net, 0.3, 0)
     q, qd, u, c_hat, h_hat = _random_point(rng)
@@ -188,6 +189,8 @@ def test_block_jacobians_match_finite_differences(dissipative) -> None:
         J_fd[:, i] = (net.forward(tp, q, qd, u, c_hat, h_hat).phi - net.forward(tm, q, qd, u, c_hat, h_hat).phi) / (2 * h)
     for b in net.layout.BLOCKS:
         sl = net.layout.block_slice(b)
+        if sl.stop == sl.start:                          # the optional rig-force block is empty by default
+            continue
         assert np.abs(J_fd[:, sl]).max() > 1e-4, f"block {b} degenerate"
         assert np.allclose(J[:, sl], J_fd[:, sl], atol=1e-7, rtol=1e-6), f"block {b}"
 
@@ -269,3 +272,14 @@ def test_invalid_configurations_are_rejected() -> None:
         PILSTMObserver(PILSTMObserverConfig(cyclic=(True, True)))
     with pytest.raises(ValueError):
         PILSTMObserver(PILSTMObserverConfig(w_bar_M=0.1))                  # theta_M(0) outside ball
+
+
+def test_initial_rig_forces_set_the_starting_parameters() -> None:
+    cfg = PILSTMObserverConfig(constant_force=True, command_sign_force=True, initial_constant_force=0.42,
+                               initial_command_force=0.9)
+    obs = PILSTMObserver(cfg)
+    np.testing.assert_allclose(obs.theta[obs.layout.block_slice("X")], [0.42, 0.9])
+    plain = PILSTMObserver(PILSTMObserverConfig(constant_force=True, command_sign_force=True))
+    assert not plain.theta[plain.layout.block_slice("X")].any()                  # default: zero
+    with pytest.raises(ValueError):
+        PILSTMObserver(PILSTMObserverConfig(initial_command_force=0.9))           # command_sign_force is off

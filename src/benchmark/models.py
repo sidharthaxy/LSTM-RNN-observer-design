@@ -81,18 +81,77 @@ def _lstm_scales(norm: Normalization, drop_x: bool) -> Dict[str, Any]:
     return {"input_scale": tuple(scale), "input_offset": (*norm.pos_offset, 0.0, 0.0, 0.0)}
 
 
-def make_observer(name: str, data: Dataset, seed: int) -> Observer:
+def make_observer(name: str, data: Dataset, seed: int, gravity_scale: float | None = None,
+                  constant_force: bool = False, command_sign_force: bool = False,
+                  inertia_leakage: float = 0.0, inertia_margin: float | None = None,
+                  change_detection: bool = True, coupling_from_pendulum: bool = False,
+                  learn_gravity_scale: bool = False, calibration: Dict[str, float] | None = None) -> Observer:
+    """
+    Options for the physics-structured models (ignored by A and C): gravity_scale (D, E), omega^2
+    [1/s^2] of the pendulum (None: the simulation default); constant_force, a constant force on
+    the cart (a tilted track); command_sign_force, a force along the sign of the command (a drive
+    that compensates friction itself). Both forces are off in simulation. inertia_leakage (E only):
+    sigma [1/s] of the pull of the cart inertia towards its prior in the weakly excited directions;
+    inertia_margin (E only): eps_M of the positive-definiteness projection (None: 0.05, sized for the
+    simulated pendulum). change_detection (D, E): False switches the stack purge off.
+    coupling_from_pendulum (E only): the coupling's shape from the pendulum's own stack, its scale
+    from the cart's, once the pendulum stack pins it. learn_gravity_scale (E only):
+    gravity_scale is not used; E starts from the simulation default and re-sets it from the
+    pendulum's stack (no measured frequency needed).
+    calibration (B, D, E; a rig's automatic calibration, src/rig/rig_data.calibration_from_metadata):
+    starting values and limits instead of the hand-tuned ones: the inertia margin eps_M
+    (inertia_margin, replacing inertia_margin above) and the starting friction and force terms
+    (cart_viscous, pendulum_viscous, cart_coulomb, constant_force, command_force; each only where the
+    model has the term). Zero entries are not set. The calibrated gravity scale reaches D through
+    gravity_scale; E keeps learning it from the default (README §12.5.5: starting E at the calibrated
+    value skips the parameter restart of its first re-set, and E then fails on the fading runs).
+    """
     norm = normalization(data)
+    physics: Dict[str, Any] = {} if gravity_scale is None else {"gravity_scale": float(gravity_scale)}
+    if constant_force:
+        physics["constant_force"] = True
+    if command_sign_force:
+        physics["command_sign_force"] = True
+    cal: Dict[str, Any] = {}              # calibrated starting values and limits, per model family
+    cal_b: Dict[str, Any] = {}
+    if calibration:
+        c = calibration
+        if c.get("inertia_margin", 0.0) > 0.0:
+            cal["eps_M"] = cal_b["eps_M"] = float(c["inertia_margin"])
+            inertia_margin = None
+        cal["initial_damping"] = (max(float(c.get("cart_viscous", 0.0)), 0.0), max(float(c.get("pendulum_viscous", 0.0)), 0.0))
+        cal["initial_coulomb"] = (max(float(c.get("cart_coulomb", 0.0)), 0.0), 0.0)
+        if constant_force:
+            cal["initial_constant_force"] = cal_b["initial_constant_force"] = float(c.get("constant_force", 0.0))
+        if command_sign_force:
+            cal["initial_command_force"] = cal_b["initial_command_force"] = max(float(c.get("command_force", 0.0)), 0.0)
+    linear: Dict[str, Any] = {} if change_detection else {"detect_changes": False}   # D and E only
     if name in ("A", "A-x"):
         return LbLSTMObserver(LbLSTMObserverConfig(seed=seed, **_lstm_scales(norm, name == "A-x")))
     if name in ("C", "C-x"):
         return CLLbLSTMObserver(CLLbLSTMObserverConfig(seed=seed, **_lstm_scales(norm, name == "C-x")))
     if name == "B":
-        return PILSTMObserver(PILSTMObserverConfig(velocity_scale=norm.vel_scale, seed=seed))
+        forces = {k: v for k, v in physics.items() if k in ("constant_force", "command_sign_force")}
+        return PILSTMObserver(PILSTMObserverConfig(velocity_scale=norm.vel_scale, seed=seed, **forces, **cal_b))
     if name == "D":
-        return PIICLObserver(PIICLObserverConfig(seed=seed))
+        return PIICLObserver(PIICLObserverConfig(seed=seed, **physics, **linear, **cal))
     if name == "E":
-        return HybridObserver(HybridObserverConfig(seed=seed))
+        # E's instantaneous gain acts on the scaled parameters; a larger gravity scale makes it
+        # proportionally stiffer, so the gain is scaled back (20 at the default 5, 3.3 on the rig's 30).
+        extra: Dict[str, Any] = dict(cal)
+        if learn_gravity_scale:
+            physics.pop("gravity_scale", None)
+            extra["gravity_scale_auto"] = True
+        elif gravity_scale is not None:
+            ref = HybridObserverConfig()
+            extra["gamma_inst"] = ref.gamma_inst * ref.gravity_scale / float(gravity_scale)
+        if inertia_leakage > 0.0:
+            extra["leakage"] = float(inertia_leakage)
+        if inertia_margin is not None:
+            extra["eps_M"] = float(inertia_margin)
+        if coupling_from_pendulum:
+            extra["coupling_from_unactuated"] = True
+        return HybridObserver(HybridObserverConfig(seed=seed, **physics, **linear, **extra))
     raise KeyError(name)
 
 

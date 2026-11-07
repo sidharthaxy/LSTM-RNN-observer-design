@@ -19,7 +19,7 @@ What is reported (the rig has no velocity sensor, so there is no true velocity):
 
 Usage:
     python experiments/run_rig_evaluation.py --template > data/rig/metadata.txt
-    python experiments/run_rig_evaluation.py --data data/rig [--models B D E] [--seeds 1]
+    python experiments/run_rig_evaluation.py --data data/rig [--models B D E] [--seeds 1] [--out FOLDER]
     python experiments/run_rig_evaluation.py --make-demo data/rig_demo    # simulated runs in the rig format
 Outputs: results/rig/<folder name>/*.csv, figures/rig/<folder name>/summary.png
 """
@@ -51,10 +51,12 @@ from src.observers.el_linear_model import LinearELModel  # noqa: E402
 from src.observers.pi_icl_observer import PIICLObserver  # noqa: E402
 from src.plant.pendulum_plant import PendulumParameters  # noqa: E402
 from src.rig.rig_data import (  # noqa: E402
-    METADATA_TEMPLATE, RigRun, as_dataset, is_mass_step, load_folder, metadata_text, reference_derivatives, write_run,
+    METADATA_TEMPLATE, RigRun, as_dataset, calibration_from_metadata, is_mass_step, load_folder, metadata_text,
+    reference_derivatives, write_run,
 )
 
 PHYS = ("M+m", "ml", "I+ml^2", "mgl")
+RIG_FORCES = ("f0", "k_u")      # constant cart force [N]; force along the command [N]
 TWIN_METRICS = ("one-step NMSE x_ddot", "one-step NMSE theta_ddot", "0.5 s NMSE x", "0.5 s NMSE theta")
 T_SKIP = 0.1
 
@@ -101,10 +103,26 @@ def deadzone_thresholds(run: RigRun, v_min: float = 0.01) -> Dict[str, float]:
 # ---------------------------------------------------------------------- replay
 def job(args: Tuple[str, str, str, int]) -> List[Dict[str, Any]]:
     folder, run_name, model, seed = args
-    _, runs = load_folder(Path(folder))
+    meta, runs = load_folder(Path(folder))
     run = next(r for r in runs if r.name == run_name)
     data = as_dataset(run)
-    obs = make_observer(model, data, seed)
+    wn = float(meta["pendulum_natural_frequency_rad_s"])
+    cal = calibration_from_metadata(meta)            # automatic calibration (characterise_rig.py --calibrate), if any
+    if cal is not None:
+        wn = cal["natural_frequency"]
+    # A real rig: D and E get the measured gravity scale, a constant cart force (no track is exactly
+    # level) and a force along the command (the Feedback DAC block adds its own friction compensation);
+    # E's cart inertia leaks back to its prior where the data say nothing about it (free swings, fading
+    # runs); E's inertia margin admits this pendulum (I + ml^2 about 0.03, below the simulation's 0.05);
+    # the change detector, tuned in simulation, raised false alarms on the rig and is off. E learns the
+    # coupling from the pendulum's own equation and the gravity scale online (D uses the measured one).
+    # With an automatic calibration in metadata.txt, B, D and E take its inertia margin and starting
+    # friction and force terms, and D its natural frequency, instead of the hand-tuned values (E still
+    # learns the gravity scale). The structural options above stay as they are.
+    obs = make_observer(model, data, seed, gravity_scale=wn ** 2 if wn > 0 else None,
+                        constant_force=True, command_sign_force=True, inertia_leakage=1.0,
+                        inertia_margin=0.02, change_detection=False,
+                        coupling_from_pendulum=True, learn_gravity_scale=True, calibration=cal)
     obs.reset(np.array([data.meas[0, 0], 0.0, data.meas[0, 1], 0.0]))
     N = len(data.t)
     vel = np.full((N, 2), np.nan)
@@ -130,11 +148,12 @@ def job(args: Tuple[str, str, str, int]) -> List[Dict[str, Any]]:
             truth = LinearELModel.physical_truth(PendulumParameters())
             pp = obs.physical_parameters()
             rows.append({**base, "kind": "parameters", **{n: pp[n] for n in PHYS},
-                         **{f"{n} datasheet": truth[n] for n in PHYS}})
+                         **{f"{n} datasheet": truth[n] for n in PHYS},
+                         **{n: pp[n] for n in RIG_FORCES if n in pp}})
         if not is_mass_step(run_name):               # the held-out runs use the standard pendulum
             twin = make_twin(obs)
             for test in (r for r in runs if r.role == "test"):
-                r = {**base, "kind": "prediction", "test": test.name}
+                r: Dict[str, Any] = {**base, "kind": "prediction", "test": test.name}
                 try:
                     r.update(twin_metrics(twin, as_dataset(test)))
                 except (FloatingPointError, np.linalg.LinAlgError):
@@ -222,6 +241,7 @@ def main() -> None:
     parser.add_argument("--template", action="store_true", help="print a metadata.txt template and exit")
     parser.add_argument("--make-demo", type=Path, metavar="FOLDER", help="write simulated runs in the rig format and exit")
     parser.add_argument("--demo-repeats", type=int, default=1)
+    parser.add_argument("--out", type=Path, help="results folder (default: results/rig/<folder name>)")
     args = parser.parse_args()
     if args.template:
         print(metadata_text(), end="")
@@ -232,9 +252,11 @@ def main() -> None:
 
     folder = args.data.resolve()
     meta, runs = load_folder(folder)
-    res_dir = ROOT_DIR / "results" / "rig" / folder.name
+    res_dir = args.out.resolve() if args.out else ROOT_DIR / "results" / "rig" / folder.name
     res_dir.mkdir(parents=True, exist_ok=True)
-    print(f"Recording: {folder}  ({len(runs)} runs; pendulum: {meta['pendulum']})\n")
+    print(f"Recording: {folder}  ({len(runs)} runs; pendulum: {meta['pendulum']})")
+    cal = calibration_from_metadata(meta)
+    print("Settings of B, D and E: " + (f"automatic calibration from {meta['cal_runs']}: {cal}" if cal else "hand-tuned") + "\n")
 
     # 1. What is in the recording, and whether it is usable
     report, problems, signs = [], [], []
@@ -297,8 +319,9 @@ def main() -> None:
         if len(par):
             print("\n=== Identified physical parameters (median over runs), with the datasheet value ===")
             std = par[~par.run.map(is_mass_step)]
-            tab = std.groupby("model")[list(PHYS)].median()
-            tab.loc["datasheet"] = [LinearELModel.physical_truth(PendulumParameters())[n] for n in PHYS]
+            cols = list(PHYS) + [n for n in RIG_FORCES if n in std]
+            tab = std.groupby("model")[cols].median()
+            tab.loc["datasheet"] = [LinearELModel.physical_truth(PendulumParameters())[n] for n in PHYS] + [np.nan] * (len(cols) - len(PHYS))
             print(tab.to_string())
     if not args.no_plots:
         fig = ROOT_DIR / "figures" / "rig" / folder.name / "summary.png"

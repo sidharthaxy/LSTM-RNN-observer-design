@@ -71,6 +71,20 @@ class PIICLObserverConfig:
     inertia_init: Tuple[float, ...] = (2.0, 0.2)     # prior M = diag(inertia_init) (as B)
     eps_M: float = 0.05
     pd_grid: int = 72
+    constant_force: bool = False      # constant force on the cart (tilted track); off in simulation
+    command_sign_force: bool = False  # force k_u tanh(u / eps) along the command (drive-side friction compensation)
+    command_sign_eps: float = 0.05    # [N] smoothing of the sign
+    gravity_scale: float = 5.0        # omega^2 [1/s^2] used to scale the potential parameters (simulation: 6.3; real rig: 30)
+    gravity_scale_auto: bool = False  # re-set gravity_scale online from the pendulum's own stack (no measured value needed;
+                                      # Approach E only: needs M_ii independent of q_i)
+    gravity_scale_band: float = 1.2   # re-set when the stack's omega^2 leaves [scale / band, scale * band] ...
+    gravity_scale_hold: float = 2.0   # ... and has stayed within 10 % for this long [s]
+    gravity_scale_restart: bool = True   # restart the parameters from the prior at the first re-set (re-learned from the stacks)
+    # Starting values of the friction and force terms (default: zero, as in simulation); a rig calibration sets them
+    initial_damping: Tuple[float, ...] | None = None   # d_v(0), one per coordinate
+    initial_coulomb: Tuple[float, ...] | None = None   # d_c(0), one per coordinate (needs coulomb)
+    initial_constant_force: float = 0.0               # f_0(0) on the cyclic coordinate (needs constant_force)
+    initial_command_force: float = 0.0                # k_u(0) >= 0 (needs command_sign_force)
 
     # Auxiliary filter and robust feedback (Approach A/B)
     alpha: float = 4.0
@@ -131,28 +145,51 @@ class PIICLObserver:
     """Approach D observer. Interface of the other observers: reset(x0), update(y, u, dt)."""
 
     def __init__(self, config: PIICLObserverConfig | None = None) -> None:
-        self.config = config or PIICLObserverConfig()
+        self._config = config or PIICLObserverConfig()
         cfg = self.config
         n = cfg.n_coords
         self.model = LinearELModel(
             n, np.asarray(cfg.input_matrix, dtype=np.float64), cfg.revolute, cfg.cyclic, cfg.harmonics,
             cfg.n_features, coulomb=cfg.coulomb, coulomb_velocity=cfg.coulomb_velocity, seed=cfg.seed,
+            constant_force=cfg.constant_force, command_sign_force=cfg.command_sign_force,
+            command_sign_eps=cfg.command_sign_eps,
         )
         lay = self.model.layout
         self.p = lay.n_params
-        self.s = self.model.parameter_scale(cfg.inertia_init)
+        self.s = self.model.parameter_scale(cfg.inertia_init, gravity_scale=cfg.gravity_scale)
+        self.s_initial = self.s.copy()
         self.row_weight = 1.0 / np.sqrt(np.asarray(cfg.inertia_init, dtype=np.float64))   # Lambda^{1/2}
         self.theta0 = self.model.prior_parameters(cfg.inertia_init)
+        self._set_initial_forces(self.theta0)
         self.phi0 = self.theta0 / self.s
         self.rho_grid = self.model.grid_features(self.model.angle_grid(cfg.pd_grid))
-        self.metric = self.s ** 2
+        self.metric = np.asarray(self.s ** 2, dtype=np.float64)
         self.nonneg = np.zeros(self.p, dtype=bool)
         self.nonneg[lay.block_slice("Fv")] = True
         self.nonneg[lay.block_slice("Fc")] = True
+        self.nonneg[lay.block_slice("Fu")] = True       # a drive compensates along the command, never against it
         self.chi_x1_coeff = 2.0 - cfg.alpha ** 2 if cfg.chi_x1_coeff is None else cfg.chi_x1_coeff
         self._build_stacks()
+        self.metric_initial = self.metric.copy()
         self.theta = self.theta0.copy()
         self.reset()
+
+    def _set_initial_forces(self, theta: np.ndarray) -> None:
+        """Writes the configured starting values of the friction and force terms into theta (in place)."""
+        cfg, lay = self.config, self.model.layout
+        values = {"Fv": cfg.initial_damping, "Fc": cfg.initial_coulomb,
+                  "F0": (cfg.initial_constant_force,) if cfg.initial_constant_force else None,
+                  "Fu": (cfg.initial_command_force,) if cfg.initial_command_force else None}
+        for block, v in values.items():
+            if v is None:
+                continue
+            sl = lay.block_slice(block)
+            if sl.stop - sl.start != len(v):
+                raise ValueError(f"initial value for {block}: {len(v)} entries, the model has {sl.stop - sl.start} "
+                                 "(is the matching force option on?).")
+            if block != "F0" and min(v) < 0.0:
+                raise ValueError(f"initial value for {block} must be non-negative.")
+            theta[sl] = v
 
     # ------------------------------------------------------------------ stack structure
     def _structural_support(self) -> np.ndarray:
@@ -162,7 +199,7 @@ class PIICLObserver:
         for _ in range(8):
             q = rng.uniform(-3.0, 3.0, self.model.n)
             qd = rng.normal(size=self.model.n)
-            Ym, Yi = self.model.icl_regressors(q, qd)
+            Ym, Yi = self.model.icl_regressors(q, qd, rng.normal(size=self.model.B.shape[1]))
             support |= (np.abs(Ym) > 1e-12) | (np.abs(Yi) > 1e-12)
         return support
 
@@ -192,6 +229,11 @@ class PIICLObserver:
             ))
 
     @property
+    def config(self) -> PIICLObserverConfig:
+        """The configuration (read-only, so that subclasses can narrow its type)."""
+        return self._config
+
+    @property
     def stacks(self) -> List[HistoryStack]:
         return [self.stack_A] + [u.stack for u in self.unact]
 
@@ -211,6 +253,11 @@ class PIICLObserver:
         self._filter_initialized = False
         if reset_weights:
             self.theta = self.theta0.copy()
+            self.s, self.metric = self.s_initial.copy(), self.metric_initial.copy()   # gravity units back to the configured ones
+            self.phi0 = self.theta0 / self.s
+            self.gravity_scale_now = self.config.gravity_scale
+            self.gravity_scale_changes: List[Tuple[float, float]] = []
+            self._w2_since: Tuple[float, float] | None = None
         for st in self.stacks:
             st.clear()
         self.t = 0.0
@@ -366,7 +413,7 @@ class PIICLObserver:
         self.smoothed = (q_s, qd_s)
         u_c = self._ubuf[0]                                  # input at the centre sample
         t_c = self.t - self.smoother.delay * dt
-        Y_mom, Y_int = self.model.icl_regressors(q_s, qd_s)
+        Y_mom, Y_int = self.model.icl_regressors(q_s, qd_s, u_c)
         if not self._stream:
             cum_int = np.zeros_like(Y_int)
             cum_bu = np.zeros(self.model.n)
@@ -395,6 +442,63 @@ class PIICLObserver:
         for u in self.unact:
             Yi = Y[u.row] * self.s
             u.stack.consider(HistoryStackEntry(Yi[u.cols][None, :], np.array([-Yi[u.col_J]]), t_c))
+        if cfg.gravity_scale_auto:
+            self._auto_gravity_scale()
+
+    # ------------------------------------------------------------------ gravity units, learned online
+    def stack_omega_squared(self) -> float | None:
+        """
+        omega^2 = |w_G| / J [1/s^2] of the first unactuated row, from its own stack alone: the
+        normalized row  sum_c Y_c (theta_c / theta_J) = -Y_J  is linear in the ratios, so ordinary
+        least squares on it gives |w_G| / J without any other parameter. None until the stack is usable.
+        """
+        if not self.unact:
+            return None
+        u = self.unact[0]
+        if len(u.stack) < self.config.cl_min_windows:
+            return None
+        lay = self.model.layout
+        e = self.model.entries.index((u.row, u.row))
+        own_inertia = lay.block_slice("M").start + e * lay.n_features + np.arange(1, lay.n_features)
+        if np.isin(own_inertia, u.cols).any():
+            return None   # M_ii may depend on q_i (Approach D): the row's ratio to J is not omega^2 (use Approach E)
+        R, t = u.stack.data_matrix(), u.stack.targets()
+        g = np.isin(u.cols, np.arange(self.p)[lay.block_slice("G")])
+        Om = R.T @ R                         # only the potential columns need to be pinned: their Schur complement
+        S = Om[np.ix_(g, g)] - Om[np.ix_(g, ~g)] @ np.linalg.pinv(Om[np.ix_(~g, ~g)]) @ Om[np.ix_(~g, g)]
+        if np.linalg.eigvalsh(S)[0] < self.config.lambda_bar:
+            return None
+        psi = np.linalg.lstsq(R, t, rcond=1e-10)[0]
+        return float(np.linalg.norm(psi[g] * self.s[u.cols[g]]) / self.s[u.col_J])
+
+    def _auto_gravity_scale(self) -> None:
+        """
+        Re-sets the units of the potential parameters when the stack's omega^2 has left the band
+        [scale / band, scale * band] and stayed steady (within 10 %) for `gravity_scale_hold` seconds.
+        """
+        cfg = self.config
+        w2 = self.stack_omega_squared()
+        cur = float(self.gravity_scale_now)
+        if w2 is None or not np.isfinite(w2) or w2 <= 0.0:
+            self._w2_since = None
+            return
+        if self._w2_since is None or abs(w2 / self._w2_since[1] - 1.0) > 0.1:
+            self._w2_since = (self.t, w2)                        # a new candidate value
+            return
+        if self.t - self._w2_since[0] < cfg.gravity_scale_hold or cur / cfg.gravity_scale_band <= w2 <= cur * cfg.gravity_scale_band:
+            return
+        f = np.ones(self.p)
+        f[self.model.layout.block_slice("G")] = w2 / cur        # s_new / s_old on the potential parameters
+        self.s = self.s * f
+        self.phi0 = self.theta0 / self.s
+        self.metric = np.asarray(self.metric * f ** 2, dtype=np.float64)
+        self.stack_A.rescale_columns(f[self.cols_A])           # stored regressors are Y * s
+        for u in self.unact:
+            u.stack.rescale_columns(f[u.cols])
+        self.gravity_scale_now = w2
+        self.gravity_scale_changes.append((self.t, w2))
+        if cfg.gravity_scale_restart and len(self.gravity_scale_changes) == 1:
+            self.theta = self.theta0.copy()   # what was learned in the configured units is dropped; the stacks keep the data
 
     def _detect_change(self, Y_A: np.ndarray, b_A: np.ndarray, t_c: float) -> None:
         """

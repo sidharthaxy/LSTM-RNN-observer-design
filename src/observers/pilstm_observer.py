@@ -84,6 +84,14 @@ class PILSTMObserverConfig:
     w_bar_V: float = 5.0
     w_bar_G: float = 20.0
     w_bar_F: float = 20.0
+    # Optional real-rig forces (off in simulation; see Approach D): constant cart force, force along the command
+    constant_force: bool = False
+    command_sign_force: bool = False
+    command_sign_eps: float = 0.05    # [N]
+    initial_constant_force: float = 0.0   # f_0(0) (default zero; a rig calibration sets it)
+    initial_command_force: float = 0.0    # k_u(0)
+    gamma_X: float = 10.0
+    w_bar_X: float = 20.0
     proj_eps: float = 0.1
     metric: Literal["euclidean", "kinetic"] = "kinetic"   # error metric of the adaptation gradient
     adapt: bool = True
@@ -121,6 +129,9 @@ class PILSTMObserver:
             dissipative_friction=cfg.dissipative_friction,
             damping_offset=cfg.damping_offset,
             seed=cfg.seed,
+            constant_force=cfg.constant_force,
+            command_sign_force=cfg.command_sign_force,
+            command_sign_eps=cfg.command_sign_eps,
         )
         if self.net.B.shape[1] != cfg.n_inputs:
             raise ValueError("input_matrix must have n_inputs columns.")
@@ -128,14 +139,18 @@ class PILSTMObserver:
         self.adaptation = PILSTMAdaptationLaw(
             self.net,
             gammas={"M": cfg.gamma_M, "V": cfg.gamma_V, "G": cfg.gamma_G,
-                    "F_gates": cfg.gamma_F_gates, "F_out": cfg.gamma_F_out},
-            w_bars={"M": cfg.w_bar_M, "V": cfg.w_bar_V, "G": cfg.w_bar_G, "F": cfg.w_bar_F},
+                    "F_gates": cfg.gamma_F_gates, "F_out": cfg.gamma_F_out, "X": cfg.gamma_X},
+            w_bars={"M": cfg.w_bar_M, "V": cfg.w_bar_V, "G": cfg.w_bar_G, "F": cfg.w_bar_F, "X": cfg.w_bar_X},
             proj_eps=cfg.proj_eps,
             metric=cfg.metric,
         )
         self.chi_x1_coeff = 2.0 - cfg.alpha ** 2 if cfg.chi_x1_coeff is None else cfg.chi_x1_coeff
 
         self.theta0 = self.net.initial_parameters(cfg.inertia_init, cfg.gate_scale, seed=cfg.seed)
+        x0 = ([cfg.initial_constant_force] if cfg.constant_force else []) + ([cfg.initial_command_force] if cfg.command_sign_force else [])
+        if (cfg.initial_constant_force and not cfg.constant_force) or (cfg.initial_command_force and not cfg.command_sign_force):
+            raise ValueError("an initial force needs its force option (constant_force / command_sign_force).")
+        self.theta0[self.layout.block_slice("X")] = x0
         for b, norm in self.adaptation.block_norms(self.theta0).items():
             if norm > self.adaptation.w_bars[b] / np.sqrt(1.0 + cfg.proj_eps):
                 raise ValueError(f"theta_{b}(0) lies outside its projection ball; raise w_bar_{b}.")

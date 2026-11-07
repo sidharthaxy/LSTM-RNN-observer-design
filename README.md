@@ -3,14 +3,17 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Scientific Stack](https://img.shields.io/badge/SciML-NumPy%20%7C%20SciPy-orange.svg)](#)
-[![Rig: Feedback 33-936S](https://img.shields.io/badge/Benchmarked-Feedback%2033--936S-green.svg)](#)
-[![Tests](https://img.shields.io/badge/tests-126%2F126%20passing-brightgreen.svg)](#run-the-tests)
+[![Simulated: Feedback 33-936S](https://img.shields.io/badge/Simulated-Feedback%2033--936S-green.svg)](#2-problem-statement-and-the-testbed)
+[![Recorded: Feedback 33-200](https://img.shields.io/badge/Recorded-Feedback%2033--200-green.svg)](#12-evaluating-on-recorded-rig-data)
+[![Tests](https://img.shields.io/badge/tests-139%2F139%20passing-brightgreen.svg)](#run-the-tests)
 
 This repository estimates the unmeasured velocities of the Feedback Instruments 33-936S
 cart–pendulum from its encoders alone. It also learns a model of the rig's dynamics while it
 does so. It contains five learning observers (Approaches A–E), the classical baselines they are
 compared with, a shared benchmark that runs all of them under identical conditions, and a tool
-that replays recordings from the real rig through every model.
+that replays recordings from the real rig through every model. The simulations use the parameters
+of the 33-936S manual (§2). The rig recorded in the lab is a Feedback 33-200/33-201 digital pendulum,
+whose pendulum and drive differ from those values (§12.5).
 
 Everything lives on this one branch. The original per-approach branches are kept unchanged as
 history (§14.3).
@@ -119,12 +122,14 @@ history (§14.3).
   - [11.5 Improvement 2: remove the cart position from the black-box inputs](#115-improvement-2-remove-the-cart-position-from-the-black-box-inputs)
   - [11.6 Approach A vs Approach C](#116-approach-a-vs-approach-c)
   - [11.7 Improvement 3: model-free warm start](#117-improvement-3-model-free-warm-start)
-  - [11.8 Caveats](#118-caveats)
+  - [11.8 E with its rig settings](#118-e-with-its-rig-settings)
+  - [11.9 Caveats](#119-caveats)
 - [12. Evaluating on recorded rig data](#12-evaluating-on-recorded-rig-data)
   - [12.1 Recording folder](#121-recording-folder)
-  - [12.2 Recording protocol](#122-recording-protocol)
+  - [12.2 Recording protocol (as run on 6 Nov 2026)](#122-recording-protocol-as-run-on-6-nov-2026)
   - [12.3 Running the evaluation](#123-running-the-evaluation)
   - [12.4 What is reported, and what it can show](#124-what-is-reported-and-what-it-can-show)
+  - [12.5 Results of the 6 Nov 2026 session](#125-results-of-the-6-nov-2026-session)
 - [13. Literature review and result cross-verification](#13-literature-review-and-result-cross-verification)
   - [13.1 Theory: points that need care](#131-theory-points-that-need-care)
   - [13.2 Published claims, checked against our results](#132-published-claims-checked-against-our-results)
@@ -179,7 +184,7 @@ for Approach C. Without it, parallel runs fight over BLAS threads and can be man
 ### Run the tests
 
 ```bash
-pytest -q                                   # all 126 tests, about 2 min
+pytest -q                                   # all 139 tests, about 2 min
 pytest -v                                   # the same, one line per test
 ```
 
@@ -189,12 +194,12 @@ Run the tests of one part only:
 |:---|:---|---:|
 | Testbed: plant, sensor noise, baselines, metrics | `pytest -q tests/test_plant.py tests/test_sensor_noise.py tests/test_baselines.py tests/test_metrics.py` | 19 |
 | Approach A | `pytest -q tests/test_blackbox_lstm.py tests/test_jacobian_engine.py tests/test_extract_model.py` | 18 |
-| Approach B | `pytest -q tests/test_pilstm.py tests/test_physics_informed_lstm.py` | 22 |
+| Approach B | `pytest -q tests/test_pilstm.py tests/test_physics_informed_lstm.py` | 24 |
 | Approach C | `pytest -q tests/test_cl_lstm_observer.py tests/test_point_history_stack.py` | 23 |
-| Approach D | `pytest -q tests/test_pi_icl.py tests/test_history_stack.py` | 23 |
-| Approach E | `pytest -q tests/test_hybrid.py` | 7 |
+| Approach D | `pytest -q tests/test_pi_icl.py tests/test_history_stack.py` | 28 |
+| Approach E | `pytest -q tests/test_hybrid.py` | 12 |
 | Shared benchmark | `pytest -q tests/test_shared_benchmark.py` | 8 |
-| Rig-data tool | `pytest -q tests/test_rig_data.py` | 6 |
+| Rig-data tool | `pytest -q tests/test_rig_data.py` | 7 |
 
 ### Classical baselines
 
@@ -339,18 +344,25 @@ Replays recordings from the physical rig through the observers (§12). At the ri
 `scripts/rig/export_run.m` after each run (§12.2). Then, on this computer:
 
 ```bash
-# 1. Write the metadata template, then edit it to match your DAQ setup
-python experiments/run_rig_evaluation.py --template > data/rig/metadata.txt
+# Evaluate the recordings of 6 Nov 2026 in data/rig/ with every approach (about 15 min)
+python experiments/run_rig_evaluation.py --data data/rig --models A B C D E
 
-# 2. Optional rehearsal: write simulated runs in the rig file format, then evaluate them
+# Characterise the rig from the same recordings: data integrity, loop and input check, angle sign,
+# pendulum frequency and damping, break-away and friction (§12.5). About 20 s.
+# Writes results/rig/characterisation.csv and figures/rig/characterisation.png
+python scripts/rig/characterise_rig.py
+
+# Automatic calibration (§12.5.5): one free swing and one two-tone run give B, D and E their inertia
+# margin and starting friction and force terms, written as cal_ fields into the folder's metadata.txt.
+# The evaluation then uses them instead of the hand-tuned values. --dry-run only prints them.
+python scripts/rig/characterise_rig.py --calibrate run2_freeswing_trial2 run4_twotone_trial2 --dry-run
+
+# For a NEW recording folder only: write a metadata template into it, then edit it
+python experiments/run_rig_evaluation.py --template > data/<new folder>/metadata.txt
+
+# Rehearsal: simulated runs in the rig file format, then evaluate them
 python experiments/run_rig_evaluation.py --make-demo data/rig_demo
 python experiments/run_rig_evaluation.py --data data/rig_demo
-
-# 3. Evaluate the real recordings (default models: B, D and E)
-python experiments/run_rig_evaluation.py --data data/rig
-
-# Every approach, with 3 initialization seeds per (model, run)
-python experiments/run_rig_evaluation.py --data data/rig --models A B C D E --seeds 3
 ```
 
 Outputs go to `results/rig/<folder>/` (`run_report.csv`, `velocity.csv`, `prediction.csv`,
@@ -390,11 +402,15 @@ Roughly an hour in total, most of it in Approach E and the shared benchmark.
 
 ## 1. Overview: what was built and which approach is best
 
-The benchmark system is the **Feedback Instruments 33-936S digital cart–pendulum rig**,
-interfaced through an **Advantech PCI-1711 DAQ card**. In operation only the encoder positions
+The simulated benchmark system is the **Feedback Instruments 33-936S digital cart–pendulum rig**,
+interfaced through an **Advantech PCI-1711 DAQ card**. The rig recorded in the lab is a Feedback
+33-200/33-201 with the same card (§12). In operation only the encoder positions
 (<i>x</i>, θ) are available: discrete, quantized and noisy. Differentiating them directly
 (dirty derivatives, high-gain observers) amplifies the encoder noise into high-frequency
-chattering, which degrades closed-loop stabilization and wears the actuator.
+chattering, which degrades closed-loop stabilization and wears the actuator. On recordings from the
+real rig, the rig's own dirty-derivative filter is 10–40 times noisier than the observers here
+(§12.5.4). The effect on a balancing loop has not been measured: every recording was made with the
+pendulum hanging.
 
 This project develops **continuous-time neural adaptive observers** whose weight-adaptation laws
 come from a **Lyapunov stability analysis**. They are not trained offline by backpropagation
@@ -411,7 +427,7 @@ how it adapts:
 | A | Black-box Lb-LSTM | A continuous-time LSTM learns the whole acceleration field, with no physics | §6 |
 | B | Physics-informed PI-LSTM | Sub-networks for inertia, Coriolis, gravity and friction, built so that the laws of mechanics hold for every weight value | §7 |
 | C | Concurrent-learning Lb-LSTM | A's observer plus a memory of past data, so it keeps learning after the excitation fades | §8 |
-| D | Physics-structured integral CL | A 15-parameter Euler–Lagrange model that is exact for the rig, identified from integrated data without any acceleration estimate | §9 |
+| D | Physics-structured integral CL | A 15-parameter Euler–Lagrange model that is exact for the simulated rig, identified from integrated data without any acceleration estimate | §9 |
 | E | Hybrid of B and D | D's model and memory, B's learning law in the directions the memory cannot resolve | §10 |
 
 **Verdict in plain words.** The shared benchmark (§11) runs every approach on every scenario with
@@ -419,7 +435,7 @@ the same seeds and metrics.
 
 - **Approach E is the best overall.** It has the lowest steady-state velocity error in all three
   scenarios, the best prediction on held-out inputs (2× to 56× better than the runner-up), and
-  it identifies the rig's inertia to within 0.3 %. It is not perfect: B still settles faster in
+  it identifies the simulated rig's inertia to within 0.3 %. It is not perfect: B still settles faster in
   the first 5 s of small-swing runs (§10.7), and its learning gain has only about a 3× margin
   to instability.
 - **Physics structure is what makes a model generalize.** B, D and E predict unseen inputs one to
@@ -431,8 +447,18 @@ the same seeds and metrics.
   the inputs (§11.6). Without a change detector it is the worst after a plant change.
 - **Approach D identifies the rig almost exactly when the data are rich**, but fails on small
   swings, where its pendulum-row scale runs away (§10.2). E repairs exactly this.
-- **Everything here is simulation.** §12 describes how to replay real rig recordings through the
-  same models.
+- **On the real rig E stays best, after seven changes (§12.5).** On recordings from the Feedback
+  33-200 rig, the structured models with their simulation settings were the worst, and the black-box
+  C was best. The structured models lacked things the simulated plant does not have: the pendulum's
+  real frequency, a constant cart force, the drive's own friction compensation, protection against
+  drift where the cart is not excited, an inertia margin small enough for this pendulum, and, for E, a
+  way to learn the coupling from the pendulum's own equation instead of the cart's. With these, and
+  with the gravity scale learned online instead of measured, E has the lowest median velocity error
+  on the rig (0.012 rad/s against C's 0.013), predicts unseen rig inputs about 30 times better than
+  any other approach, and identifies the coupling and the swing frequency within 3 % of their
+  measured values. C keeps a small lead only on the two-tone runs (0.018 against 0.020). B could not
+  be repaired: its instantaneous law alone cannot learn the coupling from these data. Every
+  observer's velocity estimate is 10–40 times less noisy than the rig's dirty-derivative filter.
 
 ---
 
@@ -457,6 +483,19 @@ where:
 2. **Quantization.** The PCI-1711 quadrature counters discretize position: 4096 counts/m for the cart, 4096 counts/rev for the pendulum.
 3. **Asymmetric dead-zone and stiction.** The drive amplifier has an asymmetric dead-band (+ 0.15 V forward, −0.12 V reverse) and static breakaway friction <i>F</i><sub>stiction</sub> ≈ 0.35 N.
 4. **Unmodelled dynamics.** $\mathbf{\Delta}(q, \dot{q}, t)$ covers cable drag, track irregularities and velocity-dependent stiction.
+
+These are the simulation's sensor and actuator models, and every simulated result uses them.
+**Measured on the real rig** (§12.5.1, §12.5.3):
+
+- **Noise.** The recorded signals carry quantization only, with no added noise. One angle count is
+  0.18°, so the simulated angle noise of ±0.5° is pessimistic.
+- **Resolution.** The cart moves in steps of 0.078 m per 1024 counts (about 13,100 counts/m). The
+  angle moves in steps of 2048 counts/rev. Neither is 4096.
+- **Break-away.** The cart starts moving at +0.15 V towards +x, as the dead-band above says, but
+  already below 0.10 V towards −x. The simulated dead-band and stiction together need 0.325 V.
+- **Friction compensation.** The vendor's DAC block adds its own compensation voltage along the
+  command (0.1 V by default), which the simulation does not model.
+- **Cart force.** The track pushes the cart steadily towards −x, as from a tilt of about 0.7°.
 
 **Objective.** Reconstruct the full state $\hat{\mathbf{x}} = [\hat{x}, \hat{\dot{x}}, \hat{\theta}, \hat{\dot{\theta}}]^T$
 and identify the unknown dynamics, without velocity chattering and with a guaranteed bound
@@ -500,11 +539,26 @@ $$\begin{aligned}
 | Cart damping | <i>b</i> | `0.05` | N·s/m | Track viscous damping |
 | Joint damping | <i>d</i> | `0.005` | N·m·s/rad | Pivot bearing viscous friction |
 | Gravity | <i>g</i> | `9.81` | m/s² | Gravitational acceleration |
-| Maximum force | <i>F</i><sub>max</sub> | `20.0` | N | Drive amplifier saturation (±10 V) |
+| Maximum force | <i>F</i><sub>max</sub> | `20.0` | N | Force at the ±2.5 V command limit (manual p. 7), i.e. about 8 N/V; the simulation's actuator model assumes 2 N/V (±10 V) |
 | Track limits | <i>x</i><sub>lim</sub> | `0.5` | m | End-stop bumpers at ±0.5 m |
 
 Derived values used throughout: <i>M</i> + <i>m</i> = 2.63 kg, <i>ml</i> = 0.083 kg·m, <i>I</i> + <i>m</i><i>l</i><sup>2</sup> = 0.129 kg·m²,
 <i>mgl</i> = 0.812 N·m.
+
+**These are the simulated rig's values, and they do not describe the pendulum recorded in the lab**
+(§12.5.2):
+
+- **Frequency.** The recorded pendulum swings at 5.48 rad/s, against 2.51 rad/s for the values
+  above. That is ω<sup>2</sup> ≈ 30 instead of 6.3, equivalent to a pendulum 0.327 m long.
+- **Construction.** It carries two arms on the same shaft, with a short length of rod above the
+  pivot, which a single-rod table cannot describe.
+- **What E identifies there.** <i>I</i> + <i>m</i><i>l</i><sup>2</sup> = 0.029–0.047 kg·m², about a quarter of the 0.129
+  above. <i>M</i> + <i>m</i> = 2.30–2.69 kg, consistent with 2.63.
+- **Drive.** The drive gives about 8 N/V, the value of the <i>F</i><sub>max</sub> row. The
+  simulation's actuator model assumes 2 N/V.
+
+The pendulum and cart masses were not weighed. The track limits are the manual's value; the largest
+recorded excursion was 0.294 m.
 
 ### 2.4 Analytic Jacobians
 
@@ -1382,7 +1436,8 @@ $\partial^2\hat M/\partial q\thinspace \partial\theta_M$, which the Christoffel 
 
 #### 7.2.4 Dimensionless row scale and the inertia prior
 
-On the rig, <i>M</i><sub>11</sub> ≈ 2.6 kg and <i>M</i><sub>22</sub> ≈ 0.13 kg·m², a 20× spread. With
+On the simulated rig, <i>M</i><sub>11</sub> ≈ 2.6 kg and <i>M</i><sub>22</sub> ≈ 0.13 kg·m², a 20× spread. On the
+recorded rig <i>M</i><sub>22</sub> is about 0.03–0.05 kg·m² (§12.5.4), so the spread is 55–90×. With
 <i>D</i> = <i>I</i>, a single adaptation gain γ<sub><i>M</i></sub> is simultaneously too slow for the cart row
 and too fast for the pendulum row.
 
@@ -1573,7 +1628,7 @@ $\partial(\partial_kL_r)/\partial W_r = g_r^{\prime\prime}\beta_{rk}\rho + g_r^{
 feature layer is kept fixed.
 
 `tests/test_pilstm.py` checks all four blocks against central finite differences (for both
-friction forms), and checks the fast product against the explicit Φ<sup>′<i>T</i></sup><i>We</i>.
+friction forms, and with the optional rig-force block X of §12.5.4), and checks the fast product against the explicit Φ<sup>′<i>T</i></sup><i>We</i>.
 
 **Error metric <i>W</i>** (`metric=`):
 
@@ -2521,6 +2576,21 @@ cyclic, so it is not embedded. With first harmonics (<i>K</i> = 1) there are <i>
 constant feature is left out of the potential, because it has zero gradient and would be
 unidentifiable.
 
+**Two optional terms for a real rig.** Both are off in simulation, where the plant has neither,
+and on in the rig evaluation (§12.5.4). Each adds one parameter that enters linearly, so the ICL
+identity of §9.3 and both adaptation laws apply unchanged (<i>p</i> = 17 with both). Approach B
+has the same two forces as an optional parameter block X, adapted by its own Lyapunov law.
+
+- `constant_force`: a constant force <i>f</i><sub>0</sub> on the cart, for example gravity along a slightly
+  tilted track, (<i>M</i> + <i>m</i>)<i>g</i> sin α. It is the gradient of the potential <i>f</i><sub>0</sub><i>x</i>,
+  so <i>G</i> stays conservative and every invariant below still holds.
+- `command_sign_force`: a force <i>k</i><sub><i>u</i></sub> tanh(<i>u</i>/ε) along the command, with ε = 0.05 N. It models a
+  drive that adds its own friction compensation to the command, as the Feedback DAC block does
+  (§12.5.3). It belongs to the actuation, not to the plant, so the power balance becomes
+  d(<i>T</i> + <i>P</i>)/d<i>t</i> = <i>q̇</i><sup><i>T</i></sup>(<i>Bu</i> + <i>k</i><sub><i>u</i></sub><i>B</i> tanh(<i>u</i>/ε) − <i>F</i>), and the regressors take
+  <i>u</i> as an extra argument. <i>k</i><sub><i>u</i></sub> is projected onto <i>k</i><sub><i>u</i></sub> ≥ 0, like the friction
+  coefficients: a drive compensates along the command, never against it.
+
 | Invariant | How it holds |
 |:---|:---|
 | <i>M</i> = <i>M</i><sup><i>T</i></sup> | By construction: the parameters are its unique entries |
@@ -2828,14 +2898,17 @@ Defaults of `PIICLObserverConfig`:
 | Parameter | Default | Role |
 |:---|:---:|:---|
 | `harmonics`, `coulomb` | 1, True | Model order (§9.6) |
-| `inertia_init`, `eps_M` | (2, 0.2), 0.05 | Prior <i>M</i> = diag (as B); positive-definiteness margin |
+| `inertia_init`, `eps_M` | (2, 0.2), 0.05 | Prior <i>M</i> = diag (as B); positive-definiteness margin (E on the rig: 0.02, §12.5.4) |
+| `gravity_scale` | 5 1/s² | Assumed ω² that scales the gravity parameters; on the rig D takes it from the measured frequency (30, §12.5.4), while E learns it (`gravity_scale_auto`, §10.8) |
+| `constant_force`, `command_sign_force`, `command_sign_eps` | False, False, 0.05 N | Optional rig terms of §9.2: constant cart force, force along the command; on in the rig evaluation |
+| `initial_damping`, `initial_coulomb`, `initial_constant_force`, `initial_command_force` | None, None, 0, 0 | Starting values of the friction and force terms (default zero); set by a rig calibration (§12.5.5) |
 | `alpha, k_r, k_s` | 4, 8, 0.2 | Filter gains of §5, unchanged |
 | `gamma_inst` | 2 | Instantaneous gain (scaled parameters) |
 | `gamma_cl` | 2 1/s | Rate of the pull towards φ<sub><i>H</i></sub> (implicit step) |
 | `icl_window`, `record_interval` | 0.25 s, 50 ms | ICL window Δ; candidate spacing |
 | `stack_capacity`, `cl_min_windows`, `lambda_bar` | 300, 60, 1e-4 | Stack size; rank gate |
 | `sg_window`, `sg_order` | 0.1 s, 3 | Model-free smoother |
-| `detect_ratio`, `detect_tau`, `detect_hold`, `detect_refractory` | 8, 0.5 s, 0.3 s, 3 s | Change detector |
+| `detect_ratio`, `detect_tau`, `detect_hold`, `detect_refractory` | 8, 0.5 s, 0.3 s, 3 s | Change detector (`detect_changes`; off in the rig evaluation, §12.5.4) |
 
 **How these were chosen.** The defaults came from a handful of design runs on seed 0 of this
 scenario: stack size 60/150/300, instantaneous gain 0/2/5/20, detector ratio 3/8/10, harmonics
@@ -3033,7 +3106,10 @@ adapted by the instantaneous law in the kinetic metric. It can only dissipate
 It is **off by default**. In every scenario tested, its effect is within the seed-to-seed spread
 (§10.6.2). The simulated rig has only viscous friction, which the linear model already represents
 exactly, so the residual has nothing to learn. It is kept for hardware, where friction depends on
-history. Two limits should be kept in mind when it is enabled:
+history. On the real rig (§12.5.4, "Friction on the rig"), it learned 1–2 % of the cart's Coulomb
+friction. It lowered the free-swing error by 17–27 % through a pendulum torque 10–30 times the real
+damping, and it made the driven runs and held-out predictions worse, so it stays off there too. Two
+limits should be kept in mind when it is enabled:
 
 - the integral-CL windows do not include <i>F</i><sub><i>res</i></sub>, so the stack estimate treats it as unmodelled;
 - it starts as a small extra damping, 0.049 <i>d</i><sub><i>i</i></sub><sup>0</sup>.
@@ -3197,7 +3273,8 @@ is not identifiable from small swings. On the swing-through, <i>ml</i> is within
   inputs of the shared benchmark (§11.4) are the independent test.
 - **Unmodelled friction.** The residual could not be shown to help. A clean test of cart-side
   friction outside the viscous family could not be built in open loop either: any such friction
-  cancels the drift-compensating start velocity, and the cart reaches a bumper.
+  cancels the drift-compensating start velocity, and the cart reaches a bumper. On the real rig's
+  Coulomb friction it did not help either (§12.5.4).
 - **Structure assumptions.** As in D, the model is a linear-in-parameters Euler–Lagrange system
   with known joint types and input matrix. The freeze adds the serial-chain assumption of §10.2.
 - **Simulation only**, with the actuator dead-zone and stiction off, as in every approach.
@@ -3209,10 +3286,14 @@ unchanged.
 
 | Parameter | Default | Role |
 |:---|:---:|:---|
-| `gamma_inst` | 20 | Instantaneous gain γ; acts on weak directions only (D: 2) |
+| `gamma_inst` | 20 | Instantaneous gain γ; acts on weak directions only (D: 2). Scaled by 5/`gravity_scale` when the gravity scale is set (3.3 on the rig) |
 | `lambda_damp` | 0.01 | λ: eigenvalue separating identified from weak directions |
+| `leakage` | 0 1/s | σ: pull of the cart inertia towards its prior in the weak directions only (σ-modification); 1 on the rig, where the cart is unexcited in half the runs (§12.5.4) |
 | `blend` | True | False restores D's Newton CL behind its rank gate |
 | `freeze_own_inertia` | True | <i>M</i><sub><i>ii</i></sub> independent of <i>q</i><sub><i>i</i></sub> (§10.2) |
+| `coupling_from_unactuated` | False | The coupling's shape from the pendulum's own stack, its scale from the cart's, once the pendulum stack pins it (§12.5.4); on for the rig |
+| `coupling_min_information` | None | Information along the coupling the pendulum stack needs before the option above takes over (None: `lambda_damp`) |
+| `gravity_scale_auto` | False | Learn `gravity_scale` online from the pendulum stack: re-set when its ω² leaves ±20 % of the current scale and has held within 10 % for 2 s (`gravity_scale_band`, `gravity_scale_hold`); at the first re-set the parameters restart from the prior and are re-learned from the stacks (`gravity_scale_restart`); on for the rig. Needs `freeze_own_inertia` (D cannot use it) |
 | `gamma_cl` | 2 1/s | Rate of the integral-CL pull (as D) |
 | `cl_min_windows` | 60 | Windows a stack needs before it is used (as D) |
 | `residual` | False | B's friction LSTM as a dissipative residual (§10.4) |
@@ -3652,10 +3733,70 @@ velocity.
 - **Steady state is unaffected.** The largest difference is 10 %, in C-x on S1; everything else
   is within ±8 %.
 
-### 11.8 Caveats
+### 11.8 E with its rig settings
+
+On the real rig, E runs with seven options that are off in simulation (§12.5.4). Here E runs on
+S1–S3 with them switched on, in the same harness, with the same 5 seeds, cold start. The variants are:
+
+- the two learning options alone and together: the coupling from the pendulum's own equation, and the
+  learned gravity scale (§10.8);
+- both options, with the learned scale started at 2.5 s<sup>−2</sup> instead of 5, more than 2× below the
+  simulated pendulum's 6.3;
+- the full rig preset of `experiments/run_rig_evaluation.py`. It adds the constant cart force, the
+  force along the command, inertia leakage σ = 1 s<sup>−1</sup> and the inertia margin 0.02, and it switches
+  change detection off.
+
+The plain-E rows reproduce §11.2 and §11.4 exactly. This was a one-off run on 7 Nov 2026 and has no
+command in the repo yet.
+
+**Steady-window θ̇ RMSE** [rad/s] and **start-up θ̇ RMSE** (0.1–5 s), median over 5 seeds:
+
+| | Steady S1 | S2 | S3 | Start-up S1 | S2 | S3 | S2 post-step |
+|:---|---:|---:|---:|---:|---:|---:|---:|
+| E (simulation settings) | 0.0088 | 0.0175 | 0.0088 | 0.070 | 0.105 | 0.058 | 0.0176 |
+| + coupling from the pendulum | 0.0088 | 0.0177 | 0.0088 | 0.070 | 0.105 | 0.058 | 0.0173 |
+| + learned gravity scale | 0.0086 | 0.0174 | 0.0088 | 0.070 | 0.105 | 0.058 | 0.0176 |
+| + both | 0.0087 | 0.0176 | 0.0088 | 0.070 | 0.105 | 0.058 | 0.0175 |
+| + both, scale started at 2.5 | 0.0086 | 0.0176 | 0.0088 | 0.073 | 0.161 | 0.061 | 0.0171 |
+| Full rig preset | 0.0087 | 0.0177 | 0.0088 | 0.070 | 0.105 | 0.058 | 0.0163 |
+
+**Held-out prediction**, median over the 4 held-out inputs × 5 seeds:
+
+| | One-step θ̈ NMSE S1 | S2 | S3 | 0.5 s θ NMSE S1 | S2 | S3 |
+|:---|---:|---:|---:|---:|---:|---:|
+| E (simulation settings) | 0.0016 | 0.0020 | 0.0032 | 0.00014 | 0.00015 | 0.00025 |
+| + coupling from the pendulum | 0.0049 | 0.0053 | 0.0025 | 0.00029 | 0.00041 | 0.00026 |
+| + learned gravity scale | 0.0027 | 0.0009 | 0.0065 | 0.00025 | 0.00007 | 0.00076 |
+| + both | 0.0048 | 0.0022 | 0.0101 | 0.00038 | 0.00020 | 0.00074 |
+| + both, scale started at 2.5 | 0.0072 | 0.0022 | 0.0056 | 0.00062 | 0.00020 | 0.00032 |
+| Full rig preset | 0.0041 | 0.0184 | 0.0100 | 0.00031 | 0.0019 | 0.00074 |
+
+- **Velocity estimation does not change.** Every variant is within 2 % of E's steady θ̇ error in
+  every scenario.
+- **The learned gravity scale finds the simulated pendulum's value.** It re-sets after 5.4–8.3 s, to
+  6.0–6.7 s<sup>−2</sup> (true 6.3), and to 5.8–6.7 s<sup>−2</sup> when started at 2.5. The bad start costs start-up accuracy on
+  S2 (0.161 against 0.105), because the first re-set restarts the parameters.
+- **Held-out prediction is 2–3× worse with the rig options**, and 9× worse after S2 with the full
+  preset. The simulated cart has no friction or drive to hide the pendulum's reaction, so the cart's
+  own equation already identifies the coupling well. Taking it from the pendulum's noisier equation
+  only adds error there. After S2 the full preset's cart-acceleration NMSE rises from 0.00001 to
+  0.034. The most likely cause is that change detection is off, so the stacks keep their pre-step
+  windows; this has not been isolated.
+- **The rig preset still beats A–D in most places.** After S1 and S3 its one-step θ̈ NMSE
+  (0.0041, 0.010) is 11–18× below B's, the best of A–D there. After S2 it loses to D (0.018 against
+  0.0039) but stays ahead of B (0.061).
+
+**Why E has two presets.** The rig options fix things the rig has and the simulated plant does
+not: an unknown pendulum frequency, a cart whose friction and drive hide the coupling, and
+false alarms from the change detector. In simulation they cost some prediction accuracy and gain
+nothing, so §11.2–§11.4 report E with its simulation settings and §12.5.4 with its rig settings.
+
+### 11.9 Caveats
 
 - **Simulation only.** The actuator dead-zone and stiction are off, as in every approach's own
-  validation. The held-out inputs are near the hanging equilibrium.
+  validation. The held-out inputs are near the hanging equilibrium. The simulated pendulum and
+  drive are the manual's values, which differ from the recorded rig's (§2.3, §12.5). §12.5.4
+  replays the models on that rig.
 - **Each approach runs its own defaults.** A–D were each tuned on one of S1–S3, so each has
   a home advantage there. E was tuned on seed 0 of all three, after this benchmark's first round,
   so its S1–S3 velocity numbers are a validation result. The held-out inputs are the unbiased part
@@ -3668,11 +3809,16 @@ velocity.
 
 ## 12. Evaluating on recorded rig data
 
-Everything above is simulation. `experiments/run_rig_evaluation.py` replays recordings from the
-real Feedback 33-936S rig through the same models. The observers use only the encoder readings and
-the commanded input, and they are causal, so a replayed recording gives the estimates they would
-have produced live. No balancing controller is needed: the pendulum hangs, and a weak cart-centring
-loop keeps the cart on the track (§12.2).
+Everything before this section is simulation. `experiments/run_rig_evaluation.py` replays recordings from the
+real rig through the same models. The observers use only the encoder readings and the commanded
+input, and they are causal, so a replayed recording gives the estimates they would have produced
+live. No balancing controller is needed: the pendulum hangs, and a weak cart-centring loop keeps the
+cart on the track (§12.2).
+
+One session was recorded on 6 Nov 2026: 16 runs, all in `data/rig/`. Its full record, including
+the problems met in the lab, is `docs/rig_session_2026-11-06.md`; the results are in §12.5. The rig
+in the lab is the Feedback digital pendulum **33-200 (mechanical unit) with the 33-201 controller**,
+not the 33-936S assumed in §2.
 
 ### 12.1 Recording folder
 
@@ -3689,95 +3835,111 @@ data/rig/
 ```
 
 The run type is read from a keyword in the file name; the run number and trial suffix are free.
+The amplitudes are those of the 6 Nov 2026 session.
 
 | Keyword | Run | Used for |
 |:---|:---|:---|
 | `rest` | Zero input, pendulum hanging still, 20 s | Noise, encoder resolution, noise floor of the velocity reference |
-| `freeswing` | Zero input; pendulum lifted 20–30° and released, 60 s | Identification run |
+| `freeswing` | Zero input; pendulum lifted 15–30° by hand and released, 60 s | Identification run; pendulum frequency and damping |
 | `deadzone` | Staircase of short ±pulses, 0.10 to 0.80 V, 45 s | Break-away voltage of the cart in each direction |
-| `twotone` | <i>A</i>(2 sin 1.5<i>t</i> + 1.2 cos 3<i>t</i>) V, <i>A</i> = 0.25 to 0.40, 50 s (shape of S1) | Identification run |
-| `fading` | <i>A</i> · 3<i>e</i><sup>−<i>t</i>/8</sup> sin 1.6<i>t</i> V, <i>A</i> = 0.40, 60 s (shape of S3) | Identification run |
+| `twotone` | <i>A</i>(2 sin 1.5<i>t</i> + 1.2 cos 3<i>t</i>) V, 50 s (shape of S1); <i>A</i> = 0.25 V in trial 1, 0.35 V in trials 2–3 | Identification run |
+| `fading` | 0.40 · 3<i>e</i><sup>−<i>t</i>/8</sup> sin 1.6<i>t</i> V, 60 s (shape of S3) | Identification run |
 | `heldout` | H1–H4 of §11.1 (square, multisine, slow chirp, pulse train), peak 0.7 V, 12 s each | Test runs: predicted, never learned from |
-| `mass_step` | The two-tone run with the extra mass collar or the alternate rod | Identification run on a changed plant |
+| `mass_step` | The 0.35 V two-tone run with a small stapler taped at the pendulum's bottom weight | Identification run on a changed plant; compare with `twotone` trials 2–3 |
 
 **CSV format.** One file per run, sampled at 1 kHz, with a header row and four columns:
-`time_s, cart_pos, pend_angle, command_v`. Raw encoder counts and amplifier volts can be logged as
-they are.
+`time_s, cart_pos, pend_angle, command_v`. The CSVs are raw data: they are never edited; every
+conversion is declared in `metadata.txt`. On this rig the vendor encoder block already outputs metres
+and radians: the cart moves 0.078 m per 1024 counts and the pendulum encoder has 2048 counts per
+revolution. `command_v` is the total command into the DAC, excitation plus centring loop.
 
-**`metadata.txt`.** One `key = value` line per field; `data/rig/metadata.txt` is a template to fill
-in. It declares the units (counts, metres, radians, degrees, volts or newtons), the encoder
-resolutions, the amplifier gain, which angle reads zero (hanging or upright), and the two sign
-conventions. The evaluation checks the signs against the physics and says which one to flip.
+**`metadata.txt`.** One `key = value` line per field. It declares the units (counts, metres,
+radians, degrees, volts or newtons), the encoder resolutions, the amplifier gain, which angle reads
+zero (hanging or upright), and the two sign conventions. `angle_sign = -1` mirrors the logged angle
+about the hanging position, so a hanging pendulum stays at π whatever the logged convention. The
+evaluation checks both signs against the physics and says which one to flip. For the 6 Nov 2026
+session: `cart_units = m`, `angle_units = rad`, `angle_zero = upright` (the logged angle is π when
+hanging), `angle_sign = -1` (§12.5), `command_units = V`. The optional
+`pendulum_natural_frequency_rad_s` (here 5.478, measured on the free swings) sets the gravity scale of
+models D and E (§12.5.4); left at 0, they keep the simulation's.
 
-### 12.2 Recording protocol
+### 12.2 Recording protocol (as run on 6 Nov 2026)
 
 `scripts/rig/rig_inputs.m` builds every run's input in MATLAB, and `scripts/rig/export_run.m`
-writes each recording in the format of §12.1. The vendor's identification model (Start → All
-Programs → Feedback Instruments → Pendulum Real-Time Models) is used only for its hardware
-interface: encoder inputs, DAC output, and the build / connect / start sequence.
+writes each recording in the format of §12.1. Both are the exact code that ran; they avoid
+implicit expansion and `table`/`writetable`, so they work on the lab PC's MATLAB R2009a.
 
-**Simulink set-up**
+**Lab set-up.** Windows XP, MATLAB 7.8 (R2009a) with Real-Time Windows Target and Simulink External
+mode, an Advantech PCI-1711 card, and the vendor's "PendulumModels" 1.10 in
+`C:\Feedback\Pendulum\Examples`.
 
-1. Configuration Parameters (Ctrl + E): fixed-step solver `ode1`, step 0.001 s.
-2. Disconnect the vendor's excitation and controller from the motor DAC. Feed the DAC from a From
-   Workspace block (Data = `u_run4` etc., output after the final value set to zero), plus the
-   centring loop below.
-3. **Cart-centring loop.** DAC input = excitation − <i>K</i><sub><i>p</i></sub> <i>x</i> − <i>K</i><sub><i>d</i></sub> <i>ẋ</i>, with the cart
-   position <i>x</i> in metres, <i>ẋ</i> from a Transfer Fcn block <i>s</i>/(0.02<i>s</i> + 1) on <i>x</i>, <i>K</i><sub><i>p</i></sub> = 1.5 V/m and
-   <i>K</i><sub><i>d</i></sub> = 2.0 V·s/m. With the amplifier gain of about 2 N/V this is a slow spring and damper on the
-   cart (about 1 rad/s, damping ratio 0.7), below the excitation band. It stops drift; it does not
-   balance anything. Check its sign before the first run: with only the loop on, push the cart
-   by hand. It must be pulled back to the centre. If it is pushed away, flip the sign of both gains.
-4. Log, in one To Workspace block at 0.001 s (format "Structure With Time"): cart position,
-   pendulum angle, and the **total DAC input** (excitation plus loop). The observers need the
-   voltage that actually reached the amplifier, not the excitation alone.
+**Simulink model (`obsrec.mdl`), built from the vendor's Cart Control real-time model**
 
-**Before every run**
+1. In the set-point subsystem, set the Slider Gain to **0**, so the set point is always 0.
+2. Delete the vendor "PID Controller with D part filter": its mask refuses a proportional gain
+   below 10. In its place put a **Transfer Fcn** with numerator `[2.03 1.5]` and denominator
+   `[0.02 1]` on the error <i>e</i> = 0 − <i>x</i>: this is the **cart-centring loop**,
+   <i>K</i><sub><i>p</i></sub> = 1.5 V/m, <i>K</i><sub><i>d</i></sub> = 2.0 V·s/m, filter time constant 0.02 s. It stops drift; it does not
+   balance anything.
+3. Add (`++`) the loop output and a **From Workspace** block (Data = `u_run4` etc., sample time 0,
+   interpolate on, output after the final value set to zero), and feed the sum to the Feedback DAC
+   block.
+4. A Mux into a **To Workspace** block `simout` ("Structure With Time", decimation 1): input 1 cart
+   position, input 2 pendulum angle, input 3 the sum (the total DAC command).
+5. Configuration Parameters (Ctrl + E): fixed-step solver `ode1`, step 0.001 s.
+6. External Mode Control Panel → Signal & Triggering: source manual, mode one-shot,
+   **Duration = run length × 1000 samples**, delay 0, "Arm when connecting to target" ticked.
 
-- Centre the cart and let the pendulum hang completely still: the encoders read zero where they
-  start, so `angle_zero = hanging` in `metadata.txt`.
-- Incremental Build → Connect to Target → physical Start button → Run.
-- Keep a hand near the Stop button. Repeat any run in which the cart touches an end stop.
+**Check the loop's sign before recording.** A positive command must push the cart towards +x (the
+end with the "Feedback" logo). With the numerator `[2.03 1.5]` the cart holds still at zero input;
+with `[-2.03 -1.5]` the loop is positive feedback and the cart accelerates into an end stop.
 
-**Order of runs**
+**Every run**
 
-| Order | Run | Trials | Notes |
-|:---:|:---|:---:|:---|
-| 1 | `run1_rest` | 1 | Do not touch the rig |
-| 2 | `run3_deadzone` | 1 | Gives the break-away voltage; set `A_heldout` to at least 1.5× it |
-| 3 | `run2_freeswing` | 3 | Lift 20–30°, release just after Run |
-| 4 | `run4_twotone` | 3 | Start at <i>A</i> = 0.25; raise to 0.40 only if the cart stays within ±0.25 m |
-| 5 | `run5_fading` | 3 | |
-| 6 | `run6_heldout_square`, `_multisine`, `_chirp`, `_pulse` | 1 each | Same amplitude for all four |
-| 7 | `run7_mass_step_twotone` | 1 | Fit the extra mass; note its mass and position in `metadata.txt` |
+1. Set the From Workspace Data, set Duration = <i>T</i> × 1000 and click Apply; set the stop time to
+   <i>T</i> + 5 s.
+2. Ctrl + D, Ctrl + S, Ctrl + B, and wait for "Successful completion of Real-Time Workshop build".
+   From Workspace data are compiled into the real-time module, so **every change of input or
+   amplitude needs a rebuild**.
+3. Centre the cart by hand and let the pendulum hang completely still: the encoders start counting
+   there (cart 0, angle π).
+4. **Connect To Target → green Start on the controller → Run.**
+5. When the input has ended, press the **red Stop** on the controller, **before** the model's stop
+   time. The DAC may keep its last value after the model stops, and twice the cart ran into an end
+   stop at that moment.
+6. `export_run('run4_twotone_trial1', simout.time, simout.signals.values, [1 2 3])`.
 
-After each run: `export_run('run4_twotone_trial1', simout.time, simout.signals.values, [cart angle command])`,
-with the column numbers of the logged signals. It prints the duration and the largest sample gap;
-the evaluation resamples to 1 kHz, so the row count need not be exact.
+**Order of runs (as recorded):** run1 rest; run3 staircase; run2 free swing ×3 (lifted to about
+15°, 24° and 29°); run4 two-tone ×3 (0.25, 0.35, 0.35 V); run5 fading ×3; run6 held-out square,
+multisine, chirp, pulse; run7 mass step (0.35 V, a small stapler taped at the pendulum's bottom weight before the run).
 
-**`metadata.txt`.** Fill in the units actually logged (counts or metres, counts, radians or degrees,
-volts), the encoder resolutions, the amplifier gain (N/V) from the manual, the usable half-length
-of the track, the fitted rod and, for run 7, what was changed. Record the centring-loop gains under
-`notes`. If a sign convention is wrong, the evaluation says which one to flip.
+**Problems met, and their fixes**
 
-**Why this differs from a plain open-loop protocol.** The simulations of §6–§11 start the cart at a
-drift-cancelling velocity, which the rig cannot do: it starts at rest. Simulated from rest with
-the rig's assumed dead-zone (+0.15 / −0.12 V) and friction (0.35 N), cart travel in metres:
+- "Checksum mismatch. Target code needs to be rebuilt" on the first Connect: Ctrl + D, Ctrl + S,
+  Ctrl + B, then Connect without touching the diagram.
+- The amplitude rule "raise the two-tone to 0.40 V if the cart stays within ±0.25 m" was not
+  followed literally: the real cart travels about 1.5× more than the simulation predicted (table
+  below), so 0.35 V was used.
+- The lab PC's clock reads October 2012, so file dates from it are meaningless, and the PC carries
+  a USB "shortcut" virus that hides a pendrive's files. Copy the CSVs only, check that no `.lnk`,
+  `.vbs`, `.exe`, `.inf`, `autorun` or hidden files come along, and reformat the pendrive afterwards.
 
-| Input | Open loop, from rest | With the centring loop |
+**Predicted and measured cart travel.** Before the session the protocol was sized in simulation,
+with the repo's actuator model (dead-zone +0.15 / −0.12 V, Coulomb friction 0.35 N, 2 N/V) and the
+same loop. That simulation also showed why the loop is needed: started from rest, every sine input
+ran the cart into an end stop. The real cart travelled more than predicted, because its actuator
+differs from that model (§12.5):
+
+| Input | Predicted, with the loop (m) | Measured (m) |
 |:---|:---|:---|
-| Run 3: slow ramp to ±2 V | end stop | (replaced by the staircase) |
-| Run 3: pulse staircase to 0.8 V | −0.11 to +0.03 | −0.05 to +0.04 |
-| Run 4: two-tone, <i>A</i> = 0.25 | end stop | −0.13 to 0.00 |
-| Run 4: two-tone, <i>A</i> = 0.40 | end stop | −0.23 to +0.10 |
-| Run 5: fading, <i>A</i> = 0.40 | end stop | −0.12 to +0.24 |
-| Run 6: square, 0.7 V | end stop | −0.13 to +0.16 |
-| Run 6: chirp, 0.7 V | end stop | −0.07 to +0.14 |
-| Run 6: multisine / pulse train, 0.7 V | −0.06 to +0.13 / −0.03 to +0.04 | −0.05 to +0.05 / −0.02 to +0.03 |
-
-A sine force applied to a cart at rest gives it a constant mean velocity, so it drifts into an end
-stop whatever the amplitude. Held-out inputs much below 0.5 V do not move the cart at all in this
-model, because the dead-zone and stiction hold it. The real thresholds come from run 3.
+| Run 3: pulse staircase to 0.8 V | −0.05 to +0.04 | −0.117 to +0.038 |
+| Run 4: two-tone, <i>A</i> = 0.25 | −0.13 to 0.00 | −0.190 to +0.067 |
+| Run 4: two-tone, <i>A</i> = 0.40 (predicted) / 0.35 (measured) | −0.23 to +0.10 | −0.251 to +0.133 |
+| Run 5: fading, <i>A</i> = 0.40 | −0.12 to +0.24 | −0.174 to +0.294 |
+| Run 6: square, 0.7 V | −0.13 to +0.16 | −0.251 to +0.244 |
+| Run 6: chirp, 0.7 V | −0.07 to +0.14 | −0.151 to +0.217 |
+| Run 6: multisine, 0.7 V | −0.05 to +0.05 | −0.153 to +0.090 |
+| Run 6: pulse train, 0.7 V | −0.02 to +0.03 | −0.070 to +0.049 |
 
 ### 12.3 Running the evaluation
 
@@ -3800,12 +3962,511 @@ The rig has no velocity sensor, so there is no true velocity to score against.
    measured positions of the `heldout` runs 0.5 s ahead. This needs no velocity truth and is the
    most trustworthy comparison.
 4. **Identified parameters.** <i>M</i> + <i>m</i>, <i>ml</i>, <i>I</i> + <i>m</i><i>l</i><sup>2</sup> and <i>mgl</i> from Approaches D and E, next to the
-   datasheet values of §2.3.
+   datasheet values of §2.3. For the rig recorded on 6 Nov 2026, the datasheet's pendulum values
+   are the wrong reference. Compare them with the measured frequency instead (§12.5.2): the
+   pendulum's ω<sup>2</sup> = <i>mgl</i>/(<i>I</i> + <i>m</i><i>l</i><sup>2</sup>) and the coupling ω<sup>2</sup>/<i>g</i>.
 
 On the simulated rehearsal recording (one trial per run, rest-run floor 0.008 rad/s), the pipeline
 reproduces the benchmark ranking: θ̇ error against the reference 0.0139 (E), 0.0145 (B),
 0.0364 (D), and E identifies <i>I</i> + <i>m</i><i>l</i><sup>2</sup> as 0.131 against 0.129. These numbers validate the pipeline
 only; they are not rig results.
+
+### 12.5 Results of the 6 Nov 2026 session
+
+`python scripts/rig/characterise_rig.py` reproduces every number in §12.5.1–§12.5.3 in about 20 s.
+§12.5.4 comes from `python experiments/run_rig_evaluation.py --data data/rig --models A B C D E`.
+
+#### 12.5.1 Data integrity and the as-run inputs
+
+- **All 16 recordings are complete.** Every file has the right header and row count, 1.000 ms steps
+  with no gaps, starts at <i>t</i> = 0 with the cart at 0 and the angle at π, and reproduces the minima
+  and maxima printed on the lab PC.
+- **Both signals are pure encoder counts:** the cart moves in steps of 0.078/1024 m and the angle in
+  steps of 2π/2048 rad, to within 7 × 10<sup>−6</sup> of a count.
+- **The inputs are exactly those intended.** Subtracting the centring loop (its forward-Euler
+  realisation, as Simulink ran it) from the logged total command recovers each run's nominal
+  excitation to within 3 × 10<sup>−7</sup> V, the precision of the CSV, with no time lag. This
+  confirms the column order, the loop's sign and gains, the timing, and the two-tone amplitudes
+  (0.25 V for run4 trial 1; 0.35 V for trials 2–3 and run7). The held-out inputs have the shapes of
+  the benchmark's H1–H4.
+
+#### 12.5.2 The pendulum
+
+- **Angle sign.** For any rigid pendulum hanging from the cart, a steady cart acceleration <i>a</i> tilts
+  it by <i>a</i>/<i>g</i>, the bob lagging behind. Fitted on run4, run5 and run7, the logged angle responds
+  with a gain of −0.104 rad per m/s² (all seven runs within ±0.0003; <i>R</i>² ≥ 0.98): it grows when the
+  bob swings towards +x, the opposite of the repo's convention, so `angle_sign = -1`. The magnitude is
+  2 % above 1/<i>g</i> = 0.102, independent of the fitting window. That suggests one of the vendor
+  block's scale factors (metres per count or counts per revolution) is about 2 % off.
+- **Natural frequency 5.478 rad/s** (period 1.147 s; equivalent pendulum length 0.327 m), from the
+  three free swings after correcting each for its amplitude. The repo's simulated pendulum (§2.3) has
+  about 2.51 rad/s: **this rig's pendulum is much shorter than the one the simulations assume.** The
+  simulation's values come from the manual's parameter table (m = 0.23 kg, l = 0.36–0.4 m,
+  I ≈ 0.099 kg·m²), which cannot describe this pendulum: a 0.23 kg pole of that length has an inertia
+  about its centre of mass of only a few thousandths of kg·m², and the measured frequency requires the
+  centre of mass to sit less than 0.327 m below the pivot. The 0.36–0.4 m is presumably the length
+  of the pole, not the distance to its centre of mass. The rig also carries **two pendulum arms**,
+  fixed to the same cart shaft so they turn together (the angle shows a single mode), and a short
+  length of rod continues above the pivot, which shortens the effective length. A single-pole
+  parameter table describes neither.
+- **Damping is tiny:** ζ = 0.0009 at 15°, rising to 0.0017 at 30°. A swing of 30° still keeps 17°
+  after 60 s.
+- **The mass step.** For run7 a small stapler (not weighed) was taped at the pendulum's bottom
+  weight. A mass added at the bob changes the swing frequency very little, because the frequency
+  depends on where the mass sits, not on how much there is: here it rose by 0.15–0.19 %, 3–6 times the
+  difference between run4 trials 2 and 3. The rise means the stapler sits slightly above the point
+  0.327 m below the pivot. What a heavier pendulum does change is how hard it pushes on the cart. In
+  the cart model of §12.5.3 fitted run by run, the coupling term is 0.0370 m in run7 against 0.0349
+  and 0.0318 m in run4 trials 2–3, higher than both, as expected; but the difference is about the size
+  of the spread between the two trials, so the step is suggested, not established. Its size relative
+  to the pendulum's own mass is unknown until the stapler and the pendulum are weighed.
+
+#### 12.5.3 The cart and its actuator
+
+- **Break-away.** On staircase pulses that start with the cart at rest, the cart stays still at
+  +0.10 V and starts at +0.15 V towards +x; towards −x it already moves at −0.10 V. The simulation's
+  actuator model needs 0.325 V to start the cart.
+- **A cart model fitted while the cart moves** (run4 and run5, <i>R</i>² = 0.86):
+  <i>ẍ</i> = α<i>u</i> − β<i>ẋ</i> − <i>C</i><sub>±</sub> + δφ̈ + <i>c</i>, with
+
+  | Term | Fitted | Simulation's model |
+  |:---|---:|---:|
+  | α, acceleration per volt | 3.51 m/s² per V | 0.76 (2 N/V on 2.63 kg) |
+  | Coulomb friction, moving towards +x / −x | 0.122 / 0.088 V | 0.175 V, plus a dead-zone of +0.15 / −0.12 V |
+  | Viscous friction | 0.25 V per m/s | about 0 |
+  | Constant force <i>c</i> | −0.034 V (towards −x) | 0 |
+
+  Only acceleration per volt is identifiable: the amplifier gain (N/V) and the cart mass cannot be
+  separated without weighing the cart. The rig's manual (33-936S, p. 7) gives a command range of
+  ±2.5 V for about ±20 N, i.e. about **8 N/V**, not the 2 N/V (20 N at 10 V) the simulations assume;
+  with its cart and pendulum mass of 2.63 kg that predicts 3.0 m/s² per V, close to the 3.1–3.5
+  measured. `metadata.txt` therefore uses 8 N/V. The steady push towards −x suggests a slightly tilted track,
+  and it agrees with −x being the easier direction to start. The short staircase pulses alone give
+  α ≈ 1.5, so the actuator has dynamics this model leaves out (motor back-EMF, belt compliance or a
+  current-limited amplifier).
+- **The vendor DAC block compensates friction itself.** According to the manual (p. 15–16, 46),
+  the Feedback DAC block adds a static-friction compensation voltage (0.1 V each way by default) in
+  the direction of the command, and clips the command at ±2.5 V. `command_v` is logged before that
+  block, and its settings on this rig were not read. The break-away voltages above are therefore in
+  logged volts, and part of the measured "friction" is the difference between the real friction
+  and that compensation. The recordings show it: a term along sign(<i>u</i>) raises the fit's
+  <i>R</i>² from 0.875 to 0.950, with a size of about 0.08 V, close to the default (§12.5.4).
+- **The fitted model explains the extra travel.** Simulated in the rig's closed loop with each run's
+  excitation, it reproduces the measured cart position to 5–12 mm RMS on every run, including the
+  held-out runs and the staircase, which were not used in the fit. The real cart is 4–5 times
+  stronger per volt, but the centring loop stiffens in proportion; the extra travel comes mainly from
+  the simulation's 0.325 V stiction band, which swallowed much of each input.
+
+![Rig characterisation](figures/rig/characterisation.png)
+
+**Figure 28.** The rig characterised from the 6 Nov 2026 recordings. Top left: free swing released
+at about 30°. Top right: the pendulum's natural frequency against swing amplitude. Bottom left:
+measured cart position on the held-out square input, with the fitted cart model run in the same
+closed loop. Bottom right: cart travel during each staircase pulse that starts from rest.
+
+> **What it shows.** The free swing decays very slowly, from 30° to 17° in a minute. The swing
+> frequency is about 5.48 rad/s and drops slightly at larger swings, exactly as pendulum theory
+> predicts, far above the 2.51 rad/s of the simulated pendulum (dashed). On the held-out square
+> input, the fitted cart model follows the measured cart within about a centimetre. In the staircase,
+> the cart moves at every pulse level from 0.15 V upwards, and towards −x already at 0.10 V, well
+> below the simulation's start threshold (dashed, 0.325 V).
+>
+> **What it means.** The recordings are clean and the rig is now characterised: a short, almost
+> undamped pendulum on a cart that is stronger and less sticky than the simulations assumed. These
+> numbers, not the 33-936S values of §2.3, describe this rig.
+
+#### 12.5.4 The models on the rig data
+
+`python experiments/run_rig_evaluation.py --data data/rig --models A B C D E` replays every model on
+the ten identification runs (three free swings, three two-tone, three fading, the mass step), one
+seed each, with the amplifier gain of 8 N/V from `metadata.txt`. Each model is then frozen after
+each run (except the mass step) and predicts the four held-out runs 0.5 s ahead. No run diverged.
+The velocity reference is a zero-phase fit of the recording (§12.4); at this pendulum's frequency
+its own error is about 10<sup>−3</sup> rad/s, well below the differences between models.
+
+**What the structured models get on the rig.** Run with their simulation settings, the
+Euler–Lagrange models were the worst on the rig. Seven things the simulated plant does not have, or
+that its settings did not allow, were found in the recordings and added as options that are off in
+simulation, so §11 is unchanged (all 210 runs rerun on 7 Nov 2026, identical to round-off). §11.8
+runs E with these options on the simulated scenarios:
+
+1. **The pendulum's real frequency** (D, E). Both models scale their gravity parameters by an assumed
+   ω² (`gravity_scale`, default 5 s<sup>−2</sup>, close to the simulated pendulum's 6.3); this pendulum's is about
+   30 s<sup>−2</sup>. With the wrong scale both failed even on the free swings. D takes the scale from
+   `pendulum_natural_frequency_rad_s = 5.478` in `metadata.txt`. E learns it (`gravity_scale_auto`, §10.8):
+   it starts from the simulation's 5, reads ω² off the pendulum's own stack once the gravity columns
+   are pinned there, re-sets the scale when that value is steady and outside ±20 % of the current one,
+   and at the first re-set restarts its parameters from the prior, to be re-learned from the stacks in
+   the new units. On the rig it re-set the scale after 7–8.5 s, to 30.0–30.9 s<sup>−2</sup> on the driven and
+   fading runs (from the measured frequency: 30.0) and 21–26 s<sup>−2</sup> on the free swings, with the same
+   accuracy as the measured value. A larger scale makes E's instantaneous law stiffer, so its gain
+   follows the scale, 20 × 5/`gravity_scale` (3.3 at 30). D cannot learn the scale: its pendulum inertia
+   may depend on the angle (§10.2), so its stack's ratio is not ω².
+2. **A constant force on the cart** (`constant_force`, B, D, E; §9.2). The cart fit of §12.5.3 shows a
+   steady push towards −x of about 0.12 m/s², as from a track tilted by about 0.7°. With the cart
+   position cyclic, no term of the original models could represent it.
+3. **The drive's own friction compensation** (`command_sign_force`, B, D, E; §9.2). Adding a term along
+   sign(<i>u</i>) to the cart fit of §12.5.3 raises its <i>R</i>² from 0.875 to 0.950 on the training runs
+   (0.81 to 0.85 on the held-out runs, fitted separately), with a size of about 0.08 V, close to the
+   Feedback DAC block's default of 0.1 V. A motor lag or delay does not improve the fit. The size
+   <i>k</i><sub><i>u</i></sub> is projected onto <i>k</i><sub><i>u</i></sub> ≥ 0: a drive compensates along the command, never against it
+   (unconstrained, E learned −0.6 N on the fading runs, where the cart sticks at small commands).
+4. **Leakage of E's cart inertia towards its prior** (`leakage`, §10.8), σ = 1 s<sup>−1</sup>, in the weakly
+   excited directions only. On the free swings the cart barely moves, so the data say nothing about
+   its mass, and E's instantaneous law let it drift to the positive-definiteness floor (0.05 kg); its
+   held-out cart predictions were then useless.
+5. **An inertia margin that admits this pendulum** (E, `eps_M` = 0.02). The projection keeps
+   <i>M</i> ⪰ ε<sub><i>M</i></sub><i>I</i>, with ε<sub><i>M</i></sub> = 0.05 sized for the simulated pendulum (<i>I</i> + <i>ml</i><sup>2</sup> = 0.129). This
+   pendulum's <i>I</i> + <i>ml</i><sup>2</sup> is about 0.03 (E now identifies 0.029–0.047), so the true parameters were outside
+   the feasible set.
+6. **No change detection on the rig** (D, E). The detector, tuned in simulation, purged the stacks twice
+   in a run in which nothing changed; with the smaller inertia margin, E then diverged on one
+   two-tone run. The stapler step is too small to detect anyway (§12.5.2).
+7. **The coupling from the pendulum's own equation** (E, `coupling_from_unactuated`, §10.8). D and E
+   normalize the pendulum row by its inertia <i>J</i> and take the coupling <i>m</i><sub>12</sub>(θ) from the cart row
+   (§9.4). On the rig the cart row cannot carry it: the pendulum's reaction is a small force next to a
+   2.6 kg cart, its friction and the drive, and with only that E's coupling stalled or came out wrong
+   (−0.3 to 3.5 m<sup>−1</sup> over the driven runs, true 3.06). The pendulum's equation pins the coupling's
+   shape well, up to the scale <i>J</i>, and the cart's equation can still give that one scale. With the
+   option, the pendulum stack fits every ratio <i>c</i>/<i>J</i> of its row (coupling included) and the cart
+   stack, with its coupling columns written as <i>J</i> times those ratios, fits the cart parameters and <i>J</i>;
+   both are linear least squares with the blend of §10.3. It takes over once the pendulum stack holds
+   information along the coupling (Schur complement above λ = 0.01): 10<sup>−4</sup>–10<sup>−1</sup> on the driven runs,
+   10<sup>−12</sup> on the free swings, where the cart does not move and the cart row keeps the coupling. A test
+   that motivated it: frozen at parameters fitted offline to each driven run, E's observer reaches
+   0.019–0.025 rad/s, so the model structure was never the limit; E's learning was.
+
+Tried and not kept: holding E's cart inertia independent of the angle (it fixed the cart mass but
+cost velocity accuracy on every driven run); a rig-derived inertia prior (0.03 instead of 0.2 for the
+pendulum; with the gains tuned at 0.2 it broke E's free swings); a looser novelty gate for the
+pendulum stack (on the fading runs the hanging pendulum's offset dominated every window, and the gate
+rejected 1170 of 1193; with the learned gravity scale this no longer matters); a larger instantaneous
+gain for D (6 halves its two-tone error but blows up on one free swing; 20 diverges); a lower rank
+gate for D (the stacks' solution is then physically wrong); tying the coupling to gravity, which holds
+exactly for any rigid pendulum (the potential's coefficients are <i>g</i> times those of <i>m</i><sub>12</sub>): it broke the
+free swings and held-out predictions (item 7 gets the coupling from the data instead). For B, see
+"What is left" below. B keeps the two forces, which change its results by less than 1 %.
+
+Pendulum-velocity error against the reference, second half of each run, median per run type
+[rad/s]; "sim." are D and E with their simulation settings:
+
+| Trained and scored on | A | B | C | D | E | D, sim. | E, sim. |
+|:---|---:|---:|---:|---:|---:|---:|---:|
+| Free swing (×3) | 0.0345 | 0.0235 | 0.0112 | 0.0130 | **0.0102** | 0.209 | 0.089 |
+| Two-tone (×3) | 0.0467 | 0.0724 | **0.0182** | 0.1101 | 0.0197 | 0.169 | 0.111 |
+| Fading (×3) | 0.0120 | 0.0122 | 0.0112 | 0.0125 | **0.0109** | 0.012 | 0.010 |
+| Mass step | 0.0464 | 0.0734 | 0.0195 | 0.1142 | **0.0155** | 0.186 | 0.112 |
+
+Held-out prediction, 0.5 s NMSE of the pendulum angle, median over the four held-out runs, by the
+run the model was trained on (1 = no better than predicting the mean):
+
+| Trained on | A | B | C | D | E | D, sim. | E, sim. |
+|:---|---:|---:|---:|---:|---:|---:|---:|
+| Free swing | 28 | 0.52 | 16 | **0.51** | **0.51** | 0.37 | 43 |
+| Two-tone | 0.32 | 0.50 | 0.20 | 0.33 | **0.019** | 1.35 | 0.46 |
+| Fading | 1.09 | 1.11 | 0.59 | 1.27 | **0.012** | 1.40 | 0.15 |
+
+The cart side, trained on the two-tone runs (the only training runs in which the motor drives the
+cart steadily):
+
+| | A | B | C | D | E |
+|:---|---:|---:|---:|---:|---:|
+| Cart-velocity error [m/s] | 0.0099 | 0.0171 | 0.0037 | 0.0190 | **0.0033** |
+| Held-out 0.5 s NMSE of the cart position | 0.037 | 0.045 | 0.033 | 0.080 | **0.005** |
+| Held-out one-step NMSE of the cart acceleration | 0.58 | 0.70 | **0.48** | 1.35 | 0.51 |
+
+![Rig evaluation](figures/rig/rig/summary.png)
+
+**Figure 29.** The five observers on the 6 Nov 2026 recordings, B, D and E with the rig settings
+above. Left: pendulum-velocity error against the zero-phase reference, second half of each
+identification run. Right: 0.5 s prediction error of the pendulum angle on the four held-out runs, for
+each model frozen after each identification run. Bars are medians; whiskers span min to max; log
+scales.
+
+> **What it shows.** E has the smallest median velocity error (0.0122 rad/s, against C's 0.0132),
+> and its worst run is 0.027 rad/s; D's whiskers still reach 0.11. On held-out prediction E's median
+> is 0.019, against 0.53 for B and D, 0.66 for C and 1.3 for A.
+>
+> **What it means.** With the rig's physics and the coupling learned from the pendulum's own
+> equation, the structured model E is the best observer on the real rig as well: the best velocity
+> estimate on three of the four run types, a model of the rig that predicts unseen inputs about 30
+> times better than any other approach, and its parameters in physical units. C keeps a small lead
+> only on the two-tone runs. The ranking of §11 held in simulation because the simulated plant was
+> exactly the structured models' own equations; on the rig E needed the changes above to keep it.
+
+**What the evaluation shows**
+
+- **Velocity estimation.** E is best on the free swings (0.0102 against C's 0.0112), the fading runs
+  (0.0109 against 0.0112) and the mass step (0.0155 against 0.0195); with the simulation's settings it
+  had 0.09–0.11 there. On the two-tone runs C is still best, 0.0182 against E's 0.0197 (0.0271, 0.0190
+  and 0.0197 on trials 1–3, against C's 0.0182, 0.0166, 0.0182); the low-amplitude trial 1 (0.25 V) is the
+  only run where the gap is large. A, B and D stay at two to six times C's on the driven runs. For the
+  cart velocity E is best on the driven runs (0.0030–0.0033 m/s against C's 0.0037–0.0044).
+- **Held-out prediction.** Trained on a two-tone run, E predicts the pendulum angle 10 times better
+  than C (0.019 against 0.20; 0.008 and 0.015 after trials 2 and 3), the pendulum acceleration best
+  (0.15 against C's 0.27), and the cart position seven times better (0.005 against 0.033); trained on a
+  fading run, 50 times better (0.012 against 0.59). By held-out input: 0.001 on the multisine, 0.013
+  on the chirp, 0.028 on the square wave, 0.063 on the pulse train (C: 0.63, 0.38, 0.40, 1.7). Trained
+  on a free swing, where the cart barely moves, no model can learn the cart or the coupling.
+- **Identified parameters.** E, after the driven and fading runs: coupling at the hanging position
+  −<i>m</i><sub>12</sub>(π)/<i>J</i> = 3.11–3.14 m<sup>−1</sup> (from the measured frequency, ω²/<i>g</i> = 3.06; 2.41 after the low-amplitude
+  two-tone trial 1); swing frequency 5.47–5.51 rad/s (measured 5.48; 5.01 after trial 1, 5.39–5.44 from
+  the free swings); <i>J</i> = <i>I</i> + <i>ml</i><sup>2</sup> = 0.029–0.047 kg m²; cart and pendulum mass 2.30–2.69 kg (manual
+  2.63); drive compensation 0.40–0.73 N (the DAC block's default 0.1 V × 8 N/V = 0.8 N); constant
+  force 0.39–0.58 N towards −x. Only the coupling at θ = π is meaningful: near the hanging position the
+  constant and cos θ features of <i>m</i><sub>12</sub> are nearly collinear, so the printed <i>ml</i> (the cos θ coefficient
+  alone) is not. D's identification hardly leaves its prior: its concurrent learning never switches
+  on, because λ<sub>min</sub> of its stacks stays just below the gate of 10<sup>−4</sup>.
+- **Mass step.** For every model, the error on run7 lies within or just outside the range of run4
+  trials 2–3 (same input). A stapler at the bob leaves the swing frequency almost unchanged
+  (§12.5.2), so no detection is the expected outcome, not a model failure; the step should be judged
+  on the identified pendulum mass and coupling, which needs the stapler's weight.
+- **Velocity noise against the rig's filter.** The rig's controllers estimate velocities with a
+  dirty derivative <i>s</i>/(τ<i>s</i> + 1). Applied to the same encoder signals with τ = 0.02 s, its
+  pendulum-velocity estimate has a chattering ratio (§4.2) of 13–18 and 45 mrad/s RMS above 10 Hz;
+  with τ = 0.05 s, 5–7 and 18 mrad/s. The observers stay at 1.0–1.6 and 0.7–1.8 mrad/s on the
+  identification and the held-out runs alike (E: 1.0–1.15 and 1–2 mrad/s; 2.0–2.3 on a fading run for
+  the others, where the pendulum barely moves and the filter has 7.6; A reaches 10 mrad/s on one free
+  swing). While the cart stands still, the filter's cart velocity is exactly zero, and the observers
+  add about 2 mm/s above 10 Hz. These are offline replays with the pendulum hanging; with an observer
+  inside a balancing loop the result still has to be measured.
+
+**Friction on the rig: E's residual and the LSTM memories.** These are two claims the simulations
+could not test, because the simulated plant has only viscous friction (§10.4, §13.2). The
+recordings have real friction: the cart fit of §12.5.3, refitted on the two-tone and fading runs,
+gives Coulomb terms of 0.43 m/s² towards +x and 0.31 m/s² towards −x. So the cart's acceleration
+drops by 0.76 m/s² when its velocity crosses zero. Both tests below are one-off runs of 7 Nov 2026,
+with the rig settings above and seed 0. They have no command in the repo yet.
+
+*E's friction residual* (`residual=True`, §10.4), against E as above, on the ten identification
+runs. Pendulum-velocity error is over the second half of each run, median per run type [rad/s]:
+
+| | Free swing | Two-tone | Fading | Mass step | Held-out 0.5 s θ NMSE, trained on two-tone / fading |
+|:---|---:|---:|---:|---:|---:|
+| E | 0.0102 | **0.0197** | 0.0109 | **0.0155** | **0.014** / **0.013** |
+| E + residual | **0.0078** | 0.0206 | **0.0107** | 0.0160 | 0.022 / 0.016 |
+
+- **On the cart it learns almost nothing.** Its force is 0.007–0.020 N RMS, 1–2 % of the cart's
+  Coulomb friction of about 0.8–1.1 N. The residual is a velocity-proportional damping whose gain
+  an LSTM adapts, so a friction that jumps at zero velocity is hard for it to represent. E's explicit
+  friction terms (§9.2, §12.5.4 item 3) already carry the cart friction.
+- **On the free swings the error falls by 17–27 %, but not through friction.** The residual's
+  pendulum torque there is 0.009–0.015 N·m RMS. The pendulum's real damping, from the measured
+  ζ = 0.0009–0.0017 and <i>J</i> = 0.03–0.047 kg·m², is 0.0003–0.0013 N·m, so the residual torque is
+  10–30 times larger. It absorbs some other model error, which the observer's feedback then corrects.
+- **On the driven runs it costs accuracy.** Velocity error is up to 5 % higher on the two-tone and
+  mass-step runs and unchanged on the fading runs. Held-out prediction is 25–50 % worse.
+- **On the staircase and the held-out pulse train, the runs where the cart starts and stops most,
+  it does not help either.** With these runs used for identification, the pendulum-velocity error
+  is 6 % higher on the staircase (0.048 → 0.051 rad/s) and unchanged on the pulse train
+  (0.1301 → 0.1302). On the other three held-out runs it is within ±1 %; these runs last only 12 s, so
+  their errors include E's learning transient. After training on any of these five runs, the 0.5 s
+  angle prediction of the held-out runs is 34–52 % worse with the residual.
+- **Verdict.** The residual stays off. On this rig, explicit Coulomb and drive-compensation terms
+  model the friction; the residual does not.
+
+*Whether a recurrent memory learns the friction* (§13.2). A and C have LSTM memories; E, without a
+residual, has none and serves as the reference. In each direction alone the cart's friction is
+0.31–0.43 m/s², and across a reversal the acceleration jumps by their sum. Each model was trained on
+the three two-tone and the three fading runs, then tested four ways:
+
+1. **Probe.** The frozen model's cart acceleration with the pendulum hanging and still, at cart
+   velocities ±0.01 m/s, with the memory settled at each point and averaged over commands of 0 to
+   ±0.4 V.
+2. **Error split.** The observer's velocity error while the cart reverses (|<i>ẋ</i>| < 0.01 m/s) and while it
+   moves (|<i>ẋ</i>| > 0.03 m/s).
+3. **Memory held.** Held-out prediction with the memory held at its settled starting value.
+4. **Memory off in the observer.** C's observer re-run with its LSTM memory held at zero, or frozen
+   from 5 s on, on the two-tone runs, the staircase and the held-out pulse train. Its error is split
+   into cart starts (from 0.05 s before to 0.15 s after the cart's speed rises through 0.01 m/s), cart
+   stops (the mirror image), smooth motion and standstill.
+
+| | Recordings | E | A | C |
+|:---|---:|---:|---:|---:|
+| Drop in cart acceleration across <i>ẋ</i> = 0 (±0.01 m/s) [m/s²] | 0.76 | 0.81–1.17 | 0.005–0.013 | −0.008 to 0.058 |
+| θ̇ error on the two-tone runs, cart reversing / moving [rad/s] | | 0.0193 / 0.0188 | 0.0289 / 0.0457 | 0.0174 / 0.0170 |
+| ẋ error on the two-tone runs, cart reversing / moving [m/s] | | **0.0038** / 0.0033 | 0.0124 / 0.0096 | 0.0071 / 0.0033 |
+
+Held-out one-step NMSE (median over the four held-out runs and six training runs), normal memory → memory held:
+
+| | <i>ẍ</i> | θ̈ |
+|:---|:---|:---|
+| A | 0.66 → 0.79 | 0.62 → 0.82 |
+| C | 1.02 → 0.94 | 0.50 → 0.83 |
+| E (no memory) | 0.49 | 0.15 |
+
+Test 4, the observer's θ̇ RMSE from 5 s on [rad/s]. "At starts" is the cart-start phase on two-tone
+trials 2 / 3, which covers about 10 % of their samples:
+
+| | Two-tone, trials 1 / 2 / 3 | Staircase | Pulse train | At starts |
+|:---|:---|---:|---:|:---|
+| C | 0.0257 / 0.0302 / 0.0281 | 0.0723 | **0.1036** | 0.0556 / 0.0524 |
+| C, memory off (held at zero) | **0.0238** / **0.0222** / **0.0212** | **0.0635** | 0.1038 | 0.0320 / 0.0314 |
+| C, memory frozen from 5 s | 0.0275 / 0.0319 / 0.0288 | 0.0671 | 0.1206 | 0.0487 / 0.0490 |
+| E | 0.0466 / 0.0298 / 0.0331 | 0.0717 | 0.1803 | 0.0322 / 0.0376 |
+
+A has 0.074–0.082 rad/s on the two-tone runs and fails on the staircase (0.80 rad/s).
+
+- **The LSTM models have no friction step.** Their acceleration changes by 13 to more than 100 times less than
+  the recordings' 0.76 m/s² across zero velocity, and the change at ±0.005 m/s is half that at
+  ±0.01 m/s, so it is a straight line through zero, not a step. After the two-tone runs C's slope is
+  steeper than the fitted viscous friction (1.3–2.5 against 0.87 s<sup>−1</sup>), a smooth stand-in for
+  the Coulomb step. E's model has the step: 0.81–1.17 m/s².
+- **C's lead over E is not where friction acts.** On the two-tone runs C is about 10 % ahead of E
+  on θ̇, by the same margin whether the cart reverses or moves. The cart reverses in only 2.6 % of
+  the samples. At reversals E estimates the cart velocity best: 0.0038 m/s against C's 0.0071.
+- **The memories carry pendulum information, not cart friction.** Holding the memory worsens the
+  pendulum predictions (θ̈ NMSE 0.50 → 0.83 for C), but not the cart predictions: C's <i>ẍ</i> NMSE is
+  slightly better with the memory held. Neither black box predicts the cart acceleration well: its
+  NMSE is 0.66–1.02, where 1 is no better than predicting the mean.
+- **Switching C's memory off makes C better, not worse.** Its error falls 7–27 % on the two-tone
+  runs and 12 % on the staircase, and is unchanged on the pulse train. The largest gain is at cart
+  starts: 0.052–0.056 → 0.031–0.032 rad/s on trials 2–3. Freezing the memory from 5 s on lands in
+  between. Where friction acts, the memory adds error.
+- **By phase, E beats C where friction acts and loses in smooth motion.** On two-tone trials 2–3, at
+  cart stops E has 0.016–0.018 rad/s against C's 0.021–0.026. In smooth motion, about 80 % of the
+  samples, it has 0.031–0.034 against C's 0.024–0.026. (These errors run from 5 s on, so they include
+  E's learning before the second half scored above.)
+- **Verdict.** On this rig the recurrent memories did not learn the friction. C's frozen model has
+  no friction step, its memory carries pendulum information, and with the memory switched off C's
+  observer is more accurate, above all when the cart starts moving. Where C beats E, it is in smooth
+  motion, not friction.
+
+**What is left.**
+
+1. **E on the two-tone runs:** 8 % behind C on trials 2–3, and 50 % on the low-amplitude trial 1, where
+   the coupling comes out at 2.41 instead of 3.1. Static friction is ruled out as a cause: in the
+   second half of trial 2 the cart stands still only 3 % of the time, and no model's error is larger
+   near the cart's starts and stops.
+2. **B is not fixed.** The cause is found: B's adaptation is the instantaneous Lyapunov law alone, and
+   that law cannot identify the coupling from these data. E with its stacks switched off, which leaves
+   the same kind of law on E's structure, learns 0.16–0.19 m<sup>−1</sup> (true 3.06) and has 0.085–0.096 rad/s on
+   the driven runs, worse than B's 0.07; B's −0.1 to −0.3 m<sup>−1</sup> is the same failure. E gets the
+   coupling only through its stacks (item 7). Three repairs were tried on B, none kept: one angle
+   harmonic instead of two (0.13–0.17 rad/s on the driven runs), an inertia margin of 0.01–0.02 (4–5 %
+   better on the driven runs, worse on the free swings), and a replay buffer of recorded accelerations
+   with a gradient step on them, as C adds to A. Replay gives the coupling the right sign (+0.2 to
+   +1.4 m<sup>−1</sup>) but not its size, and B's error stays at 0.05–0.09 rad/s, because B's gravity parameters
+   have no units scale (its pendulum frequency stays near 2.4 rad/s) and its pendulum inertia stays at
+   0.13–0.2. Giving B those would turn it into E, which is B's structure with D's stacks.
+3. **D:** its concurrent learning never switches on with these data, and it cannot learn the gravity
+   scale (item 1).
+4. The data are closed-loop: the logged command contains the centring loop's reaction to the cart
+   position.
+5. **Claims these recordings cannot test.** They need further sessions:
+   - **Large swings.** Every run stayed near hanging, with a largest swing of about ±31°. The
+     swing-through results (S2: D's near-exact identification from rich data, §11.4) are simulation
+     only.
+   - **Recovery from a plant change** (§11.3). The stapler step was too small to detect
+     (§12.5.2), and change detection was off. Testing it needs a heavier, weighed mass fixed about
+     halfway down the rod, where it changes the frequency.
+   - **A balancing loop.** Every recording is an offline replay with the pendulum hanging. Whether
+     the lower velocity noise improves stabilization (§1) needs closed-loop runs.
+   - **The amplifier gain apart from the cart mass.** Only their ratio is identifiable (§12.5.3).
+     Separating them needs the cart weighed.
+
+**Caveats.** One seed per model and run; the run4 trial 1 amplitude differs from trials 2–3; the
+rest run cannot give a noise floor for the angle, because the hanging pendulum never changed by a
+single count; and the evaluation's "breakaway" printout (smallest command while the cart moves) is
+not meaningful with the centring loop, so the break-away voltages of §12.5.3 come from
+`characterise_rig.py` instead.
+
+#### 12.5.5 Automatic calibration
+
+The rig settings of §12.5.4 were found by hand. `characterise_rig.py --calibrate` derives the
+numerical ones from two short runs, one free swing and one drive run, and writes them into
+`metadata.txt` as a block of `cal_` fields:
+
+```bash
+python scripts/rig/characterise_rig.py --calibrate run2_freeswing_trial2 run4_twotone_trial2
+```
+
+What it computes:
+
+- **Pendulum** (free swing): natural frequency and damping ratio.
+- **Cart** (drive run): the cart model of §12.5.3 with a term along the sign of the command, fitted
+  while the cart moves. That gives the acceleration per volt α, the viscous and Coulomb friction, the
+  constant force, the drive's compensation, and the pendulum's coupling.
+- **Conversion to the observers' units.** M + m = `newtons_per_volt` / α, since only this ratio is
+  identifiable. Each force is its fitted acceleration times M + m. The coupling gives ml, and
+  ml g / ω² gives I + ml² (exact for any rigid pendulum).
+- **Inertia margin.** ε<sub><i>M</i></sub> is half the smallest eigenvalue of the calibrated inertia
+  matrix over all angles.
+
+When the block is present, the evaluation uses its values instead of the hand-tuned ones:
+
+- **Inertia margin** ε<sub><i>M</i></sub>: B, D and E.
+- **Starting values of the friction and force terms:** B, D and E, each where the model has the term.
+- **Natural frequency**, as D's gravity scale.
+
+The structural options of §12.5.4 stay as they are (leakage, no change detection, the coupling from
+the pendulum's equation). `data/rig/metadata.txt` has no `cal_` block, so the numbers of §12.5.4 are
+the hand-tuned ones. Running the command on `data/rig` writes the block, and the evaluation then
+switches to the calibrated values.
+
+Two calibrated values are written for information but deliberately not used. Each failed a test:
+
+- **The cart prior M + m.** With the calibrated 2.9 kg as its prior, D's cart mass ran away to
+  11.7 kg on two-tone trial 2. Its held-out 0.5 s angle NMSE rose from 0.31 to 0.95. The prior also
+  sets D's parameter units and row weights (§9.5), so it is not a neutral starting value. The default
+  of 2.0 stays.
+- **E's starting gravity scale.** Started at the calibrated 30 instead of learning it from 5, E never
+  re-sets the scale, and so never restarts its parameters from the stacks (§12.5.4 item 1). On fading
+  trial 1 its pendulum inertia then stayed at the prior of 0.2, and its held-out NMSE was 1.34
+  against 0.012. E keeps learning the scale, which lands on the calibrated value anyway.
+
+**Calibrated values**, against the hand-tuned settings and what E identifies:
+
+| | Hand-tuned (E identifies) | Free swing + two-tone | Free swing + staircase |
+|:---|:---|---:|---:|
+| Natural frequency [rad/s] | 5.478 measured | 5.479 | 5.479 |
+| α [m/s² per V] | 3.1–3.5 (§12.5.3) | 2.78 | **1.15** |
+| M + m [kg] | prior 2.0 (2.30–2.69) | 2.88 | **6.93** |
+| I + ml² [kg·m²] | (0.029–0.047) | 0.040 | **0.20** |
+| ε<sub><i>M</i></sub> | 0.02 (E), 0.05 (B, D) | 0.0175 | **0.073** |
+| Constant force [N] | starts at 0 (0.39–0.58) | 0.42 | 0.40 |
+| Drive compensation [N] | starts at 0 (0.40–0.73) | 0.90 | 1.25 |
+| Coulomb friction [N] | starts at 0 | 1.52 | 2.04 |
+
+**The staircase cannot calibrate the cart.** Its pulses last 0.5 s and start as steps, so the motor's
+own dynamics dominate them (§12.5.3). The fit gives α = 1.15–2.25 m/s² per V and a coupling of
+0.065–0.089 m, depending on the smoothing window. A two-tone run gives 2.8–3.6 and 0.022–0.043 m,
+consistent with the six driven runs together. The staircase does give the break-away voltages
+(+0.15 V and below 0.10 V, as in §12.5.3).
+
+**Rig results from the calibration** (B, D, E; the same evaluation as §12.5.4). Pendulum-velocity
+error, second half, median per run type [rad/s], and held-out 0.5 s θ NMSE by training run:
+
+| | Free swing | Two-tone | Fading | Mass step | Held-out, two-tone / fading |
+|:---|---:|---:|---:|---:|:---|
+| E, hand-tuned | 0.0102 | 0.0197 | 0.0109 | 0.0155 | 0.019 / 0.012 |
+| E, free swing + two-tone | 0.0102 | 0.0197 | 0.0109 | 0.0156 | 0.019 / 0.012 |
+| E, free swing + staircase | 0.0102 | 0.0349 | 0.0116 | 0.0329 | 0.073 / 0.030 |
+| D, hand-tuned | 0.0130 | 0.1101 | 0.0125 | 0.1142 | 0.33 / 1.27 |
+| D, free swing + two-tone | 0.0128 | 0.1074 | 0.0125 | 0.1118 | 0.29 / 1.27 |
+| D, free swing + staircase | 0.0121 | 0.1066 | 0.0125 | 0.1113 | 0.29 / 1.27 |
+| B, hand-tuned | 0.0235 | 0.0724 | 0.0122 | 0.0734 | 0.50 / 1.11 |
+| B, free swing + two-tone | 0.0315 | 0.0697 | 0.0122 | 0.0704 | 0.58 / 1.07 |
+| B, free swing + staircase | 0.0205 | 0.0757 | 0.0122 | 0.0772 | 0.46 / 1.05 |
+
+- **From a free swing and a two-tone run, E reproduces the hand-tuned results.** Every median
+  agrees to within 1 %, and the identified parameters are the same.
+- **D improves slightly with either calibration.** Its two-tone error is 2–3 % lower and its held-out
+  angle prediction after the two-tone runs 0.29 instead of 0.33. Its cart prediction is 7 times
+  better (0.5 s NMSE of the cart position 0.011 against 0.080). D's concurrent learning never switches
+  on with these data (§12.5.4), so its constant force and drive compensation stay at their
+  calibrated starting values (0.42 and 0.90 N), where the hand-tuned D kept them near zero.
+- **B moves with the margin, as in §12.5.4.** With the two-tone calibration's ε<sub><i>M</i></sub> = 0.0175
+  instead of its 0.05, B is 4 % better on the driven runs and 34 % worse on the free swings. The
+  staircase calibration's 0.073 has the opposite effect.
+- **From the staircase, E does not match.** Its ε<sub><i>M</i></sub> = 0.073 lies above the real
+  pendulum's inertia, so the true parameters are outside E's feasible set again (§12.5.4 item 5). E's
+  I + ml² is pinned at 0.078–0.087, its two-tone error is 77 % higher, and its held-out prediction
+  4 times worse.
+- **Verdict.** Calibrate from one free swing and one two-tone run, and use the staircase only for
+  the break-away voltages. The automatic calibration then replaces the hand-tuned numbers without
+  loss for E, with a small gain for D, and with B's known margin trade-off.
+
 
 ---
 
@@ -3826,7 +4487,7 @@ each point is worked out in full.
 | Jacobian meaning | The Jacobian of the static map, with the memories held fixed, is an approximation of the true sensitivity | §6.2, caveat |
 | EKF prediction | The covariance update needs the discrete transition, not the continuous Jacobian | $F_k \approx I + T_s\thinspace \partial f/\partial x\rvert_{\hat x_k}$, or integrate the Riccati equation between samples, as the continuous–discrete EKF of §4 does |
 | High-gain observer noise | The noise gain depends on which state is estimated | For an <i>N</i>-th order HGO, the <i>i</i>-th state estimate carries noise gain <i>O</i>(ε<sup>−(<i>i</i>−1)</sup>) [12], [22], so the velocity estimate is <i>O</i>(1/ε). Peaking of the <i>i</i>-th state is also <i>O</i>(ε<sup>−(<i>i</i>−1)</sup>) |
-| Pendulum inertia | (<i>I</i> + <i>m</i><i>l</i><sup>2</sup>)θ̈ means <i>I</i> is taken about the centre of mass | The plant's <i>I</i> = 0.099 kg m² is the centroidal inertia (§2.3) |
+| Pendulum inertia | (<i>I</i> + <i>m</i><i>l</i><sup>2</sup>)θ̈ means <i>I</i> is taken about the centre of mass | The simulated plant's <i>I</i> = 0.099 kg m² is the centroidal inertia (§2.3). The recorded rig's pendulum is not described by it: E identifies <i>I</i> + <i>m</i><i>l</i><sup>2</sup> = 0.029–0.047 kg m² (§12.5.4) |
 | Benchmarks | [1], [4] and [5] all use a fully actuated two-link manipulator | The underactuated cart–pendulum raises issues those papers do not face: identifiability of unactuated rows (§9.4), rank attainability (§8.2), discretization (§6.4), input design (§11.5) |
 
 ### 13.2 Published claims, checked against our results
@@ -3836,7 +4497,7 @@ each point is worked out in full.
 | Weight projection eliminates peaking | Peak θ̇ error of 0.12–0.53 rad/s in 0.1–2 s for every learned observer, against steady RMSE of 0.009–0.07 rad/s (§11.3) | No *high-gain* peaking, since no gain is scaled up. A model-learning transient remains until the weights adapt. |
 | Lyapunov analysis gives asymptotic (or exponential) convergence | Asymptotic only above the RISE gain bound, and every tuned configuration runs below it. No exponential rate follows from the analysis | Asymptotic under the gain condition; uniformly ultimately bounded as tuned (§5.5). |
 | Persistent excitation gives exact identification | LSTM ideal weights are neither unique nor exact. Approach C's readout reaches only a neighbourhood of its least-squares fixed point (§8.8). Approach D identifies <i>M</i> + <i>m</i> and <i>ml</i> to within 1 % (§9.7) | Parameter errors converge to a neighbourhood that scales with the approximation error. Exact identification needs a realizable model and an attainable rank condition. |
-| Recurrent memory learns and cancels friction | Not tested: dead-zone and stiction are off in every run | Expected, not demonstrated. |
+| Recurrent memory learns and cancels friction | In simulation, not tested: dead-zone and stiction are off in every run. On the real rig's Coulomb friction (a 0.76 m/s² drop in cart acceleration across zero velocity), the frozen LSTM models A and C have no friction step: theirs is 13 to more than 100 times smaller, and linear through zero. Holding their memory worsens pendulum predictions, not cart predictions. With its memory switched off, C's observer is 7–27 % more accurate on the two-tone runs, most of all when the cart starts moving. C's velocity lead over E comes from smooth motion, not from starts, stops or reversals (§12.5.4, "Friction on the rig") | Not supported on this rig: the memories carry pendulum information, not friction. Explicit Coulomb terms (E) model the friction step. |
 | Improvement over baselines | [4] reports 41.13 % lower RMS velocity error than a shallow RNN observer; [5] reports 33.76 % lower tracking error than a physics-informed DNN. Neither compares with a classical estimator. Here, a shallow RNN with the *exact* nominal model beats the black-box Lb-LSTM (§6.7.2) | The ranking depends on how much model knowledge the baseline has. |
 
 ---
@@ -3863,8 +4524,9 @@ each point is worked out in full.
 ├── experiments/                  # one validation script per approach, the shared benchmark, the rig evaluation
 ├── scripts/                      # baseline benchmark and plots, three-scenario plot, A-vs-C comparison;
 │                                 # rig/: MATLAB input and export scripts for the real rig
-├── tests/                        # 126 tests
-├── data/rig/metadata.txt         # template for real-rig recordings (§12)
+├── tests/                        # 139 tests
+├── data/rig/                     # the 6 Nov 2026 rig recordings and their metadata.txt (§12)
+├── docs/                         # record of the rig session of 6 Nov 2026
 ├── figures/
 │   ├── baseline_estimation_comparison.png
 │   ├── approach_a/ … approach_e/ # figures of each approach's validation
@@ -3904,12 +4566,12 @@ each point is worked out in full.
 
 | File | Contents |
 |:---|:---|
-| `src/observers/pilstm_network.py` | Harmonic/random feature layer with analytic $\partial\rho/\partial q$; Cholesky inertia; Christoffel <i>Ĉ</i> and gyroscopic <i>S</i>; potential gravity; dissipative recurrent friction; `PILSTMNetwork`; `PILSTMLayout` |
+| `src/observers/pilstm_network.py` | Harmonic/random feature layer with analytic $\partial\rho/\partial q$; Cholesky inertia; Christoffel <i>Ĉ</i> and gyroscopic <i>S</i>; potential gravity; dissipative recurrent friction; optional rig forces (block X: constant cart force, force along the command); `PILSTMNetwork`; `PILSTMLayout` |
 | `src/adaptation/pilstm_jacobian_engine.py` | Adjoint Jacobian-transpose products per block, including the second-order Christoffel term; explicit Φ′ for tests; Euclidean and kinetic metrics; `PILSTMAdaptationLaw` |
 | `src/observers/pilstm_observer.py` | `PILSTMObserver`, `PILSTMObserverConfig`: same interface as `LbLSTMObserver`, plus physics diagnostics |
 | `src/observers/physics_informed_lstm_observer.py` | Superseded residual-learning variant using the known nominal model; kept for reference only (§7.10) |
 | `experiments/run_pilstm_validation.py` | Extreme-condition benchmark, plausibility audit, free swing, seeds, ablations, Figures 7–12 |
-| `tests/test_pilstm.py`, `test_physics_informed_lstm.py` | 22 tests: finite-difference checks of features, $\partial\hat M/\partial q$ and all four blocks; SPD and skew-symmetry for random parameters; brute-force Christoffel; cyclic invariance; energy conservation; dissipativity; projection |
+| `tests/test_pilstm.py`, `test_physics_informed_lstm.py` | 24 tests: finite-difference checks of features, $\partial\hat M/\partial q$ and all four blocks; SPD and skew-symmetry for random parameters; brute-force Christoffel; cyclic invariance; energy conservation; dissipativity; projection; starting values of the rig forces |
 
 **Approach C (§8)**
 
@@ -3926,36 +4588,38 @@ each point is worked out in full.
 
 | File | Contents |
 |:---|:---|
-| `src/observers/el_linear_model.py` | Linear Euler–Lagrange model, all regressors, physical mapping, positive-definiteness projection |
-| `src/observers/pi_icl_observer.py` | `PIICLObserver`: two-part stack estimate, rank gate, Newton-form CL, change detection |
-| `src/concurrent_learning/history_stack.py` | Block-regressor history stack with singular-value-maximizing recording (also used by E) |
+| `src/observers/el_linear_model.py` | Linear Euler–Lagrange model, all regressors, physical mapping, positive-definiteness projection; optional constant cart force and force along the command for a real rig |
+| `src/observers/pi_icl_observer.py` | `PIICLObserver`: two-part stack estimate, rank gate, Newton-form CL, change detection; the learned gravity scale (`stack_omega_squared`, used by E) |
+| `src/concurrent_learning/history_stack.py` | Block-regressor history stack with singular-value-maximizing recording (also used by E); column rescaling for a change of parameter units |
 | `src/concurrent_learning/savitzky_golay.py` | Causal Savitzky–Golay smoother and differentiator |
 | `experiments/run_d_validation.py` | 5-seed benchmark against A and B, identification, free swing, Figures 16–19 |
-| `tests/test_pi_icl.py`, `test_history_stack.py` | 23 tests: true parameters reproduce the plant, ICL identity, identification and change detection, stack policy |
+| `tests/test_pi_icl.py`, `test_history_stack.py` | 28 tests: true parameters reproduce the plant, ICL identity, identification and change detection, stack policy, the two rig force terms (structure, ICL identity, stack placement, starting values) |
 
 **Approach E (§10)**
 
 | File | Contents |
 |:---|:---|
-| `src/observers/hybrid_observer.py` | `HybridObserver`, `HybridObserverConfig`: damped blend step, own-coordinate freeze, optional residual, frozen twin |
+| `src/observers/hybrid_observer.py` | `HybridObserver`, `HybridObserverConfig`: damped blend step, own-coordinate freeze, optional residual, frozen twin; for the rig, the coupling from the pendulum's stack (`_coupled_update`) |
 | `experiments/run_e_validation.py` | Three scenarios, B / D / E and the ablations, Figures 20–22 |
-| `tests/test_hybrid.py` | 7 tests: blend algebra, frozen structure, dissipative residual, reduction to D, identification on small swings |
+| `tests/test_hybrid.py` | 12 tests: blend algebra, frozen structure, dissipative residual, reduction to D, identification on small swings, inertia leakage; the rig options: stack rescaling, coupling from the pendulum's stack and its gate, learned gravity scale |
 
 **Shared benchmark (§11) and rig data (§12)**
 
 | File | Contents |
 |:---|:---|
 | `src/benchmark/scenarios.py` | S1–S3 and the held-out inputs H1–H4 |
-| `src/benchmark/models.py` | Model registry (A, A-x, B, C, C-x, D, E), shared normalization, twin adapters, prediction metrics |
+| `src/benchmark/models.py` | Model registry (A, A-x, B, C, C-x, D, E), shared normalization, twin adapters, prediction metrics; optional gravity scale for D and E (§12.5.4); a rig calibration's starting values and limits for B, D and E (§12.5.5) |
 | `src/benchmark/warm_start.py` | Significance-gated state injection (improvement 3) |
 | `experiments/run_shared_benchmark.py` | The benchmark; CSVs in `results/shared_benchmark/`, Figures 23, 24 and 27 |
 | `scripts/compare_a_c.py` | Approach A vs Approach C on the shared benchmark (§11.6), Figures 25 and 26 |
 | `tests/test_shared_benchmark.py` | 8 tests: twin exactness with true parameters, x-free inputs, warm-start injection and gate |
-| `src/rig/rig_data.py` | Metadata template and parser, run-type keywords, unit conversion, resampling to 1 kHz, zero-phase reference derivatives |
-| `experiments/run_rig_evaluation.py` | Sign checks, rest-run noise floor, dead-zone thresholds, velocity and prediction scoring, rehearsal data, summary figure |
-| `tests/test_rig_data.py` | 6 tests: unit and sign conventions round trip, file checks, accuracy of the reference velocity, detection of a flipped sign convention, rest-run and dead-zone statistics, a full replay scored end to end |
-| `data/rig/metadata.txt` | Metadata template to fill in for the real rig |
+| `src/rig/rig_data.py` | Metadata template and parser (including the automatic-calibration `cal_` fields), run-type keywords, unit conversion, resampling to 1 kHz, zero-phase reference derivatives |
+| `experiments/run_rig_evaluation.py` | Sign checks, rest-run noise floor, dead-zone thresholds, velocity and prediction scoring, rehearsal data, summary figure; hand-tuned or calibrated settings (§12.5.5); `--out` results folder |
+| `tests/test_rig_data.py` | 7 tests: unit and sign conventions round trip, file checks, accuracy of the reference velocity, detection of a flipped sign convention, rest-run and dead-zone statistics, a full replay scored end to end, the automatic-calibration block of metadata.txt |
+| `data/rig/metadata.txt` | Recording conditions of the 6 Nov 2026 session: units, signs, 8 N/V, measured pendulum frequency, pendulum and mass-step description |
 | `scripts/rig/rig_inputs.m`, `scripts/rig/export_run.m` | MATLAB: the input of every rig run, and the CSV export after each run (§12.2) |
+| `scripts/rig/characterise_rig.py` | Integrity, input reconstruction, angle sign, pendulum frequency and damping, break-away, cart model and closed-loop check of the rig recordings; Figure 28 (§12.5); `--calibrate`: the automatic calibration into metadata.txt (§12.5.5) |
+| `data/rig/*.csv`, `docs/rig_session_2026-11-06.md` | The 16 recordings of 6 Nov 2026 (raw, never edited) and the full record of that session |
 
 **Diagrams**
 
