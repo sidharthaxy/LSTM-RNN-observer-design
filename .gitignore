@@ -62,3 +62,12 @@ figures/*.png
 # Simulated rehearsal recordings (regenerate with run_rig_evaluation.py --make-demo)
 data/rig_demo/
 figures/rig/rig_demo/
+
+# Type-checker cache
+.mypy_cache/
+
+# Real rig: local copies kept out of the repo
+#   "Realrig values/": byte-identical copies of data/rig/*.csv (plus an unrelated personal file)
+#   rig_handoff/: the lab handoff; its text is docs/rig_session_2026-11-06.md, its scripts scripts/rig/
+Realrig values/
+rig_handoff/

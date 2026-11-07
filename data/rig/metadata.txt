@@ -1,23 +1,31 @@
-# Recording conditions of the rig runs in this folder. Lines starting with # are ignored.
-# counts or m
-cart_units = counts
-cart_counts_per_m = 4096.0
-# +1 or -1: direction of the logged cart position
+# Recording conditions of the rig runs in this folder (session of 6 Nov 2026). Lines starting with # are ignored.
+# Full record of the session: docs/rig_session_2026-11-06.md
+#
+# Units actually logged: the vendor encoder block already outputs metres and radians.
+cart_units = m
+# Not used with cart_units = m. Actual resolution: 0.078 m per 1024 counts (7.6172e-5 m).
+cart_counts_per_m = 13128.2
+# +1: the logged position grows when a positive command pushes the cart (verified on the rig; +x = towards the "Feedback" logo end)
 cart_sign = 1
-# counts, rad or deg
-angle_units = counts
-angle_counts_per_rev = 4096.0
-# where the logged angle reads zero: hanging or upright
-angle_zero = hanging
-# +1 or -1: rotation direction of the logged angle
-angle_sign = 1
-# V or N
+angle_units = rad
+# Not used with angle_units = rad. Actual resolution: 2048 counts per revolution.
+angle_counts_per_rev = 2048.0
+# The logged angle reads pi with the pendulum hanging still at model start: vendor convention, 0 = upright.
+angle_zero = upright
+# -1: the logged angle grows when the bob swings towards +x, the opposite of the repo's convention
+# (fitted cart-acceleration-to-angle gain -0.104 rad per m/s^2 on run4 and run5; the repo's plant gives +1/g).
+angle_sign = -1
 command_units = V
-# amplifier gain (used when command_units = V)
-newtons_per_volt = 2.0
+# Manual (33-936S, p. 7): a command of +-2.5 V gives about +-20 N, i.e. about 8 N/V. The recordings agree:
+# 3.1-3.5 m/s^2 per V while moving, times the manual's M + m = 2.63 kg, gives 8.2-9.2 N/V.
+# (The repo's simulation and the original template assumed 2 N/V, i.e. 20 N at 10 V.)
+newtons_per_volt = 8.0
+# Manual (p. 3, 7): 1 m track, cart bounded to -0.5 ... +0.5 m. The limit switches sit a little inside the ends.
+# The largest recorded excursion is 0.294 m.
 track_half_length_m = 0.5
-# which rod / mass was fitted
-pendulum = standard
-# what differs in the mass_step runs
-mass_step_pendulum = 
-notes = 
+# Measured on the three free swings (zero crossings, large-angle corrected): 5.478 +- 0.003 rad/s.
+# Sets the gravity scale of models D and E to omega^2 = 30.0 1/s^2 (the simulation default, 5, is for the simulated pendulum).
+pendulum_natural_frequency_rad_s = 5.478
+pendulum = Feedback 33-200 with two pendulum arms fixed to the same cart shaft (arm-fixing screws tight; user), so they turn together; a short length of rod continues above the pivot (user). Geometry and masses not recorded (measured natural frequency 5.478 rad/s, equivalent length 0.327 m)
+mass_step_pendulum = a small stapler taped at the bottom weight of the pendulum (user); not weighed. Natural frequency +0.17 %, as expected for a mass added at the bob; the step shows in the pendulum mass and the cart coupling instead
+notes = The vendor Feedback DAC block adds its own static-friction compensation (default 0.1 V each way; values on this rig not read) and clips at +-2.5 V; command_v is logged before it. Feedback 33-200/33-201, PCI-1711, MATLAB R2009a Real-Time Windows Target, 1 kHz ode1. Centring loop: Transfer Fcn (2.03 s + 1.5)/(0.02 s + 1) on (0 - x), i.e. Kp 1.5 V/m, Kd 2.0 V s/m, tau 0.02 s. command_v = total DAC command (excitation + loop). A_twotone 0.25 V (run4 trial 1), 0.35 V (run4 trials 2-3, run7); A_fading 0.40 V; A_heldout 0.70 V. Order: Connect, green Start, Run; red Stop before the model stops.
