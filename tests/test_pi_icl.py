@@ -233,7 +233,7 @@ def test_icl_identity_holds_with_tilt_and_drive_compensation() -> None:
     """On a trajectory of a plant with a tilted track and a drive-side compensation, the ICL identity is exact."""
     m = _rig_model()
     th = m.true_parameters(PendulumParameters())
-    th[m.layout.block_slice("F0")] = -0.3                              # push towards -x
+    th[m.layout.block_slice("F0")] = -0.3                              # f_0 < 0: a push towards +x (f_0 enters the left-hand side)
     th[m.layout.block_slice("Fu")] = 0.8                               # 0.1 V x 8 N/V along the command
     f = lambda t: 2.0 * np.sin(3.0 * t)
     z, Z = np.array([0.0, 0.5, 0.0, 0.0]), []

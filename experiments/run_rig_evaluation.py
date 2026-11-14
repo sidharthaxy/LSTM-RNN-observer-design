@@ -300,9 +300,12 @@ def main() -> None:
         rows = [r for out in ex.map(job, jobs) for r in out]
     print(f"\n{len(jobs)} replays in {time.time() - t0:.0f} s")
     df = pd.DataFrame(rows)
-    vel = df[df.kind == "velocity"].dropna(axis=1, how="all").drop(columns="kind")
-    pred = df[df.kind == "prediction"].dropna(axis=1, how="all").drop(columns="kind")
-    par = df[df.kind == "parameters"].dropna(axis=1, how="all").drop(columns="kind")
+
+    def rows_of(kind: str) -> pd.DataFrame:
+        # An empty kind (no parameter rows without D or E) keeps no columns after dropna: drop "kind" only if present
+        return df[df.kind == kind].dropna(axis=1, how="all").drop(columns="kind", errors="ignore")
+
+    vel, pred, par = rows_of("velocity"), rows_of("prediction"), rows_of("parameters")
     vel.to_csv(res_dir / "velocity.csv", index=False)
     pred.to_csv(res_dir / "prediction.csv", index=False)
     par.to_csv(res_dir / "parameters.csv", index=False)
