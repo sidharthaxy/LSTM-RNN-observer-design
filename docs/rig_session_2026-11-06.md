@@ -438,9 +438,10 @@ is reproduced by `python scripts/rig/characterise_rig.py` and
   simulation's 0.05; no change detection on the rig (false alarms); and, for E, the coupling learned
   from the pendulum's own equation, with only its scale from the cart's (frozen at offline-fitted
   parameters E's observer reaches 0.019–0.025 rad/s on the driven runs, so the learning, not the model,
-  had been the limit). Static friction was checked and ruled out. Result (README §12.5.4): E has the
-  lowest median pendulum-velocity error (0.012 rad/s against C's 0.013) and is best on the free
-  swings, fading runs and mass step; C keeps a small lead on the two-tone runs (0.018 against 0.020).
+  had been the limit). Static friction was checked and ruled out. Result (README §12.5.4): E and C
+  are tied for the best pendulum-velocity estimate (medians 0.012 and 0.013 rad/s, a gap within the
+  velocity reference's own error of about 0.002 rad/s, README §12.4); E is clearly ahead on the mass
+  step and C on the low-amplitude two-tone trial 1.
   E predicts the held-out runs about 30 times better than any other model (0.019 against C's 0.66,
   median) and identifies the coupling at the hanging position as 3.11–3.14 m⁻¹ (ω²/g = 3.06), the
   swing frequency as 5.47–5.51 rad/s (measured 5.48), a cart mass of 2.30–2.69 kg (manual 2.63) and a

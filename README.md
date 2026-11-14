@@ -12,8 +12,10 @@ cart–pendulum from its encoders alone. It also learns a model of the rig's dyn
 does so. It contains five learning observers (Approaches A–E), the classical baselines they are
 compared with, a shared benchmark that runs all of them under identical conditions, and a tool
 that replays recordings from the real rig through every model. The simulations use the parameters
-of the 33-936S manual (§2). The rig recorded in the lab is a Feedback 33-200/33-201 digital pendulum,
-whose pendulum and drive differ from those values (§12.5).
+of the 33-936S manual (§2). The rig recorded in the lab is a Feedback 33-200 mechanical unit with a
+33-201 controller. These are most likely the units the manual itself describes: they carry the
+manual's names, "Digital Pendulum mechanical unit" and "Digital Pendulum Controller". Its pendulum
+and drive, however, differ from the manual's parameter values (§12.5).
 
 Everything lives on this one branch. The original per-approach branches are kept unchanged as
 history (§14.3).
@@ -357,6 +359,12 @@ python scripts/rig/characterise_rig.py
 # The evaluation then uses them instead of the hand-tuned values. --dry-run only prints them.
 python scripts/rig/characterise_rig.py --calibrate run2_freeswing_trial2 run4_twotone_trial2 --dry-run
 
+# Cart position as a black-box network input (§11.5): A, A-x, C, C-x on S1-S3 and three rig runs,
+# 3 seeds, with cross-run prediction and the invariance test (about 5 min), then the full rig
+# evaluation of §12.5.4 for the same four models (about 8 min). Writes results/ablation_cart_position/
+python experiments/run_cart_position_ablation.py
+python experiments/run_cart_position_ablation.py --rig-eval
+
 # For a NEW recording folder only: write a metadata template into it, then edit it
 python experiments/run_rig_evaluation.py --template > data/<new folder>/metadata.txt
 
@@ -453,12 +461,17 @@ the same seeds and metrics.
   real frequency, a constant cart force, the drive's own friction compensation, protection against
   drift where the cart is not excited, an inertia margin small enough for this pendulum, and, for E, a
   way to learn the coupling from the pendulum's own equation instead of the cart's. With these, and
-  with the gravity scale learned online instead of measured, E has the lowest median velocity error
-  on the rig (0.012 rad/s against C's 0.013), predicts unseen rig inputs about 30 times better than
-  any other approach, and identifies the coupling and the swing frequency within 3 % of their
-  measured values. C keeps a small lead only on the two-tone runs (0.018 against 0.020). B could not
+  with the gravity scale learned online instead of measured, E is tied with C for the best velocity
+  estimate on the rig. Its median of 0.012 rad/s against C's 0.013 is a gap smaller than the error of
+  the velocity reference itself, about 0.002 rad/s (§12.4); on the two-tone runs C's 0.018 against
+  E's 0.020 is a tie too. E predicts unseen rig inputs about 30 times better than any other approach,
+  a measurement that needs no velocity reference. It also identifies the coupling and the swing
+  frequency within 3 % of their measured values. B could not
   be repaired: its instantaneous law alone cannot learn the coupling from these data. Every
-  observer's velocity estimate is 10–40 times less noisy than the rig's dirty-derivative filter.
+  observer's velocity estimate is 10–40 times less noisy than the rig's dirty-derivative filter,
+  and C and E track the swinging and driven runs without measurable lag. When the pendulum barely
+  moves (the second half of the fading runs, about ±1°), the observers read its speed 25–40 % low
+  and late, and a slower dirty derivative is more accurate than all of them (§12.5.4).
 
 ---
 
@@ -551,7 +564,12 @@ Derived values used throughout: <i>M</i> + <i>m</i> = 2.63 kg, <i>ml</i> = 0.083
 - **Frequency.** The recorded pendulum swings at 5.48 rad/s, against 2.51 rad/s for the values
   above. That is ω<sup>2</sup> ≈ 30 instead of 6.3, equivalent to a pendulum 0.327 m long.
 - **Construction.** It carries two arms on the same shaft, with a short length of rod above the
-  pivot, which a single-rod table cannot describe.
+  pivot.
+  - The manual shows the two arms (p. 3 and its Figures 1 and 3), but its table lists one set of
+    values for "the pole", without saying whether they are per arm.
+  - With two identical arms the swing frequency would be the same either way: mass and inertia
+    double together. So the mismatch lies in the table's values, mainly the inertia of 0.099 kg·m²,
+    not in the number of arms.
 - **What E identifies there.** <i>I</i> + <i>m</i><i>l</i><sup>2</sup> = 0.029–0.047 kg·m², about a quarter of the 0.129
   above. <i>M</i> + <i>m</i> = 2.30–2.69 kg, consistent with 2.63.
 - **Drive.** The drive gives about 8 N/V, the value of the <i>F</i><sub>max</sub> row. The
@@ -3353,6 +3371,29 @@ optional wrapper around the online run.
 | S2 | B | Swing-through from 0.5 rad off upright, <i>u</i> = 2 sin 3<i>t</i> + 1.2 cos 6<i>t</i>, pendulum mass and inertia +50 % at 25 s, 50 s | U(±1°) |
 | S3 | C | Weak excitation (non-PE) <i>u</i> = 3<i>e</i><sup>−<i>t</i>/8</sup> sin 1.6<i>t</i>, hanging, 60 s | U(±0.5°) |
 
+Exact definitions:
+
+| | S1 | S2 | S3 |
+|:---|:---|:---|:---|
+| Input <i>u</i>(<i>t</i>) | force on the cart in **newtons**: 2 sin 1.5<i>t</i> + 1.2 cos 3<i>t</i> | 2 sin 3<i>t</i> + 1.2 cos 6<i>t</i> N | 3<i>e</i><sup>−<i>t</i>/8</sup> sin 1.6<i>t</i> N |
+| Initial state (<i>x</i>, <i>ẋ</i>, θ, θ̇) | 0 m, −0.507 m/s, π − 0.4 rad, 0 | 0 m, −0.2535 m/s, 0.5 rad (θ = 0 is upright), 0 | 0.109 m, −0.708 m/s, π − 0.3 rad, 0 |
+| Duration; steady window | 50 s; 35–50 s | 50 s; 35–50 s | 60 s; 45–60 s |
+| Angle noise | U(±0.5°) | U(±1°) | U(±0.5°) |
+| Plant change | none | <i>m</i> and <i>I</i> × 1.5 at 25 s | none |
+| Range reached | <i>x</i> within ±0.45 m; θ 2.74–3.63 rad | θ 0.5–5.6 rad (through upright); <i>x</i> within ±0.16 m | <i>x</i> within ±0.35 m; θ 2.69–3.60 rad |
+
+Common to all three:
+
+- **Plant and step:** the plant of §2.3 (<i>M</i> + <i>m</i> = 2.63 kg), 1 ms steps, noise seed 42 + seed.
+- **Actuator:** the input is applied directly as force. The actuator model (dead-zone, stiction,
+  volts to newtons) is off.
+- **Cart sensor:** U(±0.2 mm) noise.
+- **Quantization:** both encoders are quantized after the noise, to 4096 counts per metre (0.24 mm)
+  and 4096 counts per revolution (1.53 mrad).
+- **Starting cart velocity:** it cancels the input's average drift, so the cart stays on the track:
+  −2/(1.5 · 2.63) for S1, −2/(3 · 2.63) for S2. For S3 it comes from the drift-cancelling helper,
+  which gives a zero-mean velocity and a centred excursion.
+
 **Held-out test inputs.** These four inputs were defined for this benchmark before any result
 existed, and no approach was tuned on them:
 
@@ -3425,6 +3466,31 @@ Middle: steady-state cart-velocity error. Right: peak pendulum-velocity error du
   effect is visible on S1, where D's θ̇ RMSE is 3× B's.
 - **C's history stack hurts on S2.** Its stored windows predate the mass step and C has no change
   detector, so it clings to the old plant (post-step θ̇ RMSE 0.079 vs A's 0.046).
+
+**Position tracking.** The observer's own position error is x̃<sub>1</sub> = <i>y</i> − <i>x̂</i><sub>1</sub>, the measurement
+minus the estimate. It is shown here with the error of the estimate against the true position.
+Pendulum angle, steady window, median over 5 seeds [mrad]:
+
+| | <i>y</i> − <i>x̂</i><sub>1</sub>, S1 | S2 | S3 | true − <i>x̂</i><sub>1</sub>, S1 | S2 | S3 |
+|:---|---:|---:|---:|---:|---:|---:|
+| A | 6.13 | 11.73 | 5.11 | 3.49 | 5.93 | 0.76 |
+| B | 5.17 | 10.30 | 5.11 | 1.01 | 1.93 | 0.67 |
+| C | 5.76 | 17.86 | 5.27 | 2.78 | 14.61 | 1.55 |
+| D | 7.56 | 10.36 | 7.04 | 5.64 | 2.22 | 4.98 |
+| E | **5.11** | 10.40 | 5.13 | **0.81** | 2.37 | **0.65** |
+| Sensor noise alone, <i>y</i> − true | 5.06 | 10.10 | 5.07 | | | |
+
+- **The tracking error y − x̂<sub>1</sub> is almost entirely the sensor's own noise.** B and E sit
+  within 3 % of it.
+- **Against the true angle, E's estimate is off by only 0.65–2.4 mrad,** four to eight times less
+  than the measurement: the observers filter the noise out of the position as well.
+- **The worst trackers are D on S1 and S3 and C on S2,** matching their velocity errors.
+- **The cart behaves the same way.** The observers' estimates are 0.06–1.0 mm from the true
+  position, against 0.135 mm of sensor noise.
+
+These figures come from a one-off replay of 13 Nov 2026 with the benchmark's settings, 5 seeds,
+cold start. Its velocity RMSE matches the table above to the digit. There is no command for it in
+the repo.
 
 ### 11.3 Transient behaviour and recovery from the plant change
 
@@ -3551,6 +3617,66 @@ Per-seed differences:
   either way; the input change matters when the model runs on its own.
 - **One line, no downside observed.** The change is a single input scale, and it should be the
   default for any black-box model of a system with cyclic coordinates.
+
+**Checked again with three seeds, on the rig, and for invariance (14 Nov 2026).** The variants are
+A, C (cart position in the network input, the default) and A-x, C-x (x input scale 0). Everything
+else is identical, including C's stack of 48 and its rank gate, and so is the parameter count (1440):
+the x column stays in the network and receives a zero input. Run with
+`python experiments/run_cart_position_ablation.py` and `... --rig-eval`.
+
+Pendulum-velocity RMSE in mrad/s, mean [min–max] over 3 seeds. Simulation is scored against the
+truth over the steady window. The rig is scored against the reference over the second half, as the
+median over the runs of each type and the full protocol of §12.5.4:
+
+| | S1 | S2 | S3 | Rig free swing | Rig two-tone | Rig fading | Rig mass step |
+|:---|---:|---:|---:|---:|---:|---:|---:|
+| A-x | 14.3 [14.2–14.4] | 33.8 [29–39] | 9.6 [8.4–10.3] | **44** [31–57] | 44.7 [39–52] | 12.0 [11.6–12.4] | 46.3 [41–52] |
+| A | 14.6 [13.7–15.3] | 33.9 [32–36] | 9.6 [8.5–10.2] | **444** [35–670] | 40.2 [37–47] | 12.0 [11.7–12.3] | 41.8 [39–46] |
+| C-x | 15.0 [13.3–16.5] | 66.1 [58–77] | 9.2 [8.9–9.4] | 11.9 [11.3–12.8] | 17.6 [16.4–19.7] | 11.0 [10.8–11.2] | 23.1 [19–30] |
+| C | 14.4 [12.6–17.6] | 68.7 [66–74] | 9.2 [8.4–10.0] | 10.7 [10.0–11.2] | 17.1 [16.0–18.2] | 11.2 [10.8–11.7] | 19.0 [17.6–19.9] |
+
+Held-out prediction of the four held-out rig runs, 0.5 s θ NMSE, by training run:
+
+| | Trained on free swing | Two-tone | Fading |
+|:---|---:|---:|---:|
+| A-x | **26** [10–44] | 0.33 [0.29–0.41] | 0.99 |
+| A | **105** [28–205] | 0.30 [0.25–0.32] | 1.03 |
+| C-x | 14 [11–17] | 0.20 [0.19–0.22] | 0.61 [0.55–0.67] |
+| C | 33 [16–46] | 0.30 [0.20–0.44] | 0.52 [0.44–0.59] |
+
+- **Without x, A fails far less on the free swings.**
+  - Trial 2: with x, A fails in every seed (0.76–1.08 rad/s); without x, it doesn't (0.035–0.057).
+  - Trial 3: two of three seeds still fail without x, but less badly (0.19 and 0.43 rad/s, against
+    0.63 and 0.67 with x).
+  - The cause is the normalisation: on a free swing the cart moves less than 1 mm, so x is scaled by
+    about 975 per metre, and a few encoder counts become a large input.
+- **Elsewhere x makes no measurable difference to velocity.**
+  - In simulation, every difference is within the seed spread.
+  - On the rig's driven and fading runs, the differences are at most 4.5 mrad/s, within the seed
+    spread or below the reference's error of about 2 mrad/s (§12.4).
+  - Gain, lag and noise are the same with or without x. The exception is A on the free swing.
+- **For prediction, x hurts after training on a free swing** (A: 105 against 26; C: 33 against 14).
+  After training on the other runs, the differences go both ways and the seed ranges overlap.
+- **The networks learn a false dependence on x.** Shifting only the network's x input by ±0.1 m
+  changes the θ̇ estimate by:
+  - 1–37 mrad/s (A) and 4.5–90 mrad/s (C) in simulation, where the true dynamics contain no x at all;
+  - 2–17 and 3–14 mrad/s on the rig's two-tone and fading runs.
+
+  Replacing x with a time-shuffled copy changes it by similar amounts. The changes make the estimate
+  neither consistently worse nor better: C on S2 even improves when x is shuffled (68.7 → 54.1),
+  which is the signature of an arbitrary learned dependence. On the free swing a 0.1 m shift is
+  97 normalised units and saturates the network (C: 10.7 → 490 mrad/s).
+- **No real position-dependent force shows up on the rig.**
+  - Refitting the cart model of §12.5.3 with a term k<sub>1</sub>x gives k<sub>1</sub> = −0.27 m/s² per m, a weak
+    pull towards the centre (about 0.7 N/m).
+  - It raises the in-sample R² by 0.003, and its cross-validation is mixed: +0.013 from the two-tone
+    runs to the fading runs, −0.003 the other way.
+  - At the largest excursion (0.29 m) it would be 0.08 m/s², a quarter of the Coulomb friction, and
+    it may be an artefact of the centring loop, whose command contains −1.5x.
+  - A tilted track is a constant force, not a position-dependent one, and is already modelled.
+- **Conclusion.** Removing x costs nothing measurable and removes most of A's free-swing failures,
+  so A-x and C-x are the safer black-box variants. The defaults, and the A and C numbers of §11 and §12.5.4, are
+  unchanged: they include x.
 
 ### 11.6 Approach A vs Approach C
 
@@ -3817,8 +3943,10 @@ cart on the track (§12.2).
 
 One session was recorded on 6 Nov 2026: 16 runs, all in `data/rig/`. Its full record, including
 the problems met in the lab, is `docs/rig_session_2026-11-06.md`; the results are in §12.5. The rig
-in the lab is the Feedback digital pendulum **33-200 (mechanical unit) with the 33-201 controller**,
-not the 33-936S assumed in §2.
+in the lab is the Feedback digital pendulum **33-200 (mechanical unit) with the 33-201 controller**.
+These are most likely the units the 33-936S manual itself describes: it calls them the "Digital
+Pendulum mechanical unit" and the "Digital Pendulum Controller". The manual's parameter table, which
+the simulations of §2 use, does not fit this pendulum (§12.5.2).
 
 ### 12.1 Recording folder
 
@@ -3839,7 +3967,7 @@ The amplitudes are those of the 6 Nov 2026 session.
 
 | Keyword | Run | Used for |
 |:---|:---|:---|
-| `rest` | Zero input, pendulum hanging still, 20 s | Noise, encoder resolution, noise floor of the velocity reference |
+| `rest` | Zero input, pendulum hanging still, 20 s | Noise, encoder resolution, noise floor of the velocity reference (zero on the 6 Nov rig, whose hanging angle never changed by one count; see §12.4 for the reference's actual error) |
 | `freeswing` | Zero input; pendulum lifted 15–30° by hand and released, 60 s | Identification run; pendulum frequency and damping |
 | `deadzone` | Staircase of short ±pulses, 0.10 to 0.80 V, 45 s | Break-away voltage of the cart in each direction |
 | `twotone` | <i>A</i>(2 sin 1.5<i>t</i> + 1.2 cos 3<i>t</i>) V, 50 s (shape of S1); <i>A</i> = 0.25 V in trial 1, 0.35 V in trials 2–3 | Identification run |
@@ -3954,10 +4082,41 @@ The rig has no velocity sensor, so there is no true velocity to score against.
 
 1. **Run report.** Duration, cart travel, sample-time jitter, and whether the cart came near an end
    stop. Runs with an impact should be shortened or repeated: impacts are not modelled.
-2. **Velocity estimate against a zero-phase reference.** The reference is a centred 0.3 s
-   Savitzky–Golay fit of the recorded positions. It uses future samples, so it is far more accurate
-   than any causal estimate, but it is itself an estimate. Its own noise, measured on the rest run,
-   is printed as the floor: differences between models below that floor mean nothing.
+2. **Velocity estimate against a zero-phase reference.** The rig has no velocity sensor, so the
+   reference is computed from the recorded positions (`reference_derivatives` in `src/rig/rig_data.py`):
+   - **Method:** a Savitzky–Golay fit, cubic.
+   - **Window:** 0.301 s, which is 301 samples at 1 kHz.
+   - **Centred:** each estimate uses 0.15 s of past and 0.15 s of future samples, so it has no lag.
+
+   This makes it far more accurate than any causal estimate, but it is itself an estimate, with an
+   error of its own:
+
+   | Run type | Pendulum speed, RMS [rad/s] | Error of the reference [rad/s] |
+   |:---|---:|---:|
+   | Free swing | 0.9–1.5 | 0.0015–0.0020 |
+   | Two-tone, mass step | 0.3–0.4 | 0.0019–0.0022 |
+   | Fading | 0.08 | 0.0037–0.0049 |
+   | Held-out runs | 0.3–1.4 | 0.0024–0.0060 (pulse train) |
+
+   The error has two parts:
+   - **Smoothing.** It makes the reference read about 0.1 % low (0.9 % on the pulse train), with no
+     lag and no offset. It grows with speed and with sharp motion.
+   - **Encoder steps** (2π/2048 rad). They add a noise-like part of 0.0012–0.0041 rad/s. This part
+     does not shrink when the pendulum barely moves, so it dominates on the fading runs.
+
+   **Velocity differences between models smaller than these values are ties.** The held-out
+   prediction (item 3) needs no velocity reference.
+
+   How the figures were obtained, in a one-off check of 13 Nov 2026 that has no command in the repo:
+   - Each recording's angle, limited to frequencies below 20 rad/s, served as a known truth with an
+     exact derivative.
+   - That truth was re-quantized to encoder steps and passed through the reference.
+   - The error was taken over the second half of each run.
+
+   On a clean sine at the pendulum's frequency, without encoder steps, the smoothing error alone is
+   1.7 × 10<sup>−4</sup> rad/s at 0.05 rad amplitude and 1.05 × 10<sup>−3</sup> rad/s at 0.3 rad.
+   The evaluation also prints a noise floor from the rest run. On this rig that floor is zero: the
+   hanging pendulum never changed by one encoder count, so the floor cannot show the encoder part.
 3. **Held-out prediction.** Each model is frozen after each identification run and predicts the
    measured positions of the `heldout` runs 0.5 s ahead. This needs no velocity truth and is the
    most trustworthy comparison.
@@ -4007,8 +4166,14 @@ only; they are not rig results.
   centre of mass to sit less than 0.327 m below the pivot. The 0.36–0.4 m is presumably the length
   of the pole, not the distance to its centre of mass. The rig also carries **two pendulum arms**,
   fixed to the same cart shaft so they turn together (the angle shows a single mode), and a short
-  length of rod continues above the pivot, which shortens the effective length. A single-pole
-  parameter table describes neither.
+  length of rod continues above the pivot, which shortens the effective length.
+  - The manual does show the two arms (p. 3: "two pendulums are attached" to the shaft), but its
+    table lists one "pole" of 0.23 kg without saying whether the values are per arm.
+  - Doubling them would not fix the frequency: with two identical arms, mass and inertia double
+    together, and the predicted frequency stays at 2.51 rad/s. Even a pendulum with no inertia of its
+    own, all its mass 0.36 m from the pivot, would swing at only 5.22 rad/s.
+  - What does not fit is the inertia value and the length taken as the distance to the centre of
+    mass. Weighing an arm and finding its balance point settles it.
 - **Damping is tiny:** ζ = 0.0009 at 15°, rising to 0.0017 at 30°. A swing of 30° still keeps 17°
   after 60 s.
 - **The mass step.** For run7 a small stapler (not weighed) was taped at the pendulum's bottom
@@ -4081,8 +4246,9 @@ closed loop. Bottom right: cart travel during each staircase pulse that starts f
 the ten identification runs (three free swings, three two-tone, three fading, the mass step), one
 seed each, with the amplifier gain of 8 N/V from `metadata.txt`. Each model is then frozen after
 each run (except the mass step) and predicts the four held-out runs 0.5 s ahead. No run diverged.
-The velocity reference is a zero-phase fit of the recording (§12.4); at this pendulum's frequency
-its own error is about 10<sup>−3</sup> rad/s, well below the differences between models.
+The velocity reference is a zero-phase fit of the recording (§12.4). Its own error is about
+0.002 rad/s on the free swings, two-tone runs and mass step, and about 0.004 rad/s on the fading
+runs. Velocity differences between models smaller than that are ties.
 
 **What the structured models get on the rig.** Run with their simulation settings, the
 Euler–Lagrange models were the worst on the rig. Seven things the simulated plant does not have, or
@@ -4157,6 +4323,12 @@ Pendulum-velocity error against the reference, second half of each run, median p
 | Fading (×3) | 0.0120 | 0.0122 | 0.0112 | 0.0125 | **0.0109** | 0.012 | 0.010 |
 | Mass step | 0.0464 | 0.0734 | 0.0195 | 0.1142 | **0.0155** | 0.186 | 0.112 |
 
+A's free-swing median hides a failure. On free swing trial 2, A reaches 0.84 rad/s with the seed
+used here, and 0.76–1.08 rad/s over three seeds; on trial 3, two of three seeds fail too (0.63 and
+0.67). The cause is the cart position in A's network input: on a free swing the cart moves less than
+1 mm, so the input normalisation scales x by about 975 per metre. Without x (A-x), trial 2 gives
+0.035–0.057 rad/s in every seed (§11.5).
+
 Held-out prediction, 0.5 s NMSE of the pendulum angle, median over the four held-out runs, by the
 run the model was trained on (1 = no better than predicting the mean):
 
@@ -4187,12 +4359,13 @@ scales.
 > and its worst run is 0.027 rad/s; D's whiskers still reach 0.11. On held-out prediction E's median
 > is 0.019, against 0.53 for B and D, 0.66 for C and 1.3 for A.
 >
-> **What it means.** With the rig's physics and the coupling learned from the pendulum's own
-> equation, the structured model E is the best observer on the real rig as well: the best velocity
-> estimate on three of the four run types, a model of the rig that predicts unseen inputs about 30
-> times better than any other approach, and its parameters in physical units. C keeps a small lead
-> only on the two-tone runs. The ranking of §11 held in simulation because the simulated plant was
-> exactly the structured models' own equations; on the rig E needed the changes above to keep it.
+> **What it means.** On velocity, E and C are the two best observers, and the gap between them
+> (0.001 rad/s) is smaller than the reference's own error (about 0.002 rad/s, §12.4), so they are
+> tied. E is clearly ahead only on the mass step. A, B and D are clearly behind on the driven runs.
+> On prediction, which needs no velocity reference, E is the best by far: it predicts unseen inputs
+> about 30 times better than any other approach, with its parameters in physical units. The ranking
+> of §11 held in simulation because the simulated plant was exactly the structured models' own
+> equations; on the rig E needed the changes above to keep it.
 
 **What the evaluation shows**
 
@@ -4202,6 +4375,14 @@ scales.
   and 0.0197 on trials 1–3, against C's 0.0182, 0.0166, 0.0182); the low-amplitude trial 1 (0.25 V) is the
   only run where the gap is large. A, B and D stay at two to six times C's on the driven runs. For the
   cart velocity E is best on the driven runs (0.0030–0.0033 m/s against C's 0.0037–0.0044).
+  The velocity reference's own error (about 0.002 rad/s, and 0.004 rad/s on the fading runs; §12.4)
+  sets what these numbers can resolve:
+  - **Ties between E and C:** the free swings (gap 0.0010), the fading runs (0.0003), the two-tone
+    median (0.0015) and two-tone trial 3 (0.0015). Two-tone trial 2 (0.0024) is at the edge of the
+    reference's error.
+  - **Clear differences:** the mass step (E ahead by 0.004), two-tone trial 1 (C ahead by 0.009),
+    the gap from E and C to A, B and D on the driven runs, and E's simulation settings (0.09–0.11)
+    against its rig settings.
 - **Held-out prediction.** Trained on a two-tone run, E predicts the pendulum angle 10 times better
   than C (0.019 against 0.20; 0.008 and 0.015 after trials 2 and 3), the pendulum acceleration best
   (0.15 against C's 0.27), and the cart position seven times better (0.005 against 0.033); trained on a
@@ -4222,14 +4403,101 @@ scales.
   (§12.5.2), so no detection is the expected outcome, not a model failure; the step should be judged
   on the identified pendulum mass and coupling, which needs the stapler's weight.
 - **Velocity noise against the rig's filter.** The rig's controllers estimate velocities with a
-  dirty derivative <i>s</i>/(τ<i>s</i> + 1). Applied to the same encoder signals with τ = 0.02 s, its
-  pendulum-velocity estimate has a chattering ratio (§4.2) of 13–18 and 45 mrad/s RMS above 10 Hz;
-  with τ = 0.05 s, 5–7 and 18 mrad/s. The observers stay at 1.0–1.6 and 0.7–1.8 mrad/s on the
-  identification and the held-out runs alike (E: 1.0–1.15 and 1–2 mrad/s; 2.0–2.3 on a fading run for
-  the others, where the pendulum barely moves and the filter has 7.6; A reaches 10 mrad/s on one free
-  swing). While the cart stands still, the filter's cart velocity is exactly zero, and the observers
-  add about 2 mm/s above 10 Hz. These are offline replays with the pendulum hanging; with an observer
-  inside a balancing loop the result still has to be measured.
+  dirty derivative <i>s</i>/(τ<i>s</i> + 1), which we apply to the same encoder signals (forward Euler,
+  1 kHz).
+  - **The metric.** "Noise above 10 Hz" is computed on the velocity *estimate* itself, not on its
+    error. The estimate is passed through a 4th-order Butterworth high-pass at 10 Hz, run forward and
+    backward so it adds no phase shift (`filtfilt`). The figure is the RMS of what remains, over the
+    whole run from 0.1 s.
+  - **Why it measures noise.** The pendulum swings at 0.87 Hz, and the zero-phase reference itself
+    has only 0.5–0.7 mrad/s above 10 Hz. So what an estimate has above 10 Hz is essentially noise.
+  - **The runs.** Five: free swing trial 1, two-tone trial 2, fading trial 1, and the held-out square
+    and chirp runs.
+
+  | Pendulum velocity | Above 10 Hz [mrad/s] | Chattering ratio (§4.2) |
+  |:---|---:|---:|
+  | Dirty derivative, τ = 0.02 s | 30–45 | 13–18 |
+  | Dirty derivative, τ = 0.05 s | 12–18 | 5–7 |
+  | Observers | 0.7–1.9 (A: 9 on a free swing) | 1.0–1.6 |
+
+  - **The low ends** (30 and 12 mrad/s) are the fading run, where the pendulum barely moves.
+  - **The cart.** While the cart stands still, the filter's cart velocity is exactly zero, and the
+    observers add about 2 mm/s above 10 Hz.
+  - **Limits.** These are offline replays with the pendulum hanging; inside a balancing loop the
+    result still has to be measured. Both measurements are one-off analyses, of 6 and 13 Nov 2026,
+    with no command in the repo.
+
+**Lag, bias and noise on the rig.** The total velocity error against the reference splits into two
+parts, using a zero-phase 4th-order Butterworth low-pass at 10 Hz:
+- **below 10 Hz:** lag, gain error and model error;
+- **above 10 Hz:** noise.
+
+The two parts add in quadrature. The reference's own error, about 2 mrad/s (4 on the fading runs,
+§12.4), lies mostly below 10 Hz. Pendulum velocity, second half of each run, median per run type;
+each cell is total (below 10 Hz / above 10 Hz) in mrad/s:
+
+| | Free swing | Two-tone | Fading | Mass step |
+|:---|---:|---:|---:|---:|
+| Dirty derivative, τ = 0.02 s | 126 (117 / 45) | 61 (41 / 44) | 16 (9 / 12) | 63 (44 / 44) |
+| Dirty derivative, τ = 0.05 s | 289 (289 / 18) | 100 (98 / 18) | **8.8** (6.7 / 5.0) | 109 (107 / 18) |
+| A | 34 (33 / 11) | 47 (47 / 1.4) | 12.0 (11.8 / 1.7) | 46 (46 / 1.5) |
+| B | 24 (24 / 1.1) | 72 (72 / 1.1) | 12.2 (12.1 / 1.7) | 73 (73 / 1.2) |
+| C | 11.2 (11.0 / 1.1) | 18.2 (17.9 / 1.7) | 11.2 (11.1 / 1.3) | 19.5 (19.2 / 1.7) |
+| D | 13.0 (12.9 / 1.1) | 110 (110 / 1.1) | 12.5 (12.3 / 1.7) | 114 (114 / 1.2) |
+| E | 10.2 (10.1 / 1.1) | 19.7 (19.4 / 2.1) | 10.9 (10.8 / 0.9) | 15.5 (15.2 / 2.3) |
+
+Gain (the slope of the estimate regressed on the reference; 1 is the right size) and lag (the
+cross-correlation peak within ±200 ms; positive means the estimate lags):
+
+| | Free swing | Two-tone, mass step | Fading |
+|:---|:---|:---|:---|
+| Dirty derivative, τ = 0.02 s | 0.99, 18 ms | 0.99, 16 ms | 1.00, 19 ms |
+| Dirty derivative, τ = 0.05 s | 0.93, 47 ms | 0.93, 45 ms | 0.81, 40 ms |
+| A, C, E | 1.00–1.01, 0 ms | 0.99–1.02, 0 ms | 0.60–0.72, 75–80 ms |
+| B | 1.00, 0 ms | 1.07–1.08, 7–8 ms | 0.73, 79 ms |
+| D | 1.00, 0 ms | 1.19–1.20, 15–16 ms | 0.75, 79 ms |
+
+- **The dirty derivative's error is both lag and noise.**
+  - With τ = 0.02 s it lags by 16–19 ms, which gives 41–117 mrad/s below 10 Hz, plus about
+    44 mrad/s of noise.
+  - With τ = 0.05 s the noise falls to 18 mrad/s, but the lag rises to 40–47 ms and the total error
+    is larger, except on the fading runs.
+- **The observers' error is almost entirely below 10 Hz.** Their noise part is 0.9–2.4 mrad/s (A:
+  11 on the free swings), and their mean error is under 0.3 mrad/s.
+  - C and E have no measurable lag on the swinging and driven runs, and gains within 1 % of 1.
+  - D reads about 20 % high on the driven runs with 15–16 ms of lag, and B about 8 % high with
+    7–8 ms. Those are model errors, not noise.
+- **When the pendulum barely moves, the observers are not the best estimators.**
+  - In the second half of the fading runs the pendulum swings by about ±1.2°, which is 6–7 encoder
+    counts.
+  - Every observer reads its speed 25–40 % low (gain 0.60–0.75) and 75–80 ms late, far outside the
+    reference's error.
+  - There, the dirty derivative with τ = 0.05 s has the lowest error, 8.8 mrad/s, against
+    10.9–12.5 for the observers. The ties between E and C on the fading runs (above) are ties among
+    estimators that all trail this filter.
+- **On the 12 s held-out runs,** each observer's learning transient still dominates the second half
+  (99–195 mrad/s), so those runs are not compared here.
+
+**Position tracking on the rig.** The tracking error y − x̂<sub>1</sub> of the pendulum angle, second
+half, median per run type [mrad]. One encoder step is 3.07 mrad:
+
+| | Free swing | Two-tone | Fading | Mass step |
+|:---|---:|---:|---:|---:|
+| A | 2.27 | 6.42 | 0.80 | 5.94 |
+| B | 1.85 | 13.29 | 0.82 | 13.46 |
+| C | 1.85 | 2.20 | 1.00 | 2.14 |
+| D | 1.73 | 16.83 | 0.85 | 17.61 |
+| E | 2.06 | 2.45 | 5.78 | 2.03 |
+
+- **C and E follow the measured angle to within about 2 mrad,** under one encoder step, on the
+  swinging and driven runs.
+- **A leaves about 6 mrad on the driven runs, and B and D 13–18 mrad,** consistent with their
+  velocity errors.
+- **E's 5.8 mrad on the fading runs** matches its attenuated velocity there.
+- **The cart.** C and E track it to 0.2–0.3 mm on the driven runs, against 2–7 mm for A, B and D.
+
+Lag, bias and tracking on the rig come from a one-off replay of 13 Nov 2026 with the rig settings
+above, seed 0, on all 14 runs. There is no command for it in the repo.
 
 **Friction on the rig: E's residual and the LSTM memories.** These are two claims the simulations
 could not test, because the simulated plant has only viscous friction (§10.4, §13.2). The
@@ -4334,8 +4602,9 @@ A has 0.074–0.082 rad/s on the two-tone runs and fails on the staircase (0.80 
 
 **What is left.**
 
-1. **E on the two-tone runs:** 8 % behind C on trials 2–3, and 50 % on the low-amplitude trial 1, where
-   the coupling comes out at 2.41 instead of 3.1. Static friction is ruled out as a cause: in the
+1. **E on the two-tone runs.** On trials 2–3, E is 8 % behind C by gaps of 0.0015–0.0024 rad/s, which
+   are within or at the edge of the reference's own error (§12.4). On the low-amplitude trial 1 it is
+   50 % behind, a real gap of 0.009 rad/s, and the coupling comes out at 2.41 instead of 3.1. Static friction is ruled out as a cause: in the
    second half of trial 2 the cart stands still only 3 % of the time, and no model's error is larger
    near the cart's starts and stops.
 2. **B is not fixed.** The cause is found: B's adaptation is the instantaneous Lyapunov law alone, and
@@ -4367,7 +4636,8 @@ A has 0.074–0.082 rad/s on the two-tone runs and fails on the staircase (0.80 
 
 **Caveats.** One seed per model and run; the run4 trial 1 amplitude differs from trials 2–3; the
 rest run cannot give a noise floor for the angle, because the hanging pendulum never changed by a
-single count; and the evaluation's "breakaway" printout (smallest command while the cart moves) is
+single count, so the velocity reference's error was estimated separately (§12.4: about 0.002 rad/s,
+and 0.004 rad/s on the fading runs), and it is as large as several of the gaps between E and C; and the evaluation's "breakaway" printout (smallest command while the cart moves) is
 not meaningful with the centring loop, so the break-away voltages of §12.5.3 come from
 `characterise_rig.py` instead.
 
@@ -4615,6 +4885,7 @@ each point is worked out in full.
 | `tests/test_shared_benchmark.py` | 8 tests: twin exactness with true parameters, x-free inputs, warm-start injection and gate |
 | `src/rig/rig_data.py` | Metadata template and parser (including the automatic-calibration `cal_` fields), run-type keywords, unit conversion, resampling to 1 kHz, zero-phase reference derivatives |
 | `experiments/run_rig_evaluation.py` | Sign checks, rest-run noise floor, dead-zone thresholds, velocity and prediction scoring, rehearsal data, summary figure; hand-tuned or calibrated settings (§12.5.5); `--out` results folder |
+| `experiments/run_cart_position_ablation.py` | A and C with and without the cart position in the network input: velocity, gain, lag and noise on S1–S3 and the rig, cross-run prediction, invariance to shifted or shuffled x, a position-dependent cart-force check, and the full rig evaluation (`--rig-eval`) (§11.5) |
 | `tests/test_rig_data.py` | 7 tests: unit and sign conventions round trip, file checks, accuracy of the reference velocity, detection of a flipped sign convention, rest-run and dead-zone statistics, a full replay scored end to end, the automatic-calibration block of metadata.txt |
 | `data/rig/metadata.txt` | Recording conditions of the 6 Nov 2026 session: units, signs, 8 N/V, measured pendulum frequency, pendulum and mass-step description |
 | `scripts/rig/rig_inputs.m`, `scripts/rig/export_run.m` | MATLAB: the input of every rig run, and the CSV export after each run (§12.2) |
